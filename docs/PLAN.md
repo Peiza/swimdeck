@@ -53,7 +53,11 @@ plattform och fungerar med `site=fi`.
      märken på korten och i grentabellen, "kvar till nästa", egen flik med alla tider.
      Data i `tools/qual-source-2026.txt`, byggs med `node tools/build-qual.js 2026`.
      Nya versioner av PDF:erna måste föras in för hand (eller via en schemalagd kontroll).
+   - ✅ Placering i Sverige bland födda samma år, per gren och period (Tempus statistik, från 13 år),
+     hämtas först när grenen öppnas och cachas 6 timmar
    - Klubbvy: alla simmare i en klubb, om Tempus erbjuder det på ett snällt sätt
+   - Masters: procent av världsrekordet för åldersgruppen (World Aquatics mastersrekord)
+   - Simprofil (sprint/distans, simsätt), form (senaste loppen mot PB), inbördes möten, prognos mot kvaltid
 5. **Senare**
    - Mellantider, om de finns i Tempus
    - Synka listan mellan enheter (idag delas den som länk, en ögonblicksbild)

@@ -10,7 +10,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SITES, fetchOverview, fetchEvent, searchSwimmers } from '../worker/src/tempus.js';
+import { SITES, fetchOverview, fetchEvent, searchSwimmers, nationalRank } from '../worker/src/tempus.js';
 import { mockApi } from './mock.js';
 
 const ROOT = fileURLToPath(new URL('../web/', import.meta.url));
@@ -30,6 +30,7 @@ const live = {
   search: (base, q) => searchSwimmers(base, { first: q.get('first') || '', last: q.get('last') || '', club: q.get('club') || '' }),
   swimmer: (base, id, q) => fetchOverview(base, id, { from: q.get('from'), to: q.get('to') }),
   event: (base, id, code) => fetchEvent(base, id, code),
+  rank: (base, q) => nationalRank(base, { code: Number(q.get('event')), sex: q.get('sex'), born: Number(q.get('born')), from: q.get('from'), to: q.get('to'), time: Number(q.get('time')) }),
 };
 
 async function handleApi(url) {
@@ -37,6 +38,7 @@ async function handleApi(url) {
   const base = SITES[url.searchParams.get('site') || 'se'];
   let m;
   if (url.pathname === '/api/search') return impl.search(base, url.searchParams);
+  if (url.pathname === '/api/rank') return impl.rank(base, url.searchParams);
   if ((m = url.pathname.match(/^\/api\/swimmer\/(\d+)$/))) return impl.swimmer(base, m[1], url.searchParams);
   if ((m = url.pathname.match(/^\/api\/swimmer\/(\d+)\/event\/(\d+)$/))) return impl.event(base, m[1], m[2]);
   throw Object.assign(new Error('Not found'), { status: 404 });

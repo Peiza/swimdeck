@@ -21,6 +21,12 @@ export const STROKES_SHORT = {
 
 const T = {
   sv: {
+    rankBeyond: 'Utanför topp {n} i Sverige',
+    rankLoading: 'Hämtar placering i Sverige…',
+    rankTooYoung: 'Svensk ranking finns från 13 år.',
+    rankPlace: 'Plats {place} i Sverige',
+    rankDetail: 'bland födda {year}, {period}, med {time}',
+    rankLeader: 'snabbast i årskullen {time}',
     qualTab: 'Kvaltider',
     qualTitle: 'Kvaltider {year}',
     toNext: '{gap} kvar till {std}',
@@ -164,6 +170,12 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    rankBeyond: 'Outside the top {n} in Sweden',
+    rankLoading: 'Loading national ranking…',
+    rankTooYoung: 'National rankings start at age 13.',
+    rankPlace: 'No. {place} in Sweden',
+    rankDetail: 'among those born {year}, {period}, with {time}',
+    rankLeader: 'fastest in the year group {time}',
     qualTab: 'Qualifying',
     qualTitle: 'Qualifying times {year}',
     toNext: '{gap} to {std}',
@@ -307,6 +319,12 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    rankBeyond: 'Ruotsin top {n} ulkopuolella',
+    rankLoading: 'Haetaan sijoitusta Ruotsissa…',
+    rankTooYoung: 'Ruotsin tilastot alkaen 13 vuotta.',
+    rankPlace: 'Sija {place} Ruotsissa',
+    rankDetail: 'vuonna {year} syntyneistä, {period}, ajalla {time}',
+    rankLeader: 'ikäluokan nopein {time}',
     qualTab: 'Karsinta-ajat',
     qualTitle: 'Karsinta-ajat {year}',
     toNext: '{gap} puuttuu: {std}',

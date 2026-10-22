@@ -206,3 +206,104 @@ export async function searchSwimmers(base, { first = '', last = '', club = '' },
   const json = await post.json();
   return shapeSearch(json.props || {});
 }
+
+// ---------------------------------------------------------------- national ranking
+
+// Tempus statistics use their own event ids (not the event codes on swimmer pages).
+const STAT_EVENT = {
+  free: { 25: 1, 50: 5, 100: 6, 200: 7, 400: 8, 800: 9, 1500: 10 },
+  breast: { 25: 2, 50: 15, 100: 16, 200: 17 },
+  back: { 25: 3, 50: 20, 100: 21, 200: 22 },
+  fly: { 25: 4, 50: 25, 100: 26, 200: 27 },
+  medley: { 100: 30, 200: 31, 400: 32 },
+};
+const CODE_EVENT = {};
+for (const [stroke, base] of Object.entries({ free: [[25, 4], [50, 11], [100, 13], [200, 15], [400, 17], [800, 19], [1500, 21]], breast: [[25, 5], [50, 31], [100, 33], [200, 35]], back: [[25, 6], [50, 41], [100, 43], [200, 45]], fly: [[25, 7], [50, 51], [100, 53], [200, 55]], medley: [[100, 61], [200, 63], [400, 65]] })) {
+  for (const [dist, code] of base) {
+    CODE_EVENT[code] = { stroke, dist, pool: 25 };
+    if (code > 10) CODE_EVENT[code + 1] = { stroke, dist, pool: 50 };
+  }
+}
+
+/** Tempus statistics event id and pool type (1 = 25 m, 2 = 50 m) for an event code. */
+export function statEvent(code) {
+  const e = CODE_EVENT[code];
+  if (!e) return null;
+  return { id: STAT_EVENT[e.stroke][e.dist], pool: e.pool === 25 ? 1 : 2 };
+}
+
+/**
+ * Rank among Swedish swimmers born the same year, by each swimmer's best time in [from, to].
+ * Tempus filters on age = calendar year of the swim minus birth year, so we ask for the ages the
+ * birth year can have in that period and keep only that birth year. Pages are read until the
+ * given time is passed, at most `maxPages` pages of 100.
+ */
+export async function nationalRank(base, { code, sex, born, from, to, time }, fetchImpl = fetch, maxPages = 5) {
+  const ev = statEvent(code);
+  if (!ev || !born || !DATE.test(from) || !DATE.test(to)) throw httpError(400, 'Bad ranking request');
+  const minAge = Number(from.slice(0, 4)) - born;
+  const maxAge = Number(to.slice(0, 4)) - born;
+  if (maxAge < 13) return { available: false, reason: 'age' };
+  const { page, res } = await getPage(base, '/statistics/swimming', fetchImpl);
+  const cookies = cookieHeader(res);
+  const xsrf = decodeURIComponent((cookies.match(/XSRF-TOKEN=([^;]+)/) || [])[1] || '');
+  const body = {
+    from_date: from,
+    to_date: to,
+    class: sex === 'W' ? '2' : '1',
+    swim_event: ev.id,
+    pool_type: ev.pool,
+    competition_group: '',
+    best_time_only: true,
+    best_result_mode: 1,
+    from_age: Math.max(13, minAge),
+    to_age: maxAge,
+    district: '',
+    club: '',
+    filter: { age_filter: true, best_time_only: true },
+    limit: 100,
+  };
+  const seen = new Set();
+  const cohort = [];
+  let pages = 0;
+  let total = 0;
+  for (let p = 1; p <= maxPages; p++) {
+    const post = await fetchImpl(`${base}/statistics/swimming${p > 1 ? `?page=${p}` : ''}`, {
+      method: 'POST',
+      headers: {
+        'User-Agent': UA,
+        'Content-Type': 'application/json',
+        Accept: 'text/html, application/xhtml+xml',
+        'X-Inertia': 'true',
+        'X-Inertia-Version': page.version ?? '',
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-XSRF-TOKEN': xsrf,
+        Cookie: cookies,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!post.ok) throw httpError(502, `Tempus statistics answered ${post.status}`);
+    const json = await post.json();
+    const results = json.props?.results || {};
+    const rows = Array.isArray(results.data) ? results.data : [];
+    pages = p;
+    total = results.meta?.total ?? rows.length;
+    for (const r of rows) {
+      if (Number(r.swimmer_birth_year) !== born || seen.has(r.swimmer_id)) continue;
+      seen.add(r.swimmer_id);
+      cohort.push({ id: r.swimmer_id, time: Number(r.result_time) });
+    }
+    const last = rows.at(-1);
+    if (!rows.length || !results.meta || p >= (results.meta.last_page || 1) || (last && Number(last.result_time) > time)) break;
+  }
+  const faster = cohort.filter((c) => c.time < time).length;
+  const complete = pages < maxPages || cohort.some((c) => c.time > time);
+  return {
+    available: true,
+    rank: faster + 1,
+    complete,
+    leader: cohort[0]?.time ?? null,
+    scanned: cohort.length,
+    totalAllAges: total,
+  };
+}

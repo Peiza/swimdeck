@@ -7,12 +7,13 @@
 // Every route accepts ?site=se (default) or ?site=fi.
 // Responses are cached at the edge so Tempus sees as few requests as possible.
 
-import { SITES, fetchOverview, fetchEvent, searchSwimmers } from './tempus.js';
+import { SITES, fetchOverview, fetchEvent, searchSwimmers, nationalRank } from './tempus.js';
 
 const TTL = {
   search: 60 * 60, // 1 h
   swimmer: 30 * 60, // 30 min
   event: 30 * 60,
+  rank: 6 * 60 * 60, // 6 h
 };
 
 export default {
@@ -64,6 +65,20 @@ function matchRoute(path) {
         if (!first && !last && !club) throw Object.assign(new Error('Empty search'), { status: 400 });
         return searchSwimmers(base, { first, last, club });
       },
+    };
+  }
+  if (path === '/api/rank') {
+    return {
+      kind: 'rank',
+      run: (base, q) =>
+        nationalRank(base, {
+          code: Number(q.get('event')),
+          sex: q.get('sex') === 'W' ? 'W' : 'M',
+          born: Number(q.get('born')),
+          from: q.get('from') || '',
+          to: q.get('to') || '',
+          time: Number(q.get('time')),
+        }),
     };
   }
   if ((m = path.match(/^\/api\/swimmer\/(\d{1,9})$/))) {

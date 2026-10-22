@@ -198,3 +198,37 @@ test('worker: CORS, routing, caching', async () => {
     }
   });
 });
+
+test('nationalRank keeps one birth year, pages until past the time', async () => {
+  const { nationalRank, statEvent } = await import('../src/tempus.js');
+  assert.deepEqual(statEvent(13), { id: 6, pool: 1 });
+  assert.deepEqual(statEvent(44), { id: 21, pool: 2 });
+  const rowsFor = (page) => {
+    // page 1: 100 rows from 5500 upward, alternating birth years 2011/2010; page 2 continues
+    const start = (page - 1) * 100;
+    return Array.from({ length: 100 }, (_, i) => ({ swimmer_id: start + i, swimmer_birth_year: (start + i) % 2 ? '2010' : '2011', result_time: 5500 + start + i }));
+  };
+  const bodies = [];
+  const f = async (url, init = {}) => {
+    if (!init.method) {
+      const h = new Headers();
+      h.append('Set-Cookie', 'XSRF-TOKEN=t; path=/');
+      return new Response(html({ component: 'Statistics/Swimming', version: 'v1', props: {} }), { headers: h });
+    }
+    bodies.push(JSON.parse(init.body));
+    const page = Number(new URL(url).searchParams.get('page') || 1);
+    return Response.json({ props: { results: { data: rowsFor(page), meta: { total: 1000, last_page: 10 } } } });
+  };
+  const r = await nationalRank('https://t.example', { code: 13, sex: 'W', born: 2011, from: '2026-09-01', to: '2027-08-31', time: 5650 }, f);
+  // birth year 2011 = even offsets; times below 5650 among them: 5500,5502,…,5648 → 75 faster
+  assert.equal(r.rank, 76);
+  assert.equal(r.complete, true);
+  assert.equal(r.leader, 5500);
+  assert.equal(bodies.length, 2);
+  assert.equal(bodies[0].from_age, 15);
+  assert.equal(bodies[0].to_age, 16);
+  assert.equal(bodies[0].class, '2');
+  assert.equal(bodies[0].swim_event, 6);
+  const young = await nationalRank('https://t.example', { code: 13, sex: 'M', born: 2016, from: '2026-09-01', to: '2027-08-31', time: 5650 }, f);
+  assert.equal(young.available, false);
+});

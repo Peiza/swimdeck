@@ -74,6 +74,14 @@ export const mockApi = {
       .filter(Boolean);
     return { swimmer: swimmer(id), from: q.get('from'), to: q.get('to'), bests };
   },
+  async rank(_base, q) {
+    await delay();
+    const born = Number(q.get('born'));
+    if (Number(q.get('to').slice(0, 4)) - born < 13) return { available: false, reason: 'age' };
+    const time = Number(q.get('time'));
+    const rank = 1 + (Math.round(time / 7) % 140);
+    return { available: true, rank, complete: rank < 120, leader: Math.round(time * 0.9), scanned: 300, totalAllAges: 2400 };
+  },
   async event(_base, id, code) {
     await delay();
     id = Number(id);

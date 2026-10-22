@@ -667,10 +667,37 @@ async function fillEventDetail(s, code) {
         <li><span class="pos">${i + 1}</span><span class="time">${fmtTime(r.time)}</span>
         <span class="small"><span>${esc(r.date)}</span> · <span class="muted">${esc(r.meet)}${r.round ? ' · ' + esc(r.round) : ''}</span></span>
         <span class="small muted num">${r.points || ''}</span></li>`).join('')}</ol>
+      <div id="rankBox" class="rank-box"></div>
       ${ev.results.length > 1 ? `<h4 class="small muted">${esc(t('progression'))}</h4>${chart(ev.results)}` : ''}
       ${seasonTable(ev.results)}`;
+    fillRank(s, code);
   } catch (e) {
     box.innerHTML = `<p class="warn">${esc(t('error', { msg: e.message }))}</p><button class="btn small" data-retry-event="${code}">${esc(t('retry'))}</button>`;
+  }
+}
+
+async function fillRank(s, code) {
+  const box = () => (state.openEvent === code ? $('#rankBox') : null);
+  const d = state.data[s.id];
+  const row = d?.period?.bests?.find((b) => b.event === code);
+  const sex = sexOf(s.sex);
+  if (!box() || !row || !s.born || !sex || s.site !== 'se') return;
+  const { from, to } = periodRange(state.period);
+  box().innerHTML = `<span class="muted small">${esc(t('rankLoading'))}</span>`;
+  try {
+    const key = `rank:${s.id}:${code}:${from}:${to}:${row.time}`;
+    state.events[key] ||= api('/api/rank', { event: code, sex, born: s.born, from, to, time: row.time });
+    const r = await state.events[key];
+    if (!box()) return;
+    if (!r.available) {
+      box().innerHTML = `<span class="muted small">${esc(t('rankTooYoung'))}</span>`;
+      return;
+    }
+    const head = r.complete ? t('rankPlace', { place: r.rank }) : t('rankBeyond', { n: r.rank - 1 });
+    box().innerHTML = `<div class="rank-line"><span class="rank-num">${esc(head)}</span>
+      <span class="small muted">${esc(t('rankDetail', { year: s.born, period: seasonLabel(state.period), time: fmtTime(row.time) }))}${r.leader && r.rank > 1 ? ' · ' + esc(t('rankLeader', { time: fmtTime(r.leader) })) : ''}</span></div>`;
+  } catch (e) {
+    if (box()) box().innerHTML = `<span class="muted small">${esc(t('error', { msg: e.message }))}</span>`;
   }
 }
 
