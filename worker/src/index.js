@@ -3,11 +3,14 @@
 //   GET /api/search?first=&last=&club=        find swimmers
 //   GET /api/swimmer/:id?from=YYYY-MM-DD      personal bests (optionally since a date)
 //   GET /api/swimmer/:id/event/:code          every swim in one event
+//   GET /api/rank?event=&sex=&born=&from=&to=&time=   place in Sweden by birth year
+//   POST /api/sync, GET|PUT|DELETE /api/sync/:token  sync a list between devices
 //
 // Every route accepts ?site=se (default) or ?site=fi.
 // Responses are cached at the edge so Tempus sees as few requests as possible.
 
 import { SITES, fetchOverview, fetchEvent, searchSwimmers, nationalRank } from './tempus.js';
+import { handleSync } from './sync.js';
 
 const TTL = {
   search: 60 * 60, // 1 h
@@ -22,8 +25,17 @@ export default {
     const cors = corsHeaders(request, env);
 
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
-    if (request.method !== 'GET') return json({ error: 'Method not allowed' }, 405, cors);
     if (!cors['Access-Control-Allow-Origin']) return json({ error: 'Origin not allowed' }, 403, {});
+
+    if (url.pathname === '/api/sync' || url.pathname.startsWith('/api/sync/')) {
+      try {
+        const data = await handleSync(request, env, url.pathname);
+        return json(data, 200, { ...cors, 'Cache-Control': 'no-store' });
+      } catch (err) {
+        return json({ error: err.message || 'Error' }, err.status || 500, cors);
+      }
+    }
+    if (request.method !== 'GET') return json({ error: 'Method not allowed' }, 405, cors);
 
     const route = matchRoute(url.pathname);
     if (!route) return json({ error: 'Not found' }, 404, cors);
@@ -108,7 +120,8 @@ function corsHeaders(request, env) {
   if (!ok) return {};
   return {
     'Access-Control-Allow-Origin': allowed.includes('*') || !origin ? '*' : origin,
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   };

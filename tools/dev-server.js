@@ -12,6 +12,11 @@ import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SITES, fetchOverview, fetchEvent, searchSwimmers, nationalRank } from '../worker/src/tempus.js';
 import { mockApi } from './mock.js';
+import { handleSync } from '../worker/src/sync.js';
+
+// In-memory stand-in for the Worker's KV store.
+const memoryKv = new Map();
+const devEnv = { LISTS: { get: async (k) => memoryKv.get(k) ?? null, put: async (k, v) => void memoryKv.set(k, v), delete: async (k) => void memoryKv.delete(k) } };
 
 const ROOT = fileURLToPath(new URL('../web/', import.meta.url));
 const PORT = Number(process.env.PORT || 8080);
@@ -47,6 +52,20 @@ async function handleApi(url) {
 http
   .createServer(async (req, res) => {
     const url = new URL(req.url, `http://localhost:${PORT}`);
+    if (url.pathname === '/api/sync' || url.pathname.startsWith('/api/sync/')) {
+      const chunks = [];
+      for await (const c of req) chunks.push(c);
+      const body = Buffer.concat(chunks).toString();
+      try {
+        const data = await handleSync(new Request(url, { method: req.method, body: body || undefined }), devEnv, url.pathname);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(data));
+      } catch (e) {
+        res.writeHead(e.status || 500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+      return;
+    }
     if (url.pathname.startsWith('/api/')) {
       try {
         const data = await handleApi(url);

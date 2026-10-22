@@ -3,7 +3,7 @@ name: Deploy API (Cloudflare Worker)
 on:
   push:
     branches: [main]
-    paths: ['worker/**', '.github/workflows/deploy-worker.yml']
+    paths: ['worker/**', 'tools/ensure-kv.mjs', '.github/workflows/deploy-worker.yml']
   workflow_dispatch:
 
 jobs:
@@ -24,6 +24,12 @@ jobs:
             echo "::warning::CLOUDFLARE_API_TOKEN is not set, skipping deploy. See README."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
+      - name: Ensure KV namespace for synced lists
+        if: steps.check.outputs.skip != 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node tools/ensure-kv.mjs
       - if: steps.check.outputs.skip != 'true'
         uses: cloudflare/wrangler-action@v3
         with:

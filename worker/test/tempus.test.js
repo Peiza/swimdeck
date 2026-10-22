@@ -232,3 +232,49 @@ test('nationalRank keeps one birth year, pages until past the time', async () =>
   const young = await nationalRank('https://t.example', { code: 13, sex: 'M', born: 2016, from: '2026-09-01', to: '2027-08-31', time: 5650 }, f);
   assert.equal(young.available, false);
 });
+
+// ---------------------------------------------------------------- sync
+
+function memoryKv() {
+  const m = new Map();
+  return { m, get: async (k) => m.get(k) ?? null, put: async (k, v) => void m.set(k, v), delete: async (k) => void m.delete(k) };
+}
+
+test('sync: create, read, update, delete; only clean fields stored', async () => {
+  const kv = memoryKv();
+  const env = { ALLOWED_ORIGINS: 'https://app.example', LISTS: kv };
+  const call = (method, path, body) =>
+    worker.fetch(new Request('https://api.example' + path, { method, headers: { Origin: 'https://app.example', 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }), env, ctx);
+
+  let r = await call('POST', '/api/sync', { swimmers: [{ id: 5, site: 'se', name: 'Should not be stored', para: { S: 9, X: 3 } }, { id: 5 }, { id: -1 }] });
+  assert.equal(r.status, 200);
+  const { token } = await r.json();
+  assert.match(token, /^[A-Za-z0-9_-]{32}$/);
+  assert.equal(r.headers.get('Access-Control-Allow-Origin'), 'https://app.example');
+  const stored = [...kv.m.values()][0];
+  assert.doesNotMatch(stored, /Should not be stored/);
+  assert.ok(![...kv.m.keys()][0].includes(token), 'KV key must not contain the token');
+
+  r = await call('GET', '/api/sync/' + token);
+  assert.deepEqual((await r.json()).swimmers, [{ id: 5, site: 'se', para: { S: 9 } }]);
+
+  r = await call('PUT', '/api/sync/' + token, { swimmers: [{ id: 7, site: 'fi' }, { id: 5 }] });
+  assert.equal(r.status, 200);
+  r = await call('GET', '/api/sync/' + token);
+  assert.deepEqual((await r.json()).swimmers.map((s) => s.id), [7, 5]);
+
+  r = await call('GET', '/api/sync/' + 'x'.repeat(32));
+  assert.equal(r.status, 404);
+  r = await call('GET', '/api/sync/short');
+  assert.equal(r.status, 404);
+  r = await call('PUT', '/api/sync/' + token, { swimmers: Array.from({ length: 201 }, (_, i) => ({ id: i + 1 })) });
+  assert.equal(r.status, 400);
+
+  r = await call('DELETE', '/api/sync/' + token);
+  assert.equal(r.status, 200);
+  r = await call('GET', '/api/sync/' + token);
+  assert.equal(r.status, 404);
+
+  r = await worker.fetch(new Request('https://api.example/api/sync', { method: 'POST', headers: { Origin: 'https://evil.example' }, body: '{}' }), env, ctx);
+  assert.equal(r.status, 403);
+});
