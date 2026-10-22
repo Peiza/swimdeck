@@ -314,7 +314,7 @@ function eventRow(s, r) {
       <td><span class="chev" aria-hidden="true">›</span>${esc(eventLabel(r.event, state.lang, r.name))}${r.newPb ? ` <span class="badge">${esc(t('newPb'))}</span>` : ''}</td>
       <td class="num"><b>${r.pb ? fmtTime(r.pb.time) : '–'}</b><small>${esc(r.pb?.date || '')}</small></td>
       <td class="num">${r.period ? `${fmtTime(r.period.time)}<small class="${r.diff > 0 ? '' : 'good'}">${r.diff != null ? fmtDiff(r.diff) : ''}</small>` : '<span class="muted">–</span>'}</td>
-      <td class="num hide-sm">${r.pb?.points ?? ''}</td>
+      <td class="num hide-sm">${r.pb?.points || ''}</td>
     </tr>
     ${open ? `<tr class="detail"><td colspan="4"><div id="eventDetail" class="event-detail"><p class="muted">${esc(t('loading'))}</p></div></td></tr>` : ''}`;
 }
@@ -337,7 +337,7 @@ async function fillEventDetail(s, code) {
       <ol class="top">${top.map((r, i) => `
         <li><span class="pos">${i + 1}</span><span class="time">${fmtTime(r.time)}</span>
         <span class="small"><span>${esc(r.date)}</span> · <span class="muted">${esc(r.meet)}${r.round ? ' · ' + esc(r.round) : ''}</span></span>
-        <span class="small muted num">${r.points ?? ''}</span></li>`).join('')}</ol>
+        <span class="small muted num">${r.points || ''}</span></li>`).join('')}</ol>
       ${ev.results.length > 1 ? `<h4 class="small muted">${esc(t('progression'))}</h4>${chart(ev.results)}` : ''}`;
   } catch (e) {
     box.innerHTML = `<p class="warn">${esc(t('error', { msg: e.message }))}</p><button class="btn small" data-retry-event="${code}">${esc(t('retry'))}</button>`;
