@@ -382,3 +382,18 @@ body:has(.card.dragging) { user-select: none; -webkit-user-select: none; }
 
 .nowrap, .pool { white-space: nowrap; }
 .form-list li { grid-template-columns: 62px 1fr auto 58px; }
+
+/* ---------- sync */
+.sync-pill { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); background: var(--surface); color: var(--good); border-radius: 99px; padding: 3px 10px; font-size: 12px; font-weight: 700; cursor: pointer; margin-right: 8px; flex: none; }
+.sync-pill.bad { color: var(--warn); }
+.sync-pill svg { width: 14px; height: 14px; }
+.sync-sheet { gap: 12px; }
+.qr { width: 180px; margin: 0 auto; background: #fff; padding: 6px; border-radius: 10px; }
+.qr:empty { display: none; }
+.qr svg { width: 100%; height: auto; display: block; }
+.sync-link { flex: 1; min-width: 0; min-height: 36px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); padding: 0 10px; font-size: 12px; }
+.row.wrap { flex-wrap: wrap; gap: 6px 16px; }
+@media (max-width: 640px) { .hide-sm { display: none; } }
+.dialog:has(.small-sheet) { width: min(460px, calc(100vw - 32px)); }
+.small-sheet { max-width: none; }
+@media (max-width: 640px) { .dialog:has(.small-sheet) { width: 100vw; } }

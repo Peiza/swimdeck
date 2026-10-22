@@ -62,7 +62,8 @@ plattform och fungerar med `site=fi`.
    - ✅ Inbördes möten mellan två simmare i Jämför
 5. **Senare**
    - Mellantider, om de finns i Tempus
-   - Synka listan mellan enheter (idag delas den som länk, en ögonblicksbild)
+   - ✅ Synk mellan enheter: hemlig synklänk/QR-kod, Cloudflare KV, bara Tempus-ID, ordning och paraklass lagras
+     (KV-nyckeln är en hash av länken). Senaste ändring vinner; listor som inte rörts på ~13 månader försvinner.
    - Notiser om nya personbästa
    - ✅ Installera som app (service worker, fungerar offline med senast hämtade data)
    - "Senaste lopp" direkt på korten (kräver grensidor för alla i listan, alltså fler anrop)

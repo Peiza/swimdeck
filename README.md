@@ -16,6 +16,7 @@ Follow your swimmers: personal bests, top times, season bests and progression fr
 - Swimmer profile (strokes, sprint/middle/distance), form, prognosis towards the next qualifying time,
   head-to-head between two swimmers, national ranking by birth year
 - Installable, works offline with the last fetched data
+- Sync the list between devices with a secret link or QR code (no account; only Tempus ids, order and para class are stored)
 - Share your list as a link
 
 SwimDeck is not affiliated with Tempus Open or the Swedish Swimming Federation.
@@ -37,6 +38,7 @@ reads the JSON that Tempus Open embeds in them and returns a compact shape:
 | `GET /api/swimmer/:id?from=YYYY-MM-DD&to=YYYY-MM-DD` | best time per event (all time, or within dates) |
 | `GET /api/swimmer/:id/event/:code` | every swim in one event, fastest first |
 | `GET /api/rank?event=&sex=&born=&from=&to=&time=` | place in Sweden among swimmers born the same year |
+| `POST /api/sync`, `GET/PUT/DELETE /api/sync/:token` | synced list (Cloudflare KV, created by the deploy workflow) |
 
 All routes take `site=se` (default) or `site=fi`. Times are in hundredths of a second.
 Event codes: odd = 25 m pool, even = 50 m pool (11/12 = 50 m freestyle, 13/14 = 100 m freestyle …).

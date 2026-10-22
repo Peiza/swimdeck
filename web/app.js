@@ -96,6 +96,176 @@ function save() {
   store.set('compareIds', state.compareIds);
   store.set('comparePool', state.comparePool);
   for (const k of ['qComp', 'qSex', 'qPool', 'qClass']) store.set(k, state[k]);
+  schedulePush();
+}
+
+// ---------------------------------------------------------------- sync between devices
+
+state.sync = store.get('sync', null); // { token, updatedAt, payload }
+let pushTimer = null;
+let lastPull = 0;
+
+const syncPayload = () => ({ swimmers: state.swimmers.map((s) => ({ id: s.id, site: s.site, ...(s.para ? { para: s.para } : {}) })) });
+const syncLink = () => `${location.origin}${location.pathname}#sync=${state.sync.token}`;
+
+async function syncApi(method, path, body) {
+  const res = await fetch(`${API}/api/sync${path}`, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {}
+  if (!res.ok) throw Object.assign(new Error(data?.error || `HTTP ${res.status}`), { status: res.status });
+  return data;
+}
+
+function schedulePush() {
+  if (!state.sync) return;
+  const payload = JSON.stringify(syncPayload());
+  if (payload === state.sync.payload) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(pushSync, 1200);
+}
+
+async function pushSync() {
+  pushTimer = null;
+  if (!state.sync) return;
+  const payload = JSON.stringify(syncPayload());
+  try {
+    const r = await syncApi('PUT', '/' + state.sync.token, JSON.parse(payload));
+    state.sync = { ...state.sync, updatedAt: r.updatedAt, payload, error: null };
+  } catch (e) {
+    state.sync = { ...state.sync, error: e.status === 404 ? 'gone' : e.message };
+  }
+  store.set('sync', state.sync);
+  renderSyncStatus();
+}
+
+/** Bring in changes made on other devices. */
+async function pullSync({ force = false } = {}) {
+  if (!state.sync || pushTimer && !force) return;
+  if (!force && Date.now() - lastPull < 20000) return;
+  lastPull = Date.now();
+  try {
+    const remote = await syncApi('GET', '/' + state.sync.token);
+    if (remote.updatedAt > (state.sync.updatedAt || 0)) applyRemote(remote);
+    state.sync = { ...state.sync, updatedAt: remote.updatedAt, payload: JSON.stringify(syncPayload()), error: null };
+  } catch (e) {
+    state.sync = { ...state.sync, error: e.status === 404 ? 'gone' : e.message };
+  }
+  store.set('sync', state.sync);
+  renderSyncStatus();
+}
+
+function applyRemote(remote) {
+  const known = new Map(state.swimmers.map((s) => [s.id, s]));
+  const next = remote.swimmers.map((r) => ({ ...(known.get(r.id) || { name: '', born: null, club: '', sex: '' }), id: r.id, site: r.site, para: r.para }));
+  const added = next.filter((s) => !known.has(s.id));
+  state.swimmers = next;
+  store.set('swimmers', state.swimmers);
+  render();
+  if (added.length) refreshAll({ only: added });
+}
+
+function renderSyncStatus() {
+  const el = $('#syncStatus');
+  if (el) el.outerHTML = syncStatusHtml();
+  if ($('#syncDialog').open) renderSyncDialog();
+}
+
+function syncStatusHtml() {
+  if (!state.sync) return '<span id="syncStatus"></span>';
+  const bad = state.sync.error;
+  return `<button id="syncStatus" class="sync-pill ${bad ? 'bad' : ''}" data-action="syncOpen" title="${esc(t('syncTitle'))}">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.7-5.7L20 8M20 4v4h-4M20 12a8 8 0 0 1-13.7 5.7L4 16M4 20v-4h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    ${esc(bad ? t('syncError') : t('synced'))}</button>`;
+}
+
+function openSyncDialog() {
+  renderSyncDialog();
+  const dlg = $('#syncDialog');
+  if (!dlg.open) dlg.showModal();
+}
+
+async function renderSyncDialog() {
+  const dlg = $('#syncDialog');
+  const on = !!state.sync;
+  dlg.innerHTML = `<div class="sheet small-sheet sync-sheet">
+    <header class="sheet-head"><h2>${esc(t('syncTitle'))}</h2><button class="icon" data-action="close" aria-label="${esc(t('close'))}">✕</button></header>
+    ${on ? `
+      ${state.sync.error === 'gone' ? `<p class="warn small">${esc(t('syncGone'))}</p>` : state.sync.error ? `<p class="warn small">${esc(t('error', { msg: state.sync.error }))}</p>` : `<p class="small">${esc(t('syncOn', { when: state.sync.updatedAt ? new Date(state.sync.updatedAt).toLocaleString(state.lang, { dateStyle: 'short', timeStyle: 'short' }) : '–' }))}</p>`}
+      <p class="small muted">${esc(t('syncHowTo'))}</p>
+      <div class="qr" id="syncQr"></div>
+      <div class="row"><input class="sync-link" readonly value="${esc(syncLink())}"><button class="btn small" data-action="syncCopy">${esc(t('copy'))}</button></div>
+      <p class="small muted">${esc(t('syncSecret'))}</p>
+      <div class="row end wrap"><button class="link" data-action="syncNow">${esc(t('syncNow'))}</button><button class="link" data-action="syncLeave">${esc(t('syncLeave'))}</button><button class="link danger" data-action="syncDelete">${esc(t('syncDelete'))}</button></div>`
+    : `
+      <p class="small">${esc(t('syncIntro'))}</p>
+      <p class="small muted">${esc(t('syncPrivacy'))}</p>
+      <button class="btn primary" data-action="syncCreate" ${state.swimmers.length ? '' : 'disabled'}>${esc(t('syncCreate'))}</button>`}
+  </div>`;
+  if (on) {
+    try {
+      const { default: qrcode } = await import('./vendor/qrcode.js');
+      const q = qrcode(0, 'M');
+      q.addData(syncLink());
+      q.make();
+      const box = $('#syncQr');
+      if (box) box.innerHTML = q.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+    } catch {}
+  }
+}
+
+async function createSync() {
+  try {
+    const payload = syncPayload();
+    const r = await syncApi('POST', '', payload);
+    state.sync = { token: r.token, updatedAt: r.updatedAt, payload: JSON.stringify(payload) };
+    store.set('sync', state.sync);
+  } catch (e) {
+    toast(t('error', { msg: e.message }));
+  }
+  renderSyncDialog();
+  renderSyncStatus();
+}
+
+async function joinSync(token) {
+  const before = state.swimmers.slice();
+  let remote;
+  try {
+    remote = await syncApi('GET', '/' + token);
+  } catch (e) {
+    toast(e.status === 404 ? t('syncGone') : t('error', { msg: e.message }));
+    return;
+  }
+  const local = state.swimmers.map((s) => s.id);
+  const remoteIds = remote.swimmers.map((s) => s.id);
+  const extra = local.filter((id) => !remoteIds.includes(id));
+  let mode = 'replace';
+  if (extra.length) {
+    const dlg = $('#confirmDialog');
+    mode = await new Promise((resolve) => {
+      dlg.innerHTML = `<form method="dialog" class="sheet small-sheet">
+        <h2>${esc(t('syncJoinTitle'))}</h2><p>${esc(t('syncJoinBody', { n: remoteIds.length, m: extra.length }))}</p>
+        <div class="row end wrap"><button class="btn" value="cancel">${esc(t('cancel'))}</button><button class="btn" value="replace">${esc(t('syncReplace'))}</button><button class="btn primary" value="merge">${esc(t('syncMerge'))}</button></div></form>`;
+      dlg.returnValue = '';
+      dlg.onclose = () => resolve(dlg.returnValue || 'cancel');
+      dlg.showModal();
+    });
+  }
+  if (mode === 'cancel') return;
+  state.sync = { token, updatedAt: remote.updatedAt, payload: '' };
+  applyRemote(remote);
+  if (mode === 'merge') state.swimmers.push(...before.filter((s) => extra.includes(s.id)));
+  else state.sync.payload = JSON.stringify(syncPayload());
+  store.set('sync', state.sync);
+  save();
+  render();
+  toast(t('syncJoined'));
+  renderSyncStatus();
 }
 
 const STD_LABEL = { smA: 'SM A', smB: 'SM B', usm: 'USM', paraA: 'Para-SM A', paraB: 'Para-SM B' };
@@ -227,7 +397,8 @@ function renderHeader() {
       <button role="tab" data-view="compare" aria-selected="${state.view === 'compare'}">${esc(t('compare'))}</button>
       <button role="tab" data-view="qual" aria-selected="${state.view === 'qual'}">${esc(t('qualTab'))}</button>
       <span class="spacer"></span>
-      <span class="muted small">${esc(t('updated', { when: last ? new Date(last).toLocaleString(state.lang, { dateStyle: 'short', timeStyle: 'short' }) : t('never') }))}</span>
+      ${syncStatusHtml()}
+      <span class="muted small hide-sm">${esc(t('updated', { when: last ? new Date(last).toLocaleString(state.lang, { dateStyle: 'short', timeStyle: 'short' }) : t('never') }))}</span>
     </nav>`;
 }
 
@@ -556,6 +727,7 @@ function renderFooter() {
     </div>
     <div class="foot-links">
       ${state.swimmers.length ? `<button class="link" id="share">${esc(t('share'))}</button>` : ''}
+      <button class="link" data-action="syncOpen">${esc(t('syncTitle'))}</button>
       <a class="link" href="${FEEDBACK_URL}" target="_blank" rel="noopener">${esc(t('feedback'))}</a>
     </div>
     ${supportLine(t, esc)}
@@ -942,6 +1114,14 @@ async function share() {
   }
 }
 
+function checkSyncLink() {
+  const m = location.hash.match(/sync=([A-Za-z0-9_-]{32,64})/);
+  if (!m) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  if (state.sync?.token === m[1]) return;
+  joinSync(m[1]);
+}
+
 function checkImport() {
   const m = location.hash.match(/add=([\w,]+)/);
   if (!m) return;
@@ -1133,6 +1313,34 @@ document.addEventListener('click', (e) => {
     save();
     return renderMain();
   }
+  if (el.dataset.action === 'syncOpen') return openSyncDialog();
+  if (el.dataset.action === 'syncCreate') return createSync();
+  if (el.dataset.action === 'syncNow') return pullSync({ force: true }).then(() => toast(t('synced')));
+  if (el.dataset.action === 'syncCopy') {
+    navigator.clipboard?.writeText(syncLink()).then(() => toast(t('shareCopied')), () => {});
+    return;
+  }
+  if (el.dataset.action === 'syncLeave') {
+    return ask({ title: t('syncLeave'), body: t('syncLeaveBody'), yes: t('syncLeave') }).then((ok) => {
+      if (!ok) return;
+      state.sync = null;
+      store.set('sync', null);
+      renderSyncDialog();
+      renderSyncStatus();
+    });
+  }
+  if (el.dataset.action === 'syncDelete') {
+    return ask({ title: t('syncDelete'), body: t('syncDeleteBody'), yes: t('syncDelete'), danger: true }).then(async (ok) => {
+      if (!ok) return;
+      try {
+        await syncApi('DELETE', '/' + state.sync.token);
+      } catch {}
+      state.sync = null;
+      store.set('sync', null);
+      renderSyncDialog();
+      renderSyncStatus();
+    });
+  }
   if (el.dataset.action === 'csvRank') return rankCsv();
   if (el.dataset.action === 'h2h') return fillH2h();
   if (el.dataset.action === 'csvCompare') return compareCsv();
@@ -1310,7 +1518,11 @@ document.addEventListener('keydown', (e) => {
 // ---------------------------------------------------------------- start
 
 render();
+checkSyncLink();
 checkImport();
+pullSync({ force: true });
+document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && pullSync());
+window.addEventListener('focus', () => pullSync());
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
