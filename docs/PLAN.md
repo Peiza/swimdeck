@@ -55,13 +55,13 @@ plattform och fungerar med `site=fi`.
      Nya versioner av PDF:erna måste föras in för hand (eller via en schemalagd kontroll).
    - ✅ Placering i Sverige bland födda samma år, per gren och period (Tempus statistik, från 13 år),
      hämtas först när grenen öppnas och cachas 6 timmar
-   - Klubbvy: alla simmare i en klubb, om Tempus erbjuder det på ett snällt sätt
+   - ✅ Klubbsök: sök per klubb, bara aktiva, kön, fler sidor, lägg till alla (max 30 åt gången)
    - Masters: procent av världsrekordet för åldersgruppen (World Aquatics mastersrekord)
    - ✅ Profil: spindeldiagram per simsätt, sprint/mellan/distans, form (senaste loppen mot PB)
    - ✅ Prognos: när nästa kvaltid nås i nuvarande takt (trend senaste 24 mån)
    - ✅ Inbördes möten mellan två simmare i Jämför
 5. **Senare**
-   - Mellantider, om de finns i Tempus
+   - ✗ Mellantider: finns inte i Tempus Open (troligen bara i livetimingen)
    - ✅ Synk mellan enheter: hemlig synklänk/QR-kod, Cloudflare KV, bara Tempus-ID, ordning och paraklass lagras
      (KV-nyckeln är en hash av länken). Senaste ändring vinner; listor som inte rörts på ~13 månader försvinner.
    - Notiser om nya personbästa

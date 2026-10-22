@@ -21,6 +21,12 @@ export const STROKES_SHORT = {
 
 const T = {
   sv: {
+    clubPlaceholder: 't.ex. Örebro Simallians',
+    activeOnly: 'Bara aktiva',
+    sexFilter: 'Kön',
+    hitsShown: 'Visar {n} av {total}',
+    addAll: 'Lägg till alla ({n})',
+    addedN: '{n} simmare tillagda',
     syncTitle: 'Synka mellan enheter',
     synced: 'Synkad',
     syncError: 'Synkfel',
@@ -212,6 +218,12 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    clubPlaceholder: 'e.g. Örebro Simallians',
+    activeOnly: 'Active only',
+    sexFilter: 'Sex',
+    hitsShown: 'Showing {n} of {total}',
+    addAll: 'Add all ({n})',
+    addedN: '{n} swimmers added',
     syncTitle: 'Sync between devices',
     synced: 'Synced',
     syncError: 'Sync error',
@@ -403,6 +415,12 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    clubPlaceholder: 'esim. Örebro Simallians',
+    activeOnly: 'Vain aktiiviset',
+    sexFilter: 'Sukupuoli',
+    hitsShown: 'Näytetään {n}/{total}',
+    addAll: 'Lisää kaikki ({n})',
+    addedN: '{n} uimaria lisätty',
     syncTitle: 'Synkronoi laitteiden välillä',
     synced: 'Synkronoitu',
     syncError: 'Synkronointivirhe',

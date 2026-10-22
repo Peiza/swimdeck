@@ -75,7 +75,7 @@ function matchRoute(path) {
         const last = clean(q.get('last'));
         const club = clean(q.get('club'));
         if (!first && !last && !club) throw Object.assign(new Error('Empty search'), { status: 400 });
-        return searchSwimmers(base, { first, last, club });
+        return searchSwimmers(base, { first, last, club, active: q.get('active') === '1', sex: q.get('sex') || '', page: q.get('page') || 1 });
       },
     };
   }

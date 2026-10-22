@@ -129,6 +129,8 @@ export function shapeSearch(props) {
   const s = props.swimmers || {};
   return {
     total: s.meta?.total ?? list(s).length,
+    page: s.meta?.current_page ?? 1,
+    lastPage: s.meta?.last_page ?? 1,
     swimmers: list(s).map(normSwimmer),
   };
 }
@@ -184,11 +186,12 @@ export function cookieHeader(res) {
  * Search needs Laravel's session + XSRF cookies, so first GET the search page,
  * then POST the form the same way the site's own JavaScript does.
  */
-export async function searchSwimmers(base, { first = '', last = '', club = '' }, fetchImpl = fetch) {
+export async function searchSwimmers(base, { first = '', last = '', club = '', active = false, sex = '', page: wanted = 1 }, fetchImpl = fetch) {
   const { page, res } = await getPage(base, '/swimmers', fetchImpl);
   const cookies = cookieHeader(res);
   const xsrf = decodeURIComponent((cookies.match(/XSRF-TOKEN=([^;]+)/) || [])[1] || '');
-  const post = await fetchImpl(base + '/swimmers', {
+  const pageNo = Math.max(1, Math.min(50, Number(wanted) || 1));
+  const post = await fetchImpl(base + '/swimmers' + (pageNo > 1 ? `?page=${pageNo}` : ''), {
     method: 'POST',
     headers: {
       'User-Agent': UA,
@@ -200,7 +203,7 @@ export async function searchSwimmers(base, { first = '', last = '', club = '' },
       'X-XSRF-TOKEN': xsrf,
       Cookie: cookies,
     },
-    body: JSON.stringify({ first_name: first, last_name: last, club, category: '1', class: '', status: '' }),
+    body: JSON.stringify({ first_name: first, last_name: last, club, category: '1', class: sex === 'M' ? '1' : sex === 'W' ? '2' : '', status: active ? '1' : '' }),
   });
   if (!post.ok) throw httpError(502, `Tempus search answered ${post.status}`);
   const json = await post.json();

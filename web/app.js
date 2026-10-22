@@ -319,8 +319,14 @@ function pickSwimmer(sw, site) {
   return { id: sw.id, site, name: sw.name, born: sw.born, club: sw.club, sex: sw.sex };
 }
 
+let pendingLoad = [];
+
 async function refreshAll({ fresh = false, only = null } = {}) {
-  if (state.busy) return;
+  if (state.busy) {
+    // Queue swimmers added while a refresh is running; they load right after it.
+    pendingLoad.push(...(only || state.swimmers));
+    return;
+  }
   const list = (only || state.swimmers).slice();
   if (!list.length) return;
   state.busy = { done: 0, total: list.length };
@@ -343,6 +349,11 @@ async function refreshAll({ fresh = false, only = null } = {}) {
   state.busy = null;
   save();
   render();
+  if (pendingLoad.length) {
+    const next = [...new Map(pendingLoad.map((s) => [s.id, s])).values()].filter((s) => state.swimmers.includes(s));
+    pendingLoad = [];
+    if (next.length) refreshAll({ only: next });
+  }
 }
 
 function needsLoad(s) {
@@ -1049,7 +1060,9 @@ function openAdd() {
       <div class="fields">
         <label><span>${esc(t('firstName'))}</span><input name="first" autocomplete="off"></label>
         <label><span>${esc(t('lastName'))}</span><input name="last" autocomplete="off"></label>
-        <label class="wide"><span>${esc(t('club'))}</span><input name="club" autocomplete="off"></label>
+        <label class="wide"><span>${esc(t('club'))}</span><input name="club" autocomplete="off" placeholder="${esc(t('clubPlaceholder'))}"></label>
+        <label class="check"><input type="checkbox" name="active" checked> <span>${esc(t('activeOnly'))}</span></label>
+        <label class="select compact"><span class="sr">${esc(t('sexFilter'))}</span><select name="sex"><option value="">${esc(t('allSexes'))}</option><option value="W">${esc(t('women'))}</option><option value="M">${esc(t('men'))}</option></select></label>
       </div>
       <button class="btn primary" type="submit" id="doSearch">${esc(t('search'))}</button>
       <div id="hits" aria-live="polite"></div>
@@ -1063,35 +1076,58 @@ function openAdd() {
   $('input[name=last]', dlg).focus();
 }
 
-async function doSearch(form) {
+let searchState = null;
+
+async function doSearch(form, page = 1) {
   const f = new FormData(form);
-  const params = { first: f.get('first').trim(), last: f.get('last').trim(), club: f.get('club').trim() };
+  const params = {
+    first: f.get('first').trim(),
+    last: f.get('last').trim(),
+    club: f.get('club').trim(),
+    active: f.get('active') ? 1 : '',
+    sex: f.get('sex') || '',
+  };
   if (!params.first && !params.last && !params.club) return;
   const hits = $('#hits');
-  hits.innerHTML = `<p class="muted">${esc(t('searching'))}</p>`;
+  if (page === 1) {
+    searchState = { params, swimmers: [], total: 0, page: 0, lastPage: 1 };
+    hits.innerHTML = `<p class="muted">${esc(t('searching'))}</p>`;
+  }
   try {
-    const r = await api('/api/search', params);
-    if (!r.swimmers.length) return (hits.innerHTML = `<p class="muted">${esc(t('noHits'))}</p>`);
-    hits.innerHTML = `
-      <p class="muted small">${esc(t('hits', { n: r.total }))}${r.total > r.swimmers.length ? ' · ' + esc(t('tooMany', { n: r.swimmers.length })) : ''}</p>
-      <ul class="hits">${r.swimmers.map((s) => {
-        const has = state.swimmers.some((x) => x.id === s.id);
-        return `<li><span><b>${esc(s.name)}</b><span class="muted small">${esc([s.born, s.club, sexLabel(s.sex)].filter(Boolean).join(' · '))}</span></span>
-          <button type="button" class="btn small ${has ? '' : 'primary'}" data-add='${esc(JSON.stringify(pickSwimmer(s, 'se')))}' ${has ? 'disabled' : ''}>${esc(has ? t('added') : t('addBtn'))}</button></li>`;
-      }).join('')}</ul>`;
+    const r = await api('/api/search', { ...params, page });
+    searchState.swimmers.push(...r.swimmers);
+    Object.assign(searchState, { total: r.total, page: r.page || page, lastPage: r.lastPage || 1 });
+    renderHits();
   } catch (e) {
     hits.innerHTML = `<p class="warn">${esc(t('error', { msg: e.message }))}</p>`;
   }
 }
 
-function addSwimmer(s) {
+function renderHits() {
+  const hits = $('#hits');
+  if (!hits || !searchState) return;
+  const list = searchState.swimmers;
+  if (!list.length) return (hits.innerHTML = `<p class="muted">${esc(t('noHits'))}</p>`);
+  const notAdded = list.filter((s) => !state.swimmers.some((x) => x.id === s.id));
+  hits.innerHTML = `
+    <div class="hits-head"><p class="muted small">${esc(t('hitsShown', { n: list.length, total: searchState.total }))}</p>
+      ${notAdded.length > 1 ? `<button type="button" class="btn small" data-action="addAll">${esc(t('addAll', { n: Math.min(notAdded.length, 30) }))}</button>` : ''}</div>
+    <ul class="hits">${list.map((s) => {
+      const has = state.swimmers.some((x) => x.id === s.id);
+      return `<li><span><b>${esc(s.name)}</b><span class="muted small">${esc([s.born, s.club, sexLabel(s.sex)].filter(Boolean).join(' · '))}</span></span>
+        <button type="button" class="btn small ${has ? '' : 'primary'}" data-add='${esc(JSON.stringify(pickSwimmer(s, 'se')))}' ${has ? 'disabled' : ''}>${esc(has ? t('added') : t('addBtn'))}</button></li>`;
+    }).join('')}</ul>
+    ${searchState.page < searchState.lastPage ? `<button type="button" class="btn small more" data-action="moreHits">${esc(t('showMore'))}</button>` : ''}`;
+}
+
+function addSwimmer(s, { load = true } = {}) {
   if (state.swimmers.some((x) => x.id === s.id)) return null;
   state.trash = state.trash.filter((x) => x.swimmer.id !== s.id);
   const sw = { id: s.id, site: s.site || 'se', name: s.name || '', born: s.born ?? null, club: s.club || '', sex: s.sex || '' };
   state.swimmers.push(sw);
   save();
   render();
-  refreshAll({ only: [sw] });
+  if (load) refreshAll({ only: [sw] });
   return sw;
 }
 
@@ -1389,6 +1425,18 @@ document.addEventListener('click', (e) => {
       el.classList.remove('primary');
       el.textContent = t('added');
     }
+    return;
+  }
+  if (el.dataset.action === 'moreHits') {
+    el.disabled = true;
+    return doSearch($('#searchForm'), (searchState?.page || 1) + 1);
+  }
+  if (el.dataset.action === 'addAll') {
+    const todo = searchState.swimmers.filter((s) => !state.swimmers.some((x) => x.id === s.id)).slice(0, 30);
+    for (const s of todo) addSwimmer(pickSwimmer(s, 'se'), { load: false });
+    refreshAll({ only: state.swimmers.filter((s) => todo.some((x) => x.id === s.id)) });
+    renderHits();
+    toast(t('addedN', { n: todo.length }));
     return;
   }
   if (el.id === 'addLink') {

@@ -133,6 +133,13 @@ test('search forwards session + XSRF cookies and Inertia version', async () => {
   assert.equal(post.headers['X-Inertia-Version'], 'v9');
   assert.match(post.headers.Cookie, /tempus_session=s3cr3t/);
   assert.equal(JSON.parse(post.body).last_name, 'Simmare');
+  assert.equal(JSON.parse(post.body).status, '');
+  log.length = 0;
+  await searchSwimmers('https://t.example', { club: 'Klubben', active: true, sex: 'W', page: 3 }, f).catch(() => {});
+  const p2 = log.find((x) => x.init.method === 'POST');
+  assert.equal(new URL(p2.url).searchParams.get('page'), '3');
+  assert.equal(JSON.parse(p2.init.body).status, '1');
+  assert.equal(JSON.parse(p2.init.body).class, '2');
 });
 
 test('cookieHeader handles a single combined set-cookie header', () => {

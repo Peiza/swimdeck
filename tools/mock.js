@@ -59,9 +59,13 @@ export const mockApi = {
   async search(_base, q) {
     await delay();
     const needle = [q.get('first'), q.get('last'), q.get('club')].filter(Boolean).join(' ').toLowerCase();
-    const all = NAMES.map((_, i) => swimmer(5000 + i));
+    let all = NAMES.map((_, i) => swimmer(5000 + i));
+    const sex = q.get('sex');
+    if (sex) all = all.filter((s) => (sex === 'W') === (s.sex === 'Woman'));
     const hits = all.filter((s) => `${s.name} ${s.club}`.toLowerCase().includes(needle.split(' ')[0] || ''));
-    return { total: hits.length, swimmers: hits };
+    const per = 5;
+    const page = Number(q.get('page') || 1);
+    return { total: hits.length, page, lastPage: Math.max(1, Math.ceil(hits.length / per)), swimmers: hits.slice((page - 1) * per, page * per) };
   },
   async swimmer(_base, id, q) {
     await delay();

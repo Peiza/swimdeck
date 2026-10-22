@@ -397,3 +397,8 @@ body:has(.card.dragging) { user-select: none; -webkit-user-select: none; }
 .dialog:has(.small-sheet) { width: min(460px, calc(100vw - 32px)); }
 .small-sheet { max-width: none; }
 @media (max-width: 640px) { .dialog:has(.small-sheet) { width: 100vw; } }
+
+.fields .check { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 14px; }
+.fields .check input { width: 18px; height: 18px; }
+.hits-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px; }
+.hits + .more { margin-top: 8px; }

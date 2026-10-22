@@ -32,7 +32,7 @@ const TYPES = {
 };
 
 const live = {
-  search: (base, q) => searchSwimmers(base, { first: q.get('first') || '', last: q.get('last') || '', club: q.get('club') || '' }),
+  search: (base, q) => searchSwimmers(base, { first: q.get('first') || '', last: q.get('last') || '', club: q.get('club') || '', active: q.get('active') === '1', sex: q.get('sex') || '', page: q.get('page') || 1 }),
   swimmer: (base, id, q) => fetchOverview(base, id, { from: q.get('from'), to: q.get('to') }),
   event: (base, id, code) => fetchEvent(base, id, code),
   rank: (base, q) => nationalRank(base, { code: Number(q.get('event')), sex: q.get('sex'), born: Number(q.get('born')), from: q.get('from'), to: q.get('to'), time: Number(q.get('time')) }),
