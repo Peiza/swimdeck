@@ -5,6 +5,7 @@ import { LANGS, makeT, detectLang } from './i18n.js';
 import {
   eventLabel, eventShort, eventSortKey, fmtTime, fmtDiff, periodRange, seasonLabel,
   summarize, progression, parseTempusRef, rankings, rankingsByPoints, sortSwimmers,
+  seasonBests, meets, compareTable, rankingsByImprovement, toCsv,
 } from './lib.js';
 
 // ---------------------------------------------------------------- state
@@ -46,6 +47,10 @@ const state = {
   openId: null,
   openPool: 25,
   openEvent: null,
+  openTab: 'events', // events | meets
+  meetsShown: 5,
+  compareIds: store.get('compareIds', []),
+  comparePool: store.get('comparePool', 25),
 };
 
 let t = makeT(state.lang);
@@ -57,11 +62,28 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const sexLabel = (x) => (/^(wo|fe|kvin|dam|nai|flick|tyt)/i.test(x || '') ? t('women') : x ? t('men') : '');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
+const fmtPct = (p) => `−${p.toLocaleString(undefined, { maximumFractionDigits: 1, minimumFractionDigits: 1 })} %`;
+
+function downloadCsv(name, rows) {
+  const blob = new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(a.href);
+    a.remove();
+  }, 1000);
+}
+
 function save() {
   store.set('swimmers', state.swimmers);
   store.set('data', state.data);
   store.set('collapsed', state.collapsed);
   store.set('trash', state.trash);
+  store.set('compareIds', state.compareIds);
+  store.set('comparePool', state.comparePool);
 }
 
 const ICON = {
@@ -92,12 +114,14 @@ const periodKey = () => {
 async function loadSwimmer(s, { fresh = false } = {}) {
   const { from, to } = periodRange(state.period);
   const refresh = fresh ? 1 : '';
-  const [all, period] = await Promise.all([
+  const dayBefore = new Date(Date.parse(from) - 86400000).toISOString().slice(0, 10);
+  const [all, period, before] = await Promise.all([
     api(`/api/swimmer/${s.id}`, { site: s.site, refresh }),
     api(`/api/swimmer/${s.id}`, { site: s.site, from, to, refresh }),
+    api(`/api/swimmer/${s.id}`, { site: s.site, from: '1990-01-01', to: dayBefore, refresh }),
   ]);
   if (all.swimmer) Object.assign(s, pickSwimmer(all.swimmer, s.site));
-  state.data[s.id] = { all, period, periodKey: periodKey(), fetchedAt: Date.now(), error: null };
+  state.data[s.id] = { all, period, before, periodKey: periodKey(), fetchedAt: Date.now(), error: null };
 }
 
 function pickSwimmer(sw, site) {
@@ -132,7 +156,7 @@ async function refreshAll({ fresh = false, only = null } = {}) {
 
 function needsLoad(s) {
   const d = state.data[s.id];
-  return !d || !d.all || d.periodKey !== periodKey() || Date.now() - (d.fetchedAt || 0) > STALE_MS;
+  return !d || !d.all || !d.before || d.periodKey !== periodKey() || Date.now() - (d.fetchedAt || 0) > STALE_MS;
 }
 
 async function loadEvent(s, code) {
@@ -179,6 +203,7 @@ function renderHeader() {
     <nav class="tabs" role="tablist">
       <button role="tab" data-view="deck" aria-selected="${state.view === 'deck'}">${esc(t('deck'))} <span class="count">${state.swimmers.length}</span></button>
       <button role="tab" data-view="rank" aria-selected="${state.view === 'rank'}">${esc(t('toplist'))}</button>
+      <button role="tab" data-view="compare" aria-selected="${state.view === 'compare'}">${esc(t('compare'))}</button>
       <span class="spacer"></span>
       <span class="muted small">${esc(t('updated', { when: last ? new Date(last).toLocaleString(state.lang, { dateStyle: 'short', timeStyle: 'short' }) : t('never') }))}</span>
     </nav>`;
@@ -201,7 +226,7 @@ function renderMain() {
       </div>`;
     return;
   }
-  main.innerHTML = state.view === 'rank' ? rankView() : deckView();
+  main.innerHTML = state.view === 'rank' ? rankView() : state.view === 'compare' ? compareView() : deckView();
 }
 
 const SORTS = { manual: 'sortManual', name: 'sortName', born: 'sortBorn', club: 'sortClub', newPbs: 'sortNewPbs', recent: 'sortRecent' };
@@ -209,7 +234,7 @@ const SORTS = { manual: 'sortManual', name: 'sortName', born: 'sortBorn', club: 
 function cardInfo(id) {
   const d = state.data[id];
   if (!d?.all) return null;
-  const sum = summarize(d.all, d.period);
+  const sum = summarize(d.all, d.period, d.before);
   return { newPbs: sum.newPbs, latest: sum.latest?.date || '' };
 }
 
@@ -251,7 +276,7 @@ function cardView(s) {
       </div>
     </div>`;
   if (collapsed) {
-    const sum = d?.all ? summarize(d.all, d.period) : null;
+    const sum = d?.all ? summarize(d.all, d.period, d.before) : null;
     const line = sum
       ? [sum.newPbs ? `<b class="good">${sum.newPbs} ${esc(t('newPbsLabel'))}</b>` : esc(t('noPbsInPeriod')),
          sum.latest ? `${esc(eventLabel(sum.latest.event, state.lang, sum.latest.name))} <span class="time">${fmtTime(sum.latest.time)}</span>` : ''].filter(Boolean).join(' · ')
@@ -262,7 +287,7 @@ function cardView(s) {
     return `<li class="card ${d?.error ? 'has-error' : 'loading'}" data-open="${s.id}" tabindex="0">${head}
       <p class="muted">${d?.error ? esc(t('error', { msg: d.error })) : esc(t('loading'))}</p></li>`;
   }
-  const sum = summarize(d.all, d.period);
+  const sum = summarize(d.all, d.period, d.before);
   const latest = sum.latest;
   return `<li class="card" data-open="${s.id}" tabindex="0">
     ${head}
@@ -277,13 +302,17 @@ function cardView(s) {
            <div class="muted small">${esc(latest.date)} · ${esc(latest.meet)}</div>`
         : `<span class="muted small">${esc(t('noSwims'))}</span>`}
     </div>
-    ${sum.best.length ? `<div class="chips" aria-label="${esc(t('bestEvents'))}">${sum.best.map((r) => `<span class="chip" title="${esc(eventLabel(r.event, state.lang, r.name))} · ${r.pool} m"><span>${esc(eventShort(r.event, state.lang, r.name))} <small>${r.pool}m</small></span><b>${fmtTime(r.pb.time)}</b></span>`).join('')}</div>` : ''}
+    ${sum.topImprove ? `<div class="improve small"><span class="muted">${esc(t('topImprove'))}</span>
+      <span><b>${esc(eventLabel(sum.topImprove.event, state.lang, sum.topImprove.name))}</b> <span class="pool">${sum.topImprove.pool} m</span>
+      <b class="good">${fmtDiff(-sum.topImprove.improve)}</b> <span class="muted">(${fmtPct(sum.topImprove.improvePct)})</span></span></div>` : ''}
+    ${sum.best.length ? `<div class="best-block"><span class="muted small">${esc(t('bestEventsAqua'))}</span><div class="chips">${sum.best.map((r) => `<span class="chip"><span class="chip-name">${esc(eventLabel(r.event, state.lang, r.name))}</span><span class="chip-meta"><small>${r.pool} m</small><b>${fmtTime(r.pb.time)}</b></span></span>`).join('')}</div></div>` : ''}
     ${d.error ? `<p class="warn small">${esc(t('error', { msg: d.error }))}</p>` : ''}
   </li>`;
 }
 
 function rankView() {
   const basis = state.rankBasis;
+  const improveMode = basis === 'improve';
   const source = (id) => (basis === 'period' ? state.data[id]?.period : state.data[id]?.all);
   const overviews = Object.fromEntries(state.swimmers.map((s) => [s.id, source(s.id)]));
   const options = new Map();
@@ -297,12 +326,17 @@ function rankView() {
     (s) => (!state.rankSex || s.sex === state.rankSex) && (!state.rankYear || String(s.born) === String(state.rankYear)),
   );
   let rows;
-  if (aqua) rows = rankingsByPoints(swimmers, overviews);
+  if (improveMode) {
+    const sums = Object.fromEntries(swimmers.map((s) => { const d = state.data[s.id]; return [s.id, d?.all ? summarize(d.all, d.period, d.before) : null]; }));
+    const [pool, event] = aqua ? [null, null] : state.rankEvent.split(':').map(Number);
+    rows = rankingsByImprovement(swimmers, sums, event, pool);
+  } else if (aqua) rows = rankingsByPoints(swimmers, overviews);
   else {
     const [pool, event] = state.rankEvent.split(':').map(Number);
     rows = rankings(swimmers, overviews, event, pool);
   }
   const lead = rows[0]?.result;
+  state.rankRows = { rows, aqua, improveMode };
   return `
     <div class="rank-controls">
       <label class="select"><span>${esc(t('chooseEvent'))}</span>
@@ -311,22 +345,82 @@ function rankView() {
           ${opts.map((b) => `<option value="${b.pool}:${b.event}" ${`${b.pool}:${b.event}` === state.rankEvent ? 'selected' : ''}>${esc(eventLabel(b.event, state.lang, b.name))} · ${b.pool} m</option>`).join('')}
         </select>
       </label>
-      <div class="seg" role="group">${['pb', 'period'].map((x) => `<button data-basis="${x}" aria-pressed="${basis === x}">${esc(x === 'pb' ? t('basisPb') : t('basisPeriod', { period: seasonLabel(state.period) }))}</button>`).join('')}</div>
+      <div class="seg" role="group">${['pb', 'period', 'improve'].map((x) => `<button data-basis="${x}" aria-pressed="${basis === x}">${esc(x === 'pb' ? t('basisPb') : x === 'period' ? t('basisPeriod', { period: seasonLabel(state.period) }) : t('basisImprove'))}</button>`).join('')}</div>
       ${sexes.length > 1 ? `<div class="seg" role="group">${['', ...sexes].map((x) => `<button data-sex="${esc(x)}" aria-pressed="${state.rankSex === x}">${esc(x ? sexLabel(x) : t('allSexes'))}</button>`).join('')}</div>` : ''}
       ${years.length > 1 ? `<label class="select compact"><span class="sr">${esc(t('birthYear'))}</span><select id="rankYear"><option value="">${esc(t('allYears'))}</option>${years.map((y) => `<option value="${y}" ${String(state.rankYear) === String(y) ? 'selected' : ''}>${y}</option>`).join('')}</select></label>` : ''}
     </div>
-    ${rows.length ? `<ol class="ranking">${rows.map((r, i) => `
+    ${improveMode ? `<p class="muted small rank-note">${esc(t('improveNote', { period: seasonLabel(state.period) }))}</p>` : ''}
+    ${rows.length ? `<div class="row end"><button class="link small" data-action="csvRank">${esc(t('exportCsv'))}</button></div><ol class="ranking">${rows.map((r, i) => `
       <li data-open="${r.swimmer.id}" tabindex="0" role="button">
         <span class="pos">${i + 1}</span>
         <span class="who"><b>${esc(r.swimmer.name)}</b><span class="muted small">${esc([r.swimmer.born, r.swimmer.club].filter(Boolean).join(' · '))}</span></span>
-        ${aqua
+        ${improveMode
+          ? `<span class="time good">${fmtPct(r.row.improvePct)}</span>
+             <span class="muted small when">${esc(eventLabel(r.row.event, state.lang, r.row.name))} ${r.row.pool} m · <b>${fmtTime(r.row.period.time)}</b> (${fmtDiff(-r.row.improve)})<br>${esc(t('prevPb'))} ${fmtTime(r.row.prev.time)} · ${esc(r.row.period.date)}</span>
+             <span class="gap"></span>`
+          : aqua
           ? `<span class="time">${r.result.points} <small class="muted">p</small></span>
              <span class="muted small when">${esc(eventLabel(r.result.event, state.lang, r.result.name))} ${r.result.pool} m · <b>${fmtTime(r.result.time)}</b><br>${esc(r.result.date)} · ${esc(r.result.meet)}</span>
              ${i > 0 ? `<span class="gap small muted">−${lead.points - r.result.points} p</span>` : '<span class="gap"></span>'}`
           : `<span class="time">${fmtTime(r.result.time)}</span>
              <span class="muted small when">${esc(r.result.date)}<br>${esc(r.result.meet)}</span>
              ${i > 0 ? `<span class="gap small muted">${fmtDiff(r.result.time - lead.time)}</span>` : '<span class="gap"></span>'}`}
-      </li>`).join('')}</ol>` : `<p class="muted">${esc(basis === 'period' ? t('noneInPeriod') : t('noneInEvent'))}</p>`}`;
+      </li>`).join('')}</ol>` : `<p class="muted">${esc(improveMode ? t('noImprove') : basis === 'period' ? t('noneInPeriod') : t('noneInEvent'))}</p>`}`;
+}
+
+function rankCsv() {
+  const { rows, aqua, improveMode } = state.rankRows || { rows: [] };
+  const head = [t('rank'), t('swimmer'), t('birthYear'), t('club'), t('event'), t('pool'), t('time'), t('date'), t('meet')];
+  if (improveMode) head.push(t('prevPb'), t('basisImprove'));
+  else if (aqua) head.push(t('points'));
+  const lines = rows.map((r, i) => {
+    const res = improveMode ? r.row.period : r.result;
+    const ev = improveMode ? r.row : res;
+    const line = [i + 1, r.swimmer.name, r.swimmer.born || '', r.swimmer.club || '', eventLabel(ev.event, state.lang, ev.name), ev.pool, fmtTime(res.time), res.date, res.meet];
+    if (improveMode) line.push(fmtTime(r.row.prev.time), fmtPct(r.row.improvePct));
+    else if (aqua) line.push(res.points || '');
+    return line;
+  });
+  downloadCsv(`swimdeck-${t('toplist').toLowerCase()}.csv`, [head, ...lines]);
+}
+
+function compareSelection() {
+  const ids = state.compareIds.filter((id) => state.swimmers.some((s) => s.id === id));
+  return ids.length ? ids : state.swimmers.slice(0, Math.min(3, state.swimmers.length)).map((s) => s.id);
+}
+
+function compareView() {
+  const ids = compareSelection();
+  const chosen = ids.map((id) => state.swimmers.find((s) => s.id === id));
+  const overviews = Object.fromEntries(state.swimmers.map((s) => [s.id, state.data[s.id]?.all]));
+  const table = compareTable(chosen, overviews, state.comparePool);
+  const first = (n) => esc(String(n || '').split(' ')[0]);
+  return `
+    <div class="compare-pick">
+      <p class="muted small">${esc(t('compareHint'))}</p>
+      <div class="pick-list">${state.swimmers.map((s) => `<button class="pick" data-pick="${s.id}" aria-pressed="${ids.includes(s.id)}" ${!ids.includes(s.id) && ids.length >= 4 ? 'disabled' : ''}>${esc(s.name || '#' + s.id)}</button>`).join('')}</div>
+    </div>
+    <div class="rank-controls">
+      <div class="seg" role="group">${[25, 50].map((p) => `<button data-cpool="${p}" aria-pressed="${state.comparePool === p}">${esc(t(p === 25 ? 'pool25' : 'pool50'))}</button>`).join('')}</div>
+      <span class="spacer"></span>
+      ${table.length ? `<button class="link small" data-action="csvCompare">${esc(t('exportCsv'))}</button>` : ''}
+    </div>
+    ${table.length ? `<div class="table-scroll"><table class="compare">
+      <thead><tr><th>${esc(t('event'))}</th>${chosen.map((s) => `<th class="num" title="${esc(s.name)}">${first(s.name)}</th>`).join('')}</tr></thead>
+      <tbody>${table.map((row) => `<tr><th scope="row">${esc(eventLabel(row.event, state.lang, row.name))}</th>${row.cells.map((c) => c
+        ? `<td class="num ${c.time === row.fastest && chosen.length > 1 ? 'fastest' : ''}"><b>${fmtTime(c.time)}</b>${c.time !== row.fastest ? `<small>${fmtDiff(c.time - row.fastest)}</small>` : `<small>${esc(c.date.slice(0, 4))}</small>`}</td>`
+        : '<td class="num muted">–</td>').join('')}</tr>`).join('')}</tbody>
+    </table></div>` : `<p class="muted">${esc(t('noneInEvent'))}</p>`}`;
+}
+
+function compareCsv() {
+  const ids = compareSelection();
+  const chosen = ids.map((id) => state.swimmers.find((s) => s.id === id));
+  const overviews = Object.fromEntries(state.swimmers.map((s) => [s.id, state.data[s.id]?.all]));
+  const table = compareTable(chosen, overviews, state.comparePool);
+  const head = [t('event'), t('pool'), ...chosen.map((s) => s.name)];
+  const lines = table.map((row) => [eventLabel(row.event, state.lang, row.name), state.comparePool, ...row.cells.map((c) => (c ? fmtTime(c.time) : ''))]);
+  downloadCsv(`swimdeck-${t('compare').toLowerCase()}.csv`, [head, ...lines]);
 }
 
 function versionLabel() {
@@ -353,6 +447,8 @@ function renderFooter() {
 function openSwimmer(id) {
   state.openId = Number(id);
   state.openEvent = null;
+  state.openTab = 'events';
+  state.meetsShown = 5;
   const d = state.data[state.openId];
   const pools = new Set((d?.all?.bests || []).map((b) => b.pool));
   state.openPool = pools.has(state.openPool) ? state.openPool : pools.has(25) ? 25 : 50;
@@ -366,7 +462,7 @@ function renderSwimmerDialog() {
   const dlg = $('#swimmerDialog');
   if (!s) return dlg.open && dlg.close();
   const d = state.data[s.id];
-  const sum = d?.all ? summarize(d.all, d.period) : null;
+  const sum = d?.all ? summarize(d.all, d.period, d.before) : null;
   const rows = sum ? sum.rows.filter((r) => r.pool === state.openPool) : [];
   const pools = sum ? [...new Set(sum.rows.map((r) => r.pool))] : [];
   const base = s.site === 'fi' ? 'https://www.tempusopen.fi' : 'https://www.tempusopen.se';
@@ -379,6 +475,11 @@ function renderSwimmerDialog() {
         </div>
         <button class="icon" data-action="close" aria-label="${esc(t('close'))}">✕</button>
       </header>
+      <nav class="tabs sheet-tabs" role="tablist">
+        <button role="tab" data-otab="events" aria-selected="${state.openTab === 'events'}">${esc(t('tabEvents'))}</button>
+        <button role="tab" data-otab="meets" aria-selected="${state.openTab === 'meets'}">${esc(t('tabMeets'))}</button>
+      </nav>
+      ${state.openTab === 'meets' ? `<div id="meetsBox"><p class="muted">${esc(t('loading'))}</p></div>` : `
       <div class="sheet-tools">
         <div class="seg" role="tablist">${pools.sort().map((p) => `<button data-pool="${p}" aria-pressed="${p === state.openPool}">${esc(t(p === 25 ? 'pool25' : 'pool50'))}</button>`).join('')}</div>
         <span class="muted small">${esc(t('periodBest'))}: ${esc(seasonLabel(state.period))}</span>
@@ -387,20 +488,66 @@ function renderSwimmerDialog() {
       <table class="events">
         <thead><tr><th>${esc(t('event'))}</th><th class="num">${esc(t('pb'))}</th><th class="num">${esc(t('periodBest'))}</th><th class="num hide-sm">${esc(t('points'))}</th></tr></thead>
         <tbody>${rows.map((r) => eventRow(s, r)).join('')}</tbody>
-      </table>`}
+      </table>`}`}
       <footer class="sheet-foot">
         <a href="${base}/swimmers/${s.id}/swimming" target="_blank" rel="noopener">${esc(t('openTempus'))} ↗</a>
         <button class="link danger" data-action="remove">${esc(t('remove'))}</button>
       </footer>
     </div>`;
-  if (state.openEvent) fillEventDetail(s, state.openEvent);
+  if (state.openTab === 'meets') fillMeets(s);
+  else if (state.openEvent) fillEventDetail(s, state.openEvent);
+}
+
+async function fillMeets(s) {
+  const d = state.data[s.id];
+  const codes = [...new Set((d?.all?.bests || []).map((b) => b.event))];
+  if (!codes.length) return;
+  let done = 0;
+  const box = () => (state.openId === s.id && state.openTab === 'meets' ? $('#meetsBox') : null);
+  const progress = () => {
+    if (box() && done < codes.length) box().innerHTML = `<p class="muted">${esc(t('loadingMeets', { done, total: codes.length }))}</p>`;
+  };
+  progress();
+  const queue = codes.slice();
+  const results = [];
+  let failed = null;
+  const worker = async () => {
+    while (queue.length) {
+      const code = queue.shift();
+      try {
+        results.push(await loadEvent(s, code));
+      } catch (e) {
+        failed = e;
+      }
+      done++;
+      progress();
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  if (!box()) return;
+  const list = meets(results);
+  const shown = list.slice(0, state.meetsShown);
+  box().innerHTML = `
+    ${failed ? `<p class="warn small">${esc(t('error', { msg: failed.message }))}</p>` : ''}
+    <ol class="meets">${shown.map((g) => `
+      <li class="meet">
+        <div class="meet-head"><b>${esc(g.meet)}</b>
+          <span class="muted small">${esc(g.from === g.to ? g.from : `${g.from} – ${g.to}`)} · ${esc(t('swims', { n: g.swims.length }))}${g.pbs ? ` · <span class="good">${esc(t('pbsAtMeet', { n: g.pbs }))}</span>` : ''}</span></div>
+        <table class="meet-swims"><tbody>${g.swims.map((w) => `
+          <tr class="${w.pb ? 'pb' : ''}">
+            <td>${esc(eventLabel(w.event, state.lang, w.name))} <span class="pool">${w.pool} m</span>${w.round ? ` <span class="muted small">${esc(w.round)}</span>` : ''}</td>
+            <td class="num"><b>${fmtTime(w.time)}</b></td>
+            <td class="num tag-cell">${w.pb ? `<span class="badge">${esc(t('newPb'))} ${fmtDiff(w.time - w.prevBest)}</span>` : w.first ? `<span class="badge neutral">${esc(t('firstSwim'))}</span>` : ''}</td>
+          </tr>`).join('')}</tbody></table>
+      </li>`).join('')}</ol>
+    ${list.length > shown.length ? `<div class="row"><button class="btn small" data-action="moreMeets">${esc(t('showMore'))}</button></div>` : ''}`;
 }
 
 function eventRow(s, r) {
   const open = state.openEvent === r.event;
   return `
     <tr class="ev ${r.newPb ? 'pb' : ''} ${open ? 'open' : ''}" data-event="${r.event}" tabindex="0" aria-expanded="${open}">
-      <td><span class="chev" aria-hidden="true">›</span>${esc(eventLabel(r.event, state.lang, r.name))}${r.newPb ? ` <span class="badge">${esc(t('newPb'))}</span>` : ''}</td>
+      <td><span class="chev" aria-hidden="true">›</span>${esc(eventLabel(r.event, state.lang, r.name))}${r.newPb ? ` <span class="badge">${esc(t('newPb'))}${r.improve ? ' ' + fmtDiff(-r.improve) : ''}</span>` : ''}</td>
       <td class="num"><b>${r.pb ? fmtTime(r.pb.time) : '–'}</b><small>${esc(r.pb?.date || '')}</small></td>
       <td class="num">${r.period ? `${fmtTime(r.period.time)}<small class="${r.diff > 0 ? '' : 'good'}">${r.diff != null ? fmtDiff(r.diff) : ''}</small>` : '<span class="muted">–</span>'}</td>
       <td class="num hide-sm">${r.pb?.points || ''}</td>
@@ -427,10 +574,20 @@ async function fillEventDetail(s, code) {
         <li><span class="pos">${i + 1}</span><span class="time">${fmtTime(r.time)}</span>
         <span class="small"><span>${esc(r.date)}</span> · <span class="muted">${esc(r.meet)}${r.round ? ' · ' + esc(r.round) : ''}</span></span>
         <span class="small muted num">${r.points || ''}</span></li>`).join('')}</ol>
-      ${ev.results.length > 1 ? `<h4 class="small muted">${esc(t('progression'))}</h4>${chart(ev.results)}` : ''}`;
+      ${ev.results.length > 1 ? `<h4 class="small muted">${esc(t('progression'))}</h4>${chart(ev.results)}` : ''}
+      ${seasonTable(ev.results)}`;
   } catch (e) {
     box.innerHTML = `<p class="warn">${esc(t('error', { msg: e.message }))}</p><button class="btn small" data-retry-event="${code}">${esc(t('retry'))}</button>`;
   }
+}
+
+function seasonTable(results) {
+  const sb = seasonBests(results);
+  if (sb.length < 2) return '';
+  return `<h4 class="small muted">${esc(t('seasonBests'))}</h4>
+    <table class="seasons"><thead><tr><th>${esc(t('season'))}</th><th class="num">${esc(t('time'))}</th><th class="num">${esc(t('change'))}</th><th class="num hide-sm">${esc(t('swimsCol'))}</th></tr></thead>
+    <tbody>${sb.map((x) => `<tr><td>${esc(x.season)}</td><td class="num"><b>${fmtTime(x.best.time)}</b></td>
+      <td class="num ${x.change < 0 ? 'good' : x.change > 0 ? 'muted' : ''}">${x.change == null ? '' : fmtDiff(x.change)}</td><td class="num hide-sm muted">${x.count}</td></tr>`).join('')}</tbody></table>`;
 }
 
 function chart(results) {
@@ -688,6 +845,31 @@ document.addEventListener('click', (e) => {
     return run && run();
   }
   if (el.dataset.drag) return;
+  if (el.dataset.otab) {
+    state.openTab = el.dataset.otab;
+    state.meetsShown = 5;
+    return renderSwimmerDialog();
+  }
+  if (el.dataset.action === 'moreMeets') {
+    state.meetsShown += 10;
+    const s = state.swimmers.find((x) => x.id === state.openId);
+    return s && fillMeets(s);
+  }
+  if (el.dataset.pick) {
+    const id = Number(el.dataset.pick);
+    const cur = compareSelection();
+    state.compareIds = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id].slice(0, 4);
+    if (!state.compareIds.length) state.compareIds = [id];
+    save();
+    return renderMain();
+  }
+  if (el.dataset.cpool) {
+    state.comparePool = Number(el.dataset.cpool);
+    save();
+    return renderMain();
+  }
+  if (el.dataset.action === 'csvRank') return rankCsv();
+  if (el.dataset.action === 'csvCompare') return compareCsv();
   if (el.dataset.collapse) {
     const id = Number(el.dataset.collapse);
     state.collapsed = state.collapsed.includes(id) ? state.collapsed.filter((x) => x !== id) : [...state.collapsed, id];

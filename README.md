@@ -6,7 +6,11 @@ Follow your swimmers: personal bests, top times, season bests and progression fr
 - Search Tempus Open and build your own list of swimmers (or paste a Tempus link)
 - Each swimmer card shows new PBs this season, the latest season best and best events
 - Per event: personal best, period best, top 3/5/10/all swims and a progression chart
-- Rankings within your list, per event and pool length
+- Biggest improvement against the personal best before the period
+- A Meets tab with every swim, newest meet first, PBs marked; season bests per event
+- Rankings within your list: per event, period best, AQUA points or improvement
+- Compare up to four swimmers event by event; export rankings and comparisons as CSV
+- Sort or drag cards, minimise them, remove with undo and a 30-day trash
 - Share your list as a link
 
 SwimDeck is not affiliated with Tempus Open or the Swedish Swimming Federation.

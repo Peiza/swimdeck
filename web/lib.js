@@ -111,19 +111,30 @@ const key = (r) => `${r.pool}:${r.event}`;
  * Merge all-time bests with bests inside a period into one row per event.
  * A "new PB" means the period best equals the all-time best.
  */
-export function summarize(allTime, period) {
+export function summarize(allTime, period, before = null) {
   const rows = new Map();
-  for (const r of allTime?.bests || []) rows.set(key(r), { event: r.event, name: r.name, pool: r.pool, pb: r, period: null });
+  for (const r of allTime?.bests || []) rows.set(key(r), { event: r.event, name: r.name, pool: r.pool, pb: r, period: null, prev: null });
   for (const r of period?.bests || []) {
-    const row = rows.get(key(r)) || { event: r.event, name: r.name, pool: r.pool, pb: null, period: null };
+    const row = rows.get(key(r)) || { event: r.event, name: r.name, pool: r.pool, pb: null, period: null, prev: null };
     row.period = r;
     rows.set(key(r), row);
   }
-  const list = [...rows.values()].map((row) => ({
-    ...row,
-    newPb: !!(row.period && row.pb && row.period.time <= row.pb.time),
-    diff: row.period && row.pb ? row.period.time - row.pb.time : null,
-  }));
+  for (const r of before?.bests || []) {
+    const row = rows.get(key(r));
+    if (row) row.prev = r;
+  }
+  const list = [...rows.values()].map((row) => {
+    const newPb = !!(row.period && row.pb && row.period.time <= row.pb.time);
+    const improve = row.period && row.prev && row.period.time < row.prev.time ? row.prev.time - row.period.time : null;
+    return {
+      ...row,
+      newPb,
+      firstSwim: !!(row.period && before && !row.prev),
+      diff: row.period && row.pb ? row.period.time - row.pb.time : null,
+      improve,
+      improvePct: improve != null ? (improve / row.prev.time) * 100 : null,
+    };
+  });
   list.sort((a, b) => a.pool - b.pool || eventSortKey(a.event, a.name) - eventSortKey(b.event, b.name));
   const inPeriod = list.filter((r) => r.period);
   const latest = inPeriod.reduce((acc, r) => (!acc || r.period.date > acc.date ? r.period : acc), null);
@@ -131,7 +142,8 @@ export function summarize(allTime, period) {
     .filter((r) => r.pb && r.pb.points)
     .sort((a, b) => b.pb.points - a.pb.points)
     .slice(0, 4);
-  return { rows: list, newPbs: list.filter((r) => r.newPb).length, latest, best, swumInPeriod: inPeriod.length };
+  const topImprove = list.filter((r) => r.improve != null).sort((a, b) => b.improvePct - a.improvePct)[0] || null;
+  return { rows: list, newPbs: list.filter((r) => r.newPb).length, latest, best, swumInPeriod: inPeriod.length, topImprove };
 }
 
 /** Running best over time, for the progression chart. */
@@ -190,4 +202,104 @@ export function sortSwimmers(swimmers, mode, info = () => null, lang = 'sv') {
     recent: (a, b) => String(info(b.id)?.latest || '').localeCompare(String(info(a.id)?.latest || '')) || name(a, b),
   }[mode];
   return by ? list.sort(by) : list;
+}
+
+// ---------------------------------------------------------------- seasons, meets, comparisons
+
+/** Season label for a date, seasons running September–August: "2025/26". */
+export function seasonOf(date) {
+  const y = Number(String(date).slice(0, 4));
+  const m = Number(String(date).slice(5, 7));
+  const start = m >= 9 ? y : y - 1;
+  return `${start}/${String((start + 1) % 100).padStart(2, '0')}`;
+}
+
+/** Best time per season for one event, newest season first, with change vs the season before. */
+export function seasonBests(results) {
+  const by = new Map();
+  for (const r of results) {
+    const k = seasonOf(r.date);
+    const cur = by.get(k);
+    if (!cur) by.set(k, { season: k, best: r, count: 1 });
+    else {
+      cur.count++;
+      if (r.time < cur.best.time) cur.best = r;
+    }
+  }
+  const list = [...by.values()].sort((a, b) => a.season.localeCompare(b.season));
+  list.forEach((x, i) => {
+    x.change = i ? x.best.time - list[i - 1].best.time : null;
+  });
+  return list.reverse();
+}
+
+/**
+ * All swims from several events grouped by meet, newest first.
+ * Each swim gets `pb` (faster than every earlier swim in that event and pool)
+ * or `first` (the swimmer's first swim in that event and pool).
+ */
+export function meets(eventPayloads) {
+  const swims = [];
+  for (const ev of eventPayloads) {
+    const sorted = [...(ev?.results || [])].sort(
+      (a, b) => String(a.date).localeCompare(String(b.date)) || (a.round === 'Final' ? 1 : 0) - (b.round === 'Final' ? 1 : 0),
+    );
+    let best = Infinity;
+    sorted.forEach((r, i) => {
+      swims.push({ ...r, pool: r.pool ?? ev.pool, first: i === 0, pb: i > 0 && r.time < best, prevBest: i > 0 ? best : null });
+      best = Math.min(best, r.time);
+    });
+  }
+  const groups = new Map();
+  for (const w of swims) {
+    const k = `${w.meet}|${seasonOf(w.date)}`;
+    const g = groups.get(k) || { meet: w.meet, from: w.date, to: w.date, swims: [] };
+    g.swims.push(w);
+    if (w.date < g.from) g.from = w.date;
+    if (w.date > g.to) g.to = w.date;
+    groups.set(k, g);
+  }
+  const list = [...groups.values()];
+  for (const g of list) {
+    g.swims.sort((a, b) => String(a.date).localeCompare(String(b.date)) || a.pool - b.pool || eventSortKey(a.event, a.name) - eventSortKey(b.event, b.name));
+    g.pbs = g.swims.filter((w) => w.pb).length;
+  }
+  return list.sort((a, b) => b.to.localeCompare(a.to) || b.from.localeCompare(a.from));
+}
+
+/** Event-by-swimmer table of personal bests for one pool length. */
+export function compareTable(swimmers, overviews, pool) {
+  const events = new Map();
+  for (const s of swimmers) {
+    for (const b of overviews[s.id]?.bests || []) if (b.pool === pool) events.set(b.event, b.name);
+  }
+  return [...events.entries()]
+    .sort((a, b) => eventSortKey(a[0], a[1]) - eventSortKey(b[0], b[1]))
+    .map(([event, name]) => {
+      const cells = swimmers.map((s) => overviews[s.id]?.bests?.find((b) => b.event === event && b.pool === pool) || null);
+      const fastest = Math.min(...cells.filter(Boolean).map((c) => c.time));
+      return { event, name, cells, fastest };
+    });
+}
+
+/** Each swimmer's largest improvement in the period (percent), optionally in one event. */
+export function rankingsByImprovement(swimmers, summaries, event = null, pool = null) {
+  const out = [];
+  for (const s of swimmers) {
+    const rows = (summaries[s.id]?.rows || []).filter(
+      (r) => r.improve != null && (event == null || (r.event === event && r.pool === pool)),
+    );
+    const top = rows.sort((a, b) => b.improvePct - a.improvePct)[0];
+    if (top) out.push({ swimmer: s, row: top });
+  }
+  return out.sort((a, b) => b.row.improvePct - a.row.improvePct);
+}
+
+/** Semicolon-separated CSV with a BOM, which Excel opens correctly in Swedish locales. */
+export function toCsv(rows) {
+  const cell = (v) => {
+    const s = String(v ?? '');
+    return /[";\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return '\ufeff' + rows.map((r) => r.map(cell).join(';')).join('\r\n') + '\r\n';
 }

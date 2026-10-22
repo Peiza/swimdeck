@@ -39,21 +39,22 @@ plattform och fungerar med `site=fi`.
 2. ✅ **Bevakningslista.** Perioder (denna säsong, 12 månader, förra säsongen),
    nya personbästa markerade, uppdateringsknapp, delning via länk,
    mobil- och desktoplayout, tre språk.
-3. **Driftsättning.** Pages och Worker kopplas ihop och testas mot riktig data.
+3. ✅ **Driftsättning.** Pages och Worker publiceras automatiskt, versionsnummer och cache-busting.
 4. **Topplistor och statistik**
    - Topplistor i den egna listan: ✅ per gren och bassänglängd, ✅ personbästa
      eller periodbästa, ✅ AQUA-poäng över alla grenar, ✅ filter på kön och årskull.
      Senare: listans snabbaste lopp, där samma simmare kan förekomma flera gånger.
-   - Säsongsbästa per säsong i en tabell, utveckling över säsonger
-   - Förbättring i procent eller sekunder, till exempel "mest förbättrade"
-   - Bästa lopp efter AQUA-poäng, oavsett gren
-   - Jämförelse mellan två eller flera simmare, grenvis
+   - ✅ Säsongsbästa per säsong i en tabell, med förändring mot föregående säsong
+   - ✅ Förbättring i procent och sekunder mot PB före perioden; topplista "Förbättring"
+   - ✅ Bästa grenar efter AQUA-poäng på korten
+   - ✅ Jämförelse mellan upp till fyra simmare, grenvis, med export till CSV
+   - ✅ Fliken Tävlingar: alla lopp per tävling, senaste först, med PB markerade
    - Klubbvy: alla simmare i en klubb, om Tempus erbjuder det på ett snällt sätt
 5. **Senare**
-   - Riktiga "senaste lopp" och inte bara periodbästa. Det kräver att
-     grensidorna hämtas och bör göras med försiktig cachning.
    - Mellantider, om de finns i Tempus
    - Synka listan mellan enheter (idag delas den som länk, en ögonblicksbild)
-   - Export till CSV eller Excel
    - Notiser om nya personbästa
    - Installera som app (PWA, offline)
+   - "Senaste lopp" direkt på korten (kräver grensidor för alla i listan, alltså fler anrop)
+   - Kortanpassning: välja vilka rutor korten visar
+   - Mål per gren (till exempel kvalgränser) och hur långt det är kvar

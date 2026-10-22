@@ -94,3 +94,53 @@ test('short event labels', async () => {
   assert.equal(eventShort(63, 'en'), '200 IM');
   assert.equal(eventShort(53, 'fi'), '100 perho');
 });
+
+test('summarize measures improvement against bests before the period', async () => {
+  const { summarize } = await import('../lib.js');
+  const all = { bests: [r(11, 25, 2950, '2026-10-01'), r(13, 25, 6500, '2024-01-01'), r(51, 25, 3300, '2026-09-20')] };
+  const period = { bests: [r(11, 25, 2950, '2026-10-01'), r(13, 25, 6600, '2026-10-02'), r(51, 25, 3300, '2026-09-20')] };
+  const before = { bests: [r(11, 25, 3000, '2025-05-01'), r(13, 25, 6500, '2024-01-01')] };
+  const s = summarize(all, period, before);
+  const row = (e) => s.rows.find((x) => x.event === e);
+  assert.equal(row(11).improve, 50);
+  assert.ok(Math.abs(row(11).improvePct - 50 / 30) < 1e-9);
+  assert.equal(row(13).improve, null);
+  assert.equal(row(51).firstSwim, true);
+  assert.equal(s.topImprove.event, 11);
+  assert.equal(s.newPbs, 2);
+});
+
+test('seasons and season bests', async () => {
+  const { seasonOf, seasonBests } = await import('../lib.js');
+  assert.equal(seasonOf('2026-08-31'), '2025/26');
+  assert.equal(seasonOf('2026-09-01'), '2026/27');
+  const sb = seasonBests([r(11, 25, 3100, '2025-03-01'), r(11, 25, 3050, '2025-06-01'), r(11, 25, 3000, '2025-10-01'), r(11, 25, 3020, '2026-01-01')]);
+  assert.deepEqual(sb.map((x) => [x.season, x.best.time, x.change, x.count]), [['2025/26', 3000, -50, 2], ['2024/25', 3050, null, 2]]);
+});
+
+test('meets group swims, newest first, and mark PBs and first swims', async () => {
+  const { meets } = await import('../lib.js');
+  const sw = (time, date, meet, round = 'Final') => ({ ...r(11, 25, time, date), meet, round });
+  const out = meets([{ pool: 25, results: [sw(3100, '2025-01-10', 'A'), sw(3000, '2025-05-02', 'B', 'Heat'), sw(2990, '2025-05-02', 'B'), sw(3050, '2025-09-20', 'C')] }]);
+  assert.deepEqual(out.map((g) => g.meet), ['C', 'B', 'A']);
+  assert.deepEqual(out[1].swims.map((w) => [w.time, w.pb]), [[3000, true], [2990, true]]);
+  assert.equal(out[2].swims[0].first, true);
+  assert.equal(out[0].swims[0].pb, false);
+  assert.equal(out[1].pbs, 2);
+});
+
+test('compare table marks the fastest per event', async () => {
+  const { compareTable } = await import('../lib.js');
+  const sw = [{ id: 1 }, { id: 2 }];
+  const ov = { 1: { bests: [r(11, 25, 3000), r(41, 25, 3500)] }, 2: { bests: [r(11, 25, 2900)] } };
+  const tbl = compareTable(sw, ov, 25);
+  assert.deepEqual(tbl.map((x) => [x.event, x.fastest, x.cells.map((c) => c?.time ?? null)]), [[11, 2900, [3000, 2900]], [41, 3500, [3500, null]]]);
+});
+
+test('improvement ranking and CSV', async () => {
+  const { rankingsByImprovement, toCsv } = await import('../lib.js');
+  const sums = { 1: { rows: [{ event: 11, pool: 25, improve: 50, improvePct: 1.6 }] }, 2: { rows: [{ event: 13, pool: 25, improve: 120, improvePct: 1.9 }] } };
+  assert.deepEqual(rankingsByImprovement([{ id: 1 }, { id: 2 }], sums).map((x) => x.swimmer.id), [2, 1]);
+  assert.deepEqual(rankingsByImprovement([{ id: 1 }, { id: 2 }], sums, 11, 25).map((x) => x.swimmer.id), [1]);
+  assert.equal(toCsv([['a', 'b;c'], [1, 'x"y']]), '﻿a;"b;c"\r\n1;"x""y"\r\n');
+});
