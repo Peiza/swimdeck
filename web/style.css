@@ -218,6 +218,9 @@ tr.detail td { background: var(--surface-2); padding: 12px; }
 /* ---------- footer */
 #footer { padding-top: 12px; padding-bottom: 32px; display: grid; gap: 10px; justify-items: center; text-align: center; border-top: 1px solid var(--line); }
 .lang { display: flex; gap: 4px; }
+.support { margin: 6px 0 0; text-wrap: balance; }
+.support .cup { width: 18px; height: 18px; vertical-align: -3px; margin-right: 6px; color: var(--muted); }
+.support a { white-space: nowrap; }
 .foot-links { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; }
 .rank-controls .select.compact { min-width: 0; }
 .lang button { border: 0; background: none; padding: 4px 8px; border-radius: 8px; cursor: pointer; color: var(--muted); }

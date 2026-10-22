@@ -12,6 +12,8 @@ export const STROKES = {
 
 const T = {
   sv: {
+    'support.text': 'Gillar du SwimDeck? {link}',
+    'support.link': 'Bjud mig på en kaffe på Ko-fi',
     allEventsAqua: 'Alla grenar (AQUA-poäng)',
     basisPb: 'Personbästa',
     basisPeriod: 'Periodbästa {period}',
@@ -95,6 +97,8 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    'support.text': 'Like SwimDeck? {link}',
+    'support.link': 'Buy me a coffee on Ko-fi',
     allEventsAqua: 'All events (AQUA points)',
     basisPb: 'Personal best',
     basisPeriod: 'Period best {period}',
@@ -178,6 +182,8 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    'support.text': 'Pidätkö SwimDeckistä? {link}',
+    'support.link': 'Tarjoa minulle kahvi Ko-fissa',
     allEventsAqua: 'Kaikki lajit (AQUA-pisteet)',
     basisPb: 'Ennätys',
     basisPeriod: 'Jakson paras {period}',

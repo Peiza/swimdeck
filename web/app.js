@@ -1,4 +1,5 @@
 import { CONFIG } from './config.js';
+import { supportLine } from './support.js';
 import { LANGS, makeT, detectLang } from './i18n.js';
 import {
   eventLabel, eventSortKey, fmtTime, fmtDiff, periodRange, seasonLabel,
@@ -282,6 +283,7 @@ function renderFooter() {
       ${state.swimmers.length ? `<button class="link" id="share">${esc(t('share'))}</button>` : ''}
       <a class="link" href="${FEEDBACK_URL}" target="_blank" rel="noopener">${esc(t('feedback'))}</a>
     </div>
+    ${supportLine(t, esc)}
     <p class="muted small">${esc(t('dataFrom'))}</p>`;
 }
 

@@ -56,6 +56,13 @@ Live app: https://peiza.github.io/swimdeck/
 
 Allowed web origins for the API are set in `worker/wrangler.toml` (`ALLOWED_ORIGINS`).
 
+## Support
+
+Like SwimDeck? [Buy me a coffee on Ko-fi](https://ko-fi.com/peiza).
+
+The app has the same plain link at the bottom of the page, opened in the same tab.
+There is no Ko-fi button, widget or script, so nothing from Ko-fi loads in the app.
+
 ## Roadmap
 
 See [docs/PLAN.md](docs/PLAN.md).
