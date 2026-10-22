@@ -64,7 +64,8 @@ plattform och fungerar med `site=fi`.
    - ✗ Mellantider: finns inte i Tempus Open (troligen bara i livetimingen)
    - ✅ Synk mellan enheter: hemlig synklänk/QR-kod, Cloudflare KV, bara Tempus-ID, ordning och paraklass lagras
      (KV-nyckeln är en hash av länken). Senaste ändring vinner; listor som inte rörts på ~13 månader försvinner.
-   - Notiser om nya personbästa
+   - ✅ "Nytt sedan sist": nya PB sedan förra besöket markeras på korten, sammanfattning och sortering
+   - Riktiga push-notiser (kräver bevakning på servern och Web Push)
    - ✅ Installera som app (service worker, fungerar offline med senast hämtade data)
    - "Senaste lopp" direkt på korten (kräver grensidor för alla i listan, alltså fler anrop)
    - Kortanpassning: välja vilka rutor korten visar

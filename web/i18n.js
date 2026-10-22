@@ -21,6 +21,11 @@ export const STROKES_SHORT = {
 
 const T = {
   sv: {
+    newSince: 'Nytt sedan sist · {n}',
+    andMore: 'och {n} till',
+    newBanner: '{n} nya PB sedan ditt förra besök, hos {who} simmare.',
+    markSeen: 'Markera som sett',
+    sortFresh: 'Nytt sedan sist först',
     clubPlaceholder: 't.ex. Örebro Simallians',
     activeOnly: 'Bara aktiva',
     sexFilter: 'Kön',
@@ -218,6 +223,11 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    newSince: 'New since last visit · {n}',
+    andMore: 'and {n} more',
+    newBanner: '{n} new PBs since your last visit, for {who} swimmers.',
+    markSeen: 'Mark as seen',
+    sortFresh: 'New since last visit first',
     clubPlaceholder: 'e.g. Örebro Simallians',
     activeOnly: 'Active only',
     sexFilter: 'Sex',
@@ -415,6 +425,11 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    newSince: 'Uutta edellisen jälkeen · {n}',
+    andMore: 'ja {n} muuta',
+    newBanner: '{n} uutta ennätystä edellisen käyntisi jälkeen, {who} uimarilla.',
+    markSeen: 'Merkitse nähdyksi',
+    sortFresh: 'Uudet ensin',
     clubPlaceholder: 'esim. Örebro Simallians',
     activeOnly: 'Vain aktiiviset',
     sexFilter: 'Sukupuoli',

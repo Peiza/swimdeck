@@ -203,3 +203,14 @@ test('head-to-head counts each race once', async () => {
   assert.equal(h.races[0].a, 2635);
   assert.equal(h.b, 1);
 });
+
+test('new personal bests since a snapshot', async () => {
+  const { bestsSnapshot, newSince } = await import('../lib.js');
+  const before = [r(11, 25, 3000, '2026-01-01'), r(13, 25, 6500, '2026-01-01')];
+  const snap = bestsSnapshot(before);
+  assert.deepEqual(newSince(before, snap), []);
+  const after = [r(11, 25, 2950, '2026-10-01'), r(13, 25, 6500, '2026-01-01'), r(41, 25, 3300, '2026-10-02')];
+  const n = newSince(after, snap);
+  assert.deepEqual(n.map((x) => [x.event, x.prev]), [[41, null], [11, 3000]]);
+  assert.deepEqual(newSince(after, null), []);
+});

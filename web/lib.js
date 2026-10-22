@@ -416,3 +416,21 @@ export function headToHead(aEvents, bEvents) {
     ties: races.filter((r) => r.a === r.b).length,
   };
 }
+
+// ---------------------------------------------------------------- new since last visit
+
+const bestKey = (b) => `${b.pool}:${b.event}`;
+
+/** Snapshot of personal bests, for "new since last visit". */
+export function bestsSnapshot(bests) {
+  return Object.fromEntries((bests || []).map((b) => [bestKey(b), b.time]));
+}
+
+/** Personal bests that are new or faster than in the snapshot. */
+export function newSince(bests, snapshot) {
+  if (!snapshot) return [];
+  return (bests || [])
+    .filter((b) => snapshot[bestKey(b)] == null || b.time < snapshot[bestKey(b)])
+    .map((b) => ({ ...b, prev: snapshot[bestKey(b)] ?? null }))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+}

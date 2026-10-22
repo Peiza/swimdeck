@@ -8,6 +8,7 @@ import {
   eventLabel, eventShort, eventSortKey, eventInfo, fmtTime, fmtDiff, periodRange, seasonLabel,
   summarize, progression, parseTempusRef, rankings, rankingsByPoints, sortSwimmers,
   seasonBests, meets, compareTable, rankingsByImprovement, toCsv, profile, form, prognosis, headToHead,
+  bestsSnapshot, newSince,
 } from './lib.js';
 
 // ---------------------------------------------------------------- state
@@ -57,6 +58,7 @@ const state = {
   qSex: store.get('qSex', 'W'),
   qPool: store.get('qPool', 25),
   qClass: store.get('qClass', 9),
+  seen: store.get('seen', {}), // id -> snapshot of PBs the user has seen
 };
 
 let t = makeT(state.lang);
@@ -96,6 +98,7 @@ function save() {
   store.set('compareIds', state.compareIds);
   store.set('comparePool', state.comparePool);
   for (const k of ['qComp', 'qSex', 'qPool', 'qClass']) store.set(k, state[k]);
+  store.set('seen', state.seen);
   schedulePush();
 }
 
@@ -272,6 +275,18 @@ const STD_LABEL = { smA: 'SM A', smB: 'SM B', usm: 'USM', paraA: 'Para-SM A', pa
 const stdLabel = (id) => STD_LABEL[id] || id;
 const qBadge = (id, extra = '') => `<span class="q q-${id}">${esc(stdLabel(id))}${extra}</span>`;
 
+function newFor(s) {
+  return newSince(state.data[s.id]?.all?.bests, state.seen[s.id]);
+}
+
+function markSeen(ids) {
+  for (const id of ids) {
+    const b = state.data[id]?.all?.bests;
+    if (b) state.seen[id] = bestsSnapshot(b);
+  }
+  store.set('seen', state.seen);
+}
+
 function qualRows(s) {
   return qualify(s, state.data[s.id]?.qual?.bests || []);
 }
@@ -312,6 +327,7 @@ async function loadSwimmer(s, { fresh = false } = {}) {
     api(`/api/swimmer/${s.id}`, { site: s.site, from: QUAL.windowStart, refresh }),
   ]);
   if (all.swimmer) Object.assign(s, pickSwimmer(all.swimmer, s.site));
+  if (!state.seen[s.id]) state.seen[s.id] = bestsSnapshot(all.bests);
   state.data[s.id] = { all, period, before, qual, periodKey: periodKey(), fetchedAt: Date.now(), error: null };
 }
 
@@ -437,7 +453,7 @@ function renderMain() {
   main.innerHTML = state.view === 'rank' ? rankView() : state.view === 'compare' ? compareView() : state.view === 'qual' ? qualView() : deckView();
 }
 
-const SORTS = { manual: 'sortManual', name: 'sortName', born: 'sortBorn', club: 'sortClub', newPbs: 'sortNewPbs', recent: 'sortRecent' };
+const SORTS = { manual: 'sortManual', fresh: 'sortFresh', name: 'sortName', born: 'sortBorn', club: 'sortClub', newPbs: 'sortNewPbs', recent: 'sortRecent' };
 
 function cardInfo(id) {
   const d = state.data[id];
@@ -448,7 +464,9 @@ function cardInfo(id) {
 
 function deckView() {
   const allCollapsed = state.swimmers.every((s) => state.collapsed.includes(s.id));
-  const list = sortSwimmers(state.swimmers, state.sort, cardInfo, state.lang);
+  const list = state.sort === 'fresh'
+    ? [...state.swimmers].sort((a, b) => newFor(b).length - newFor(a).length)
+    : sortSwimmers(state.swimmers, state.sort, cardInfo, state.lang);
   return `
     <div class="deck-tools">
       <div class="deck-tools-left">
@@ -459,6 +477,7 @@ function deckView() {
       </div>
       ${trashLink()}
     </div>
+    ${(() => { const n = state.swimmers.reduce((a, s) => a + newFor(s).length, 0); const who = state.swimmers.filter((s) => newFor(s).length).length; return n ? `<div class="new-banner"><span>${esc(t('newBanner', { n, who }))}</span><button class="link" data-action="seenAll">${esc(t('markSeen'))}</button></div>` : ''; })()}
     ${state.sort === 'manual' && state.swimmers.length > 1 ? `<p class="muted small drag-hint">${esc(t('dragHint'))}</p>` : ''}
     <ul class="deck" id="deck">${list.map(cardView).join('')}</ul>`;
 }
@@ -489,7 +508,8 @@ function cardView(s) {
       ? [sum.newPbs ? `<b class="good">${sum.newPbs} ${esc(t('newPbsLabel'))}</b>` : esc(t('noPbsInPeriod')),
          sum.latest ? `${esc(eventLabel(sum.latest.event, state.lang, sum.latest.name))} <span class="time">${fmtTime(sum.latest.time)}</span>` : ''].filter(Boolean).join(' · ')
       : esc(d?.error ? t('error', { msg: d.error }) : t('loading'));
-    return `<li class="card collapsed" data-open="${s.id}" tabindex="0">${head}<p class="small muted">${line}</p></li>`;
+    const fresh = newFor(s).length;
+    return `<li class="card collapsed ${fresh ? 'has-new' : ''}" data-open="${s.id}" tabindex="0">${head}<p class="small muted">${fresh ? `<span class="new-tag">${esc(t('newSince', { n: fresh }))}</span> ` : ''}${line}</p></li>`;
   }
   if (!d || !d.all) {
     return `<li class="card ${d?.error ? 'has-error' : 'loading'}" data-open="${s.id}" tabindex="0">${head}
@@ -497,7 +517,7 @@ function cardView(s) {
   }
   const sum = summarize(d.all, d.period, d.before);
   const latest = sum.latest;
-  return `<li class="card" data-open="${s.id}" tabindex="0">
+  return `<li class="card ${newFor(s).length ? 'has-new' : ''}" data-open="${s.id}" tabindex="0">
     ${head}
     <div class="stats">
       <div class="stat ${sum.newPbs ? 'good' : ''}"><b>${sum.newPbs}</b><span>${esc(t('newPbsLabel'))}</span></div>
@@ -510,6 +530,7 @@ function cardView(s) {
            <div class="muted small">${esc(latest.date)} · ${esc(latest.meet)}</div>`
         : `<span class="muted small">${esc(t('noSwims'))}</span>`}
     </div>
+    ${newBlock(s)}
     ${sum.topImprove ? `<div class="improve small"><span class="muted">${esc(t('topImprove'))}</span>
       <span><b>${esc(eventLabel(sum.topImprove.event, state.lang, sum.topImprove.name))}</b> <span class="pool">${sum.topImprove.pool} m</span>
       <b class="good">${fmtDiff(-sum.topImprove.improve)}</b> <span class="muted">(${fmtPct(sum.topImprove.improvePct)})</span></span></div>` : ''}
@@ -517,6 +538,14 @@ function cardView(s) {
     ${sum.best.length ? `<div class="best-block"><span class="muted small">${esc(t('bestEventsAqua'))}</span><div class="chips">${sum.best.map((r) => `<span class="chip"><span class="chip-name">${esc(eventLabel(r.event, state.lang, r.name))}</span><span class="chip-meta"><small>${r.pool} m</small><b>${fmtTime(r.pb.time)}</b></span></span>`).join('')}</div></div>` : ''}
     ${d.error ? `<p class="warn small">${esc(t('error', { msg: d.error }))}</p>` : ''}
   </li>`;
+}
+
+function newBlock(s) {
+  const list = newFor(s);
+  if (!list.length) return '';
+  return `<div class="new-block"><span class="new-tag">${esc(t('newSince', { n: list.length }))}</span>
+    ${list.slice(0, 3).map((b) => `<div class="small"><b>${esc(eventLabel(b.event, state.lang, b.name))}</b> <span class="pool">${b.pool} m</span> <b class="time">${fmtTime(b.time)}</b>${b.prev ? ` <span class="good">${fmtDiff(b.time - b.prev)}</span>` : ` <span class="muted">${esc(t('firstSwim'))}</span>`}</div>`).join('')}
+    ${list.length > 3 ? `<div class="small muted">${esc(t('andMore', { n: list.length - 3 }))}</div>` : ''}</div>`;
 }
 
 function qualChips(s) {
@@ -1349,6 +1378,10 @@ document.addEventListener('click', (e) => {
     save();
     return renderMain();
   }
+  if (el.dataset.action === 'seenAll') {
+    markSeen(state.swimmers.map((s) => s.id));
+    return renderMain();
+  }
   if (el.dataset.action === 'syncOpen') return openSyncDialog();
   if (el.dataset.action === 'syncCreate') return createSync();
   if (el.dataset.action === 'syncNow') return pullSync({ force: true }).then(() => toast(t('synced')));
@@ -1505,6 +1538,10 @@ document.addEventListener('change', (e) => {
 });
 
 $('#swimmerDialog').addEventListener('close', () => {
+  if (state.openId && newFor({ id: state.openId }).length) {
+    markSeen([state.openId]);
+    renderMain();
+  }
   state.openId = null;
   state.openEvent = null;
 });
