@@ -3,7 +3,7 @@ name: Deploy web app
 on:
   push:
     branches: [main]
-    paths: ['web/**', '.github/workflows/deploy-web.yml']
+    paths: ['web/**', 'package.json', '.github/workflows/deploy-web.yml']
   workflow_dispatch:
 
 permissions:
@@ -34,6 +34,9 @@ jobs:
           mkdir _site
           cp -r web/* _site/
           rm -rf _site/test
+          VERSION=$(node -p "require('./package.json').version")
+          DATE=$(TZ=Europe/Stockholm date +%F)
+          printf "export const VERSION = { version: '%s', date: '%s' };\n" "$VERSION" "$DATE" > _site/version.js
           if [ -n "$API_URL" ]; then
             printf "export const CONFIG = { api: %s };\n" "$(node -p 'JSON.stringify(process.env.API_URL)')" > _site/config.js
           fi

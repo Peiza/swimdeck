@@ -54,6 +54,9 @@ npm test
 
 Live app: https://peiza.github.io/swimdeck/
 
+The footer shows the version from `package.json` and the publish date, both written
+into `version.js` by the deploy workflow. Bump `version` in `package.json` for each release.
+
 Allowed web origins for the API are set in `worker/wrangler.toml` (`ALLOWED_ORIGINS`).
 
 ## Support

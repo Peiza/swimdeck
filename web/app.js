@@ -1,5 +1,6 @@
 import { CONFIG } from './config.js';
 import { supportLine } from './support.js';
+import { VERSION } from './version.js';
 import { LANGS, makeT, detectLang } from './i18n.js';
 import {
   eventLabel, eventSortKey, fmtTime, fmtDiff, periodRange, seasonLabel,
@@ -311,6 +312,11 @@ function rankView() {
       </li>`).join('')}</ol>` : `<p class="muted">${esc(basis === 'period' ? t('noneInPeriod') : t('noneInEvent'))}</p>`}`;
 }
 
+function versionLabel() {
+  const date = VERSION.date ? new Date(VERSION.date + 'T12:00:00Z').toLocaleDateString(state.lang, { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+  return [`v${VERSION.version}`, date].filter(Boolean).join(' · ');
+}
+
 function renderFooter() {
   $('#footer').innerHTML = `
     <div class="lang" role="group" aria-label="${esc(t('language'))}">
@@ -321,7 +327,8 @@ function renderFooter() {
       <a class="link" href="${FEEDBACK_URL}" target="_blank" rel="noopener">${esc(t('feedback'))}</a>
     </div>
     ${supportLine(t, esc)}
-    <p class="muted small">${esc(t('dataFrom'))}</p>`;
+    <p class="muted small">${esc(t('dataFrom'))}</p>
+    <p class="version">${esc(versionLabel())}</p>`;
 }
 
 // ---------------------------------------------------------------- swimmer dialog
