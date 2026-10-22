@@ -49,6 +49,10 @@ plattform och fungerar med `site=fi`.
    - ✅ Bästa grenar efter AQUA-poäng på korten
    - ✅ Jämförelse mellan upp till fyra simmare, grenvis, med export till CSV
    - ✅ Fliken Tävlingar: alla lopp per tävling, senaste först, med PB markerade
+   - ✅ Kvaltider 2026 (SM/U21-SM A och B, USM per åldersklass, Para-SM A och B per klass):
+     märken på korten och i grentabellen, "kvar till nästa", egen flik med alla tider.
+     Data i `tools/qual-source-2026.txt`, byggs med `node tools/build-qual.js 2026`.
+     Nya versioner av PDF:erna måste föras in för hand (eller via en schemalagd kontroll).
    - Klubbvy: alla simmare i en klubb, om Tempus erbjuder det på ett snällt sätt
 5. **Senare**
    - Mellantider, om de finns i Tempus
@@ -57,4 +61,4 @@ plattform och fungerar med `site=fi`.
    - Installera som app (PWA, offline)
    - "Senaste lopp" direkt på korten (kräver grensidor för alla i listan, alltså fler anrop)
    - Kortanpassning: välja vilka rutor korten visar
-   - Mål per gren (till exempel kvalgränser) och hur långt det är kvar
+   - Mål per gren (egna mål utöver kvaltiderna)

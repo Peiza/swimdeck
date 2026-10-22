@@ -1,9 +1,11 @@
 import { CONFIG } from './config.js';
 import { supportLine } from './support.js';
 import { VERSION } from './version.js';
+import { QUAL } from './qual-data.js';
+import { ORDER, qualify, qualCounts, usmAgeGroup, sexOf } from './qual.js';
 import { LANGS, makeT, detectLang } from './i18n.js';
 import {
-  eventLabel, eventShort, eventSortKey, fmtTime, fmtDiff, periodRange, seasonLabel,
+  eventLabel, eventShort, eventSortKey, eventInfo, fmtTime, fmtDiff, periodRange, seasonLabel,
   summarize, progression, parseTempusRef, rankings, rankingsByPoints, sortSwimmers,
   seasonBests, meets, compareTable, rankingsByImprovement, toCsv,
 } from './lib.js';
@@ -51,6 +53,10 @@ const state = {
   meetsShown: 5,
   compareIds: store.get('compareIds', []),
   comparePool: store.get('comparePool', 25),
+  qComp: store.get('qComp', 'sm'),
+  qSex: store.get('qSex', 'W'),
+  qPool: store.get('qPool', 25),
+  qClass: store.get('qClass', 9),
 };
 
 let t = makeT(state.lang);
@@ -84,6 +90,15 @@ function save() {
   store.set('trash', state.trash);
   store.set('compareIds', state.compareIds);
   store.set('comparePool', state.comparePool);
+  for (const k of ['qComp', 'qSex', 'qPool', 'qClass']) store.set(k, state[k]);
+}
+
+const STD_LABEL = { smA: 'SM A', smB: 'SM B', usm: 'USM', paraA: 'Para-SM A', paraB: 'Para-SM B' };
+const stdLabel = (id) => STD_LABEL[id] || id;
+const qBadge = (id, extra = '') => `<span class="q q-${id}">${esc(stdLabel(id))}${extra}</span>`;
+
+function qualRows(s) {
+  return qualify(s, state.data[s.id]?.qual?.bests || []);
 }
 
 const ICON = {
@@ -115,13 +130,14 @@ async function loadSwimmer(s, { fresh = false } = {}) {
   const { from, to } = periodRange(state.period);
   const refresh = fresh ? 1 : '';
   const dayBefore = new Date(Date.parse(from) - 86400000).toISOString().slice(0, 10);
-  const [all, period, before] = await Promise.all([
+  const [all, period, before, qual] = await Promise.all([
     api(`/api/swimmer/${s.id}`, { site: s.site, refresh }),
     api(`/api/swimmer/${s.id}`, { site: s.site, from, to, refresh }),
     api(`/api/swimmer/${s.id}`, { site: s.site, from: '1990-01-01', to: dayBefore, refresh }),
+    api(`/api/swimmer/${s.id}`, { site: s.site, from: QUAL.windowStart, refresh }),
   ]);
   if (all.swimmer) Object.assign(s, pickSwimmer(all.swimmer, s.site));
-  state.data[s.id] = { all, period, before, periodKey: periodKey(), fetchedAt: Date.now(), error: null };
+  state.data[s.id] = { all, period, before, qual, periodKey: periodKey(), fetchedAt: Date.now(), error: null };
 }
 
 function pickSwimmer(sw, site) {
@@ -156,7 +172,7 @@ async function refreshAll({ fresh = false, only = null } = {}) {
 
 function needsLoad(s) {
   const d = state.data[s.id];
-  return !d || !d.all || !d.before || d.periodKey !== periodKey() || Date.now() - (d.fetchedAt || 0) > STALE_MS;
+  return !d || !d.all || !d.before || !d.qual || d.periodKey !== periodKey() || Date.now() - (d.fetchedAt || 0) > STALE_MS;
 }
 
 async function loadEvent(s, code) {
@@ -204,6 +220,7 @@ function renderHeader() {
       <button role="tab" data-view="deck" aria-selected="${state.view === 'deck'}">${esc(t('deck'))} <span class="count">${state.swimmers.length}</span></button>
       <button role="tab" data-view="rank" aria-selected="${state.view === 'rank'}">${esc(t('toplist'))}</button>
       <button role="tab" data-view="compare" aria-selected="${state.view === 'compare'}">${esc(t('compare'))}</button>
+      <button role="tab" data-view="qual" aria-selected="${state.view === 'qual'}">${esc(t('qualTab'))}</button>
       <span class="spacer"></span>
       <span class="muted small">${esc(t('updated', { when: last ? new Date(last).toLocaleString(state.lang, { dateStyle: 'short', timeStyle: 'short' }) : t('never') }))}</span>
     </nav>`;
@@ -213,6 +230,10 @@ function renderMain() {
   const main = $('#main');
   if (CONFIG.api == null) {
     main.innerHTML = `<div class="empty"><p>${esc(t('apiMissing'))}</p></div>`;
+    return;
+  }
+  if (!state.swimmers.length && state.view === 'qual') {
+    main.innerHTML = qualView();
     return;
   }
   if (!state.swimmers.length) {
@@ -226,7 +247,7 @@ function renderMain() {
       </div>`;
     return;
   }
-  main.innerHTML = state.view === 'rank' ? rankView() : state.view === 'compare' ? compareView() : deckView();
+  main.innerHTML = state.view === 'rank' ? rankView() : state.view === 'compare' ? compareView() : state.view === 'qual' ? qualView() : deckView();
 }
 
 const SORTS = { manual: 'sortManual', name: 'sortName', born: 'sortBorn', club: 'sortClub', newPbs: 'sortNewPbs', recent: 'sortRecent' };
@@ -305,9 +326,18 @@ function cardView(s) {
     ${sum.topImprove ? `<div class="improve small"><span class="muted">${esc(t('topImprove'))}</span>
       <span><b>${esc(eventLabel(sum.topImprove.event, state.lang, sum.topImprove.name))}</b> <span class="pool">${sum.topImprove.pool} m</span>
       <b class="good">${fmtDiff(-sum.topImprove.improve)}</b> <span class="muted">(${fmtPct(sum.topImprove.improvePct)})</span></span></div>` : ''}
+    ${qualChips(s)}
     ${sum.best.length ? `<div class="best-block"><span class="muted small">${esc(t('bestEventsAqua'))}</span><div class="chips">${sum.best.map((r) => `<span class="chip"><span class="chip-name">${esc(eventLabel(r.event, state.lang, r.name))}</span><span class="chip-meta"><small>${r.pool} m</small><b>${fmtTime(r.pb.time)}</b></span></span>`).join('')}</div></div>` : ''}
     ${d.error ? `<p class="warn small">${esc(t('error', { msg: d.error }))}</p>` : ''}
   </li>`;
+}
+
+function qualChips(s) {
+  const counts = qualCounts(qualRows(s));
+  const ids = ORDER.filter((id) => counts[id]);
+  if (!ids.length) return '';
+  return `<div class="qual-block"><span class="muted small">${esc(t('qualTitle', { year: QUAL.year }))}</span>
+    <div class="qchips">${ids.map((id) => qBadge(id, ` <b>×${counts[id]}</b>`)).join('')}</div></div>`;
 }
 
 function rankView() {
@@ -423,6 +453,58 @@ function compareCsv() {
   downloadCsv(`swimdeck-${t('compare').toLowerCase()}.csv`, [head, ...lines]);
 }
 
+function qualView() {
+  const comp = state.qComp;
+  const sex = state.qSex;
+  const pool = comp === 'para' ? 25 : state.qPool;
+  const std = (id) => QUAL.standards.find((x) => x.id === id);
+  const cls = state.qClass;
+  const prefixFor = (code) => { const st = eventInfo(code).stroke; return st === 'breast' ? 'SB' : st === 'medley' ? 'SM' : 'S'; };
+  let cols, rowsFor;
+  if (comp === 'sm') {
+    cols = [['smA', 'A'], ['smB', 'B']];
+    rowsFor = (code) => cols.map(([id]) => std(id).rows.find((r) => r[0] === sex && r[1] === code)?.[2]);
+  } else if (comp === 'usm') {
+    cols = std('usm').ages.map(([a, b]) => [`usm${a}`, `${a}–${b} ${t('years')}`]);
+    rowsFor = (code) => std('usm').ages.map(([a]) => std('usm').rows.find((r) => r[0] === sex && r[1] === a && r[2] === code)?.[3]);
+  } else {
+    cols = [['paraA', 'A'], ['paraB', 'B']];
+    rowsFor = (code) => cols.map(([id]) => std(id).rows.find((r) => r[0] === sex && r[1] === prefixFor(code) + cls && r[2] === code)?.[3]);
+  }
+  const ids = comp === 'sm' ? ['smA', 'smB'] : comp === 'usm' ? ['usm'] : ['paraA', 'paraB'];
+  const codes = [...new Set(ids.flatMap((id) => std(id).rows.map((r) => r[r.length - 2])))]
+    .filter((c) => c % 2 === (pool === 25 ? 1 : 0))
+    .sort((a, b) => eventSortKey(a) - eventSortKey(b));
+  const swimmers = state.swimmers.filter((s) => sexOf(s.sex) === sex);
+  const reached = (code) => swimmers.flatMap((s) => {
+    const q = qualRows(s).find((x) => x.event === code);
+    const hit = q?.reached.find((x) => ids.includes(x.id));
+    return hit ? [{ s, hit, time: q.result.time }] : [];
+  });
+  const lines = codes.map((code) => ({ code, vals: rowsFor(code), who: reached(code) })).filter((l) => l.vals.some(Boolean));
+  const doc = std(ids[0]);
+  return `
+    <div class="rank-controls qual-controls">
+      <div class="seg" role="group">${[['sm', 'SM / U21-SM'], ['usm', 'USM'], ['para', 'Para-SM']].map(([k, v]) => `<button data-qcomp="${k}" aria-pressed="${comp === k}">${esc(v)}</button>`).join('')}</div>
+      <div class="seg" role="group">${[['W', t('women')], ['M', t('men')]].map(([k, v]) => `<button data-qsex="${k}" aria-pressed="${sex === k}">${esc(v)}</button>`).join('')}</div>
+      ${comp === 'para'
+        ? `<label class="select compact"><span class="sr">${esc(t('paraClass'))}</span><select id="qClass">${Array.from({ length: 14 }, (_, i) => `<option value="${i + 1}" ${cls === i + 1 ? 'selected' : ''}>${esc(t('classN', { n: i + 1 }))}</option>`).join('')}</select></label>`
+        : `<div class="seg" role="group">${[25, 50].map((p) => `<button data-qpool="${p}" aria-pressed="${pool === p}">${esc(t(p === 25 ? 'pool25' : 'pool50'))}</button>`).join('')}</div>`}
+    </div>
+    ${comp === 'para' ? `<p class="muted small rank-note">${esc(t('paraPools'))}</p>` : ''}
+    ${comp === 'usm' ? `<p class="muted small rank-note">${esc(t('usmAges', { year: QUAL.year }))}</p>` : ''}
+    <div class="table-scroll"><table class="compare qual-table">
+      <thead><tr><th>${esc(t('event'))}</th>${cols.map(([, label]) => `<th class="num">${esc(label)}</th>`).join('')}<th>${esc(t('reachedBy'))}</th></tr></thead>
+      <tbody>${lines.map((l) => `<tr><th scope="row">${esc(eventLabel(l.code, state.lang))}${comp === 'para' ? ` <small class="muted">${prefixFor(l.code)}${cls}</small>` : ''}</th>
+        ${l.vals.map((v) => `<td class="num">${v ? fmtTime(v) : '<span class="muted">–</span>'}</td>`).join('')}
+        <td class="who-cell">${l.who.map((w) => `<button class="pick small-pick" data-open="${w.s.id}" title="${esc(w.s.name)} · ${fmtTime(w.time)}">${esc(String(w.s.name).split(' ')[0])} ${qBadge(w.hit.id)}</button>`).join('')}</td></tr>`).join('')}</tbody>
+    </table></div>
+    <div class="qual-source small muted">
+      <p>${esc(t('qualWindow', { from: QUAL.windowStart }))}</p>
+      <p>${esc(t('qualSource', { version: doc.version, checked: QUAL.checked }))} <a href="${doc.doc}" target="_blank" rel="noopener">PDF ↗</a> · <a href="${QUAL.page}" target="_blank" rel="noopener">svensksimidrott.se ↗</a></p>
+    </div>`;
+}
+
 function versionLabel() {
   const date = VERSION.date ? new Date(VERSION.date + 'T12:00:00Z').toLocaleDateString(state.lang, { year: 'numeric', month: 'short', day: 'numeric' }) : '';
   return [`v${VERSION.version}`, date].filter(Boolean).join(' · ');
@@ -464,6 +546,7 @@ function renderSwimmerDialog() {
   const d = state.data[s.id];
   const sum = d?.all ? summarize(d.all, d.period, d.before) : null;
   const rows = sum ? sum.rows.filter((r) => r.pool === state.openPool) : [];
+  state.qualByEvent = Object.fromEntries(qualRows(s).map((q) => [q.event, q]));
   const pools = sum ? [...new Set(sum.rows.map((r) => r.pool))] : [];
   const base = s.site === 'fi' ? 'https://www.tempusopen.fi' : 'https://www.tempusopen.se';
   dlg.innerHTML = `
@@ -489,6 +572,7 @@ function renderSwimmerDialog() {
         <thead><tr><th>${esc(t('event'))}</th><th class="num">${esc(t('pb'))}</th><th class="num">${esc(t('periodBest'))}</th><th class="num hide-sm">${esc(t('points'))}</th></tr></thead>
         <tbody>${rows.map((r) => eventRow(s, r)).join('')}</tbody>
       </table>`}`}
+      ${paraSettings(s)}
       <footer class="sheet-foot">
         <a href="${base}/swimmers/${s.id}/swimming" target="_blank" rel="noopener">${esc(t('openTempus'))} ↗</a>
         <button class="link danger" data-action="remove">${esc(t('remove'))}</button>
@@ -496,6 +580,13 @@ function renderSwimmerDialog() {
     </div>`;
   if (state.openTab === 'meets') fillMeets(s);
   else if (state.openEvent) fillEventDetail(s, state.openEvent);
+}
+
+function paraSettings(s) {
+  const p = s.para || {};
+  const sel = (k) => `<label class="select compact"><span>${k}</span><select data-para="${k}"><option value="">–</option>${Array.from({ length: 14 }, (_, i) => `<option value="${i + 1}" ${Number(p[k]) === i + 1 ? 'selected' : ''}>${k}${i + 1}</option>`).join('')}</select></label>`;
+  return `<details class="para-set" ${s.para ? 'open' : ''}><summary class="small muted">${esc(t('paraClass'))}</summary>
+    <p class="small muted">${esc(t('paraHint'))}</p><div class="row">${['S', 'SB', 'SM'].map(sel).join('')}</div></details>`;
 }
 
 async function fillMeets(s) {
@@ -545,9 +636,11 @@ async function fillMeets(s) {
 
 function eventRow(s, r) {
   const open = state.openEvent === r.event;
+  const q = (state.qualByEvent || {})[r.event];
+  const qHtml = q ? `${q.best.map((x) => ' ' + qBadge(x.id)).join('')}${q.next && q.next.gap / q.result.time < 0.08 ? `<small class="qnext">${esc(t('toNext', { std: stdLabel(q.next.id), gap: fmtTime(q.next.gap) }))}</small>` : ''}` : '';
   return `
     <tr class="ev ${r.newPb ? 'pb' : ''} ${open ? 'open' : ''}" data-event="${r.event}" tabindex="0" aria-expanded="${open}">
-      <td><span class="chev" aria-hidden="true">›</span>${esc(eventLabel(r.event, state.lang, r.name))}${r.newPb ? ` <span class="badge">${esc(t('newPb'))}${r.improve ? ' ' + fmtDiff(-r.improve) : ''}</span>` : ''}</td>
+      <td><span class="chev" aria-hidden="true">›</span>${esc(eventLabel(r.event, state.lang, r.name))}${r.newPb ? ` <span class="badge">${esc(t('newPb'))}${r.improve ? ' ' + fmtDiff(-r.improve) : ''}</span>` : ''}${qHtml}</td>
       <td class="num"><b>${r.pb ? fmtTime(r.pb.time) : '–'}</b><small>${esc(r.pb?.date || '')}</small></td>
       <td class="num">${r.period ? `${fmtTime(r.period.time)}<small class="${r.diff > 0 ? '' : 'good'}">${r.diff != null ? fmtDiff(r.diff) : ''}</small>` : '<span class="muted">–</span>'}</td>
       <td class="num hide-sm">${r.pb?.points || ''}</td>
@@ -868,6 +961,21 @@ document.addEventListener('click', (e) => {
     save();
     return renderMain();
   }
+  if (el.dataset.qcomp) {
+    state.qComp = el.dataset.qcomp;
+    save();
+    return renderMain();
+  }
+  if (el.dataset.qsex) {
+    state.qSex = el.dataset.qsex;
+    save();
+    return renderMain();
+  }
+  if (el.dataset.qpool) {
+    state.qPool = Number(el.dataset.qpool);
+    save();
+    return renderMain();
+  }
   if (el.dataset.action === 'csvRank') return rankCsv();
   if (el.dataset.action === 'csvCompare') return compareCsv();
   if (el.dataset.collapse) {
@@ -947,6 +1055,23 @@ document.addEventListener('change', (e) => {
     store.set('period', state.period);
     render();
     refreshAll({ only: state.swimmers.filter(needsLoad) });
+  }
+  if (e.target.id === 'qClass') {
+    state.qClass = Number(e.target.value);
+    save();
+    renderMain();
+  }
+  if (e.target.dataset?.para) {
+    const s = state.swimmers.find((x) => x.id === state.openId);
+    if (s) {
+      const p = { ...(s.para || {}) };
+      if (e.target.value) p[e.target.dataset.para] = Number(e.target.value);
+      else delete p[e.target.dataset.para];
+      s.para = Object.keys(p).length ? p : undefined;
+      save();
+      renderSwimmerDialog();
+      renderMain();
+    }
   }
   if (e.target.id === 'sortMode') {
     state.sort = e.target.value;
