@@ -260,3 +260,15 @@ tr.detail td { background: var(--surface-2); padding: 12px; }
 .hits li > span.row { display: flex; flex: none; }
 
 .version { font-size: 11px; color: var(--muted); opacity: 0.8; margin-top: -4px; font-variant-numeric: tabular-nums; }
+
+/* ---------- sorting and drag */
+.deck { align-items: start; }
+.deck-tools-left { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.deck-tools .select select { min-height: 36px; font-size: 14px; width: auto; }
+.drag-hint { margin: -4px 0 10px; }
+.drag-handle { cursor: grab; touch-action: none; }
+.drag-handle:active { cursor: grabbing; }
+.card.dragging { opacity: 0.65; outline: 2px dashed var(--accent); outline-offset: 2px; }
+body:has(.card.dragging) { user-select: none; -webkit-user-select: none; }
+.deck-tools { align-items: flex-start; }
+.deck-tools > .muted-link { min-height: 36px; }

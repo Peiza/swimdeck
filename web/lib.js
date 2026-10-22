@@ -167,3 +167,20 @@ export function rankingsByPoints(swimmers, overviews) {
   out.sort((a, b) => b.result.points - a.result.points);
   return out;
 }
+
+/**
+ * Order swimmers for the deck. 'manual' keeps the saved order.
+ * `info(id)` returns { newPbs, latest } (latest = ISO date of the latest season best) or null.
+ */
+export function sortSwimmers(swimmers, mode, info = () => null, lang = 'sv') {
+  const list = [...swimmers];
+  const name = (a, b) => (a.name || '').localeCompare(b.name || '', lang);
+  const by = {
+    name,
+    born: (a, b) => (a.born || 9999) - (b.born || 9999) || name(a, b),
+    club: (a, b) => (a.club || '\uffff').localeCompare(b.club || '\uffff', lang) || name(a, b),
+    newPbs: (a, b) => (info(b.id)?.newPbs || 0) - (info(a.id)?.newPbs || 0) || name(a, b),
+    recent: (a, b) => String(info(b.id)?.latest || '').localeCompare(String(info(a.id)?.latest || '')) || name(a, b),
+  }[mode];
+  return by ? list.sort(by) : list;
+}

@@ -4,7 +4,7 @@ import { VERSION } from './version.js';
 import { LANGS, makeT, detectLang } from './i18n.js';
 import {
   eventLabel, eventSortKey, fmtTime, fmtDiff, periodRange, seasonLabel,
-  summarize, progression, parseTempusRef, rankings, rankingsByPoints,
+  summarize, progression, parseTempusRef, rankings, rankingsByPoints, sortSwimmers,
 } from './lib.js';
 
 // ---------------------------------------------------------------- state
@@ -33,6 +33,7 @@ const state = {
   view: 'deck',
   topN: store.get('topN', 5),
   swimmers: store.get('swimmers', []),
+  sort: store.get('sort', 'manual'),
   collapsed: store.get('collapsed', []), // ids of minimised cards
   trash: store.get('trash', []).filter((x) => Date.now() - x.removedAt < TRASH_DAYS * 86400000), // { swimmer, removedAt, index }
   data: store.get('data', {}), // id -> { all, period, periodKey, fetchedAt, error }
@@ -65,6 +66,7 @@ function save() {
 
 const ICON = {
   chevron: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  grip: '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></g></svg>',
   trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
 
@@ -202,20 +204,34 @@ function renderMain() {
   main.innerHTML = state.view === 'rank' ? rankView() : deckView();
 }
 
+const SORTS = { manual: 'sortManual', name: 'sortName', born: 'sortBorn', club: 'sortClub', newPbs: 'sortNewPbs', recent: 'sortRecent' };
+
+function cardInfo(id) {
+  const d = state.data[id];
+  if (!d?.all) return null;
+  const sum = summarize(d.all, d.period);
+  return { newPbs: sum.newPbs, latest: sum.latest?.date || '' };
+}
+
 function deckView() {
   const allCollapsed = state.swimmers.every((s) => state.collapsed.includes(s.id));
+  const list = sortSwimmers(state.swimmers, state.sort, cardInfo, state.lang);
   return `
     <div class="deck-tools">
-      <button class="link" data-action="${allCollapsed ? 'expandAll' : 'collapseAll'}">${esc(t(allCollapsed ? 'expandAll' : 'collapseAll'))}</button>
+      <div class="deck-tools-left">
+        <label class="select compact"><span class="sr">${esc(t('sortBy'))}</span>
+          <select id="sortMode" aria-label="${esc(t('sortBy'))}">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}" ${k === state.sort ? 'selected' : ''}>${esc(t('sortBy'))}: ${esc(t(v))}</option>`).join('')}</select>
+        </label>
+        <button class="link" data-action="${allCollapsed ? 'expandAll' : 'collapseAll'}">${esc(t(allCollapsed ? 'expandAll' : 'collapseAll'))}</button>
+      </div>
       ${trashLink()}
     </div>
-    <ul class="deck">${state.swimmers.map(cardView).join('')}</ul>`;
+    ${state.sort === 'manual' && state.swimmers.length > 1 ? `<p class="muted small drag-hint">${esc(t('dragHint'))}</p>` : ''}
+    <ul class="deck" id="deck">${list.map(cardView).join('')}</ul>`;
 }
 
 function trashLink() {
-  return state.trash.length
-    ? `<button class="link muted-link" data-action="trash">${ICON.trash}<span>${esc(t('trashCount', { n: state.trash.length }))}</span></button>`
-    : '';
+  return `<button class="link muted-link" data-action="trash">${ICON.trash}<span>${esc(state.trash.length ? t('trashCount', { n: state.trash.length }) : t('trash'))}</span></button>`;
 }
 
 function cardView(s) {
@@ -228,6 +244,7 @@ function cardView(s) {
         <p class="muted small">${[s.born ? t('born', { year: s.born }) : '', s.club].filter(Boolean).map(esc).join(' · ')}</p>
       </div>
       <div class="card-actions">
+        ${state.sort === 'manual' && state.swimmers.length > 1 ? `<button class="icon-btn drag-handle" data-drag="${s.id}" aria-label="${esc(t('dragHint'))}" title="${esc(t('dragHint'))}">${ICON.grip}</button>` : ''}
         ${s.site !== 'se' ? `<span class="tag">${esc(s.site.toUpperCase())}</span>` : ''}
         <button class="icon-btn" data-collapse="${s.id}" aria-expanded="${!collapsed}" aria-label="${esc(t(collapsed ? 'expand' : 'collapse'))}" title="${esc(t(collapsed ? 'expand' : 'collapse'))}">${ICON.chevron}</button>
         <button class="icon-btn" data-remove="${s.id}" aria-label="${esc(t('remove'))}" title="${esc(t('remove'))}">${ICON.trash}</button>
@@ -670,6 +687,7 @@ document.addEventListener('click', (e) => {
     hideToast();
     return run && run();
   }
+  if (el.dataset.drag) return;
   if (el.dataset.collapse) {
     const id = Number(el.dataset.collapse);
     state.collapsed = state.collapsed.includes(id) ? state.collapsed.filter((x) => x !== id) : [...state.collapsed, id];
@@ -748,6 +766,11 @@ document.addEventListener('change', (e) => {
     render();
     refreshAll({ only: state.swimmers.filter(needsLoad) });
   }
+  if (e.target.id === 'sortMode') {
+    state.sort = e.target.value;
+    store.set('sort', state.sort);
+    renderMain();
+  }
   if (e.target.id === 'rankYear') {
     state.rankYear = e.target.value;
     store.set('rankYear', state.rankYear);
@@ -763,6 +786,60 @@ document.addEventListener('change', (e) => {
 $('#swimmerDialog').addEventListener('close', () => {
   state.openId = null;
   state.openEvent = null;
+});
+
+// ---------------------------------------------------------------- drag to reorder (mouse and touch)
+
+let drag = null;
+
+function finishReorder() {
+  const order = [...$('#deck').children].map((li) => Number(li.dataset.open));
+  state.swimmers.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  save();
+}
+
+document.addEventListener('pointerdown', (e) => {
+  const handle = e.target.closest('[data-drag]');
+  if (!handle || e.button > 0) return;
+  e.preventDefault();
+  const card = handle.closest('.card');
+  drag = { card, pointer: e.pointerId };
+  card.classList.add('dragging');
+  handle.setPointerCapture(e.pointerId);
+});
+
+document.addEventListener('pointermove', (e) => {
+  if (!drag || e.pointerId !== drag.pointer) return;
+  if (e.clientY < 70) window.scrollBy(0, -14);
+  else if (e.clientY > innerHeight - 70) window.scrollBy(0, 14);
+  const over = document.elementFromPoint(e.clientX, e.clientY)?.closest('#deck > .card');
+  if (!over || over === drag.card) return;
+  const items = [...over.parentElement.children];
+  const before = items.indexOf(drag.card) > items.indexOf(over);
+  over.parentElement.insertBefore(drag.card, before ? over : over.nextSibling);
+});
+
+function endDrag(e) {
+  if (!drag || e.pointerId !== drag.pointer) return;
+  drag.card.classList.remove('dragging');
+  drag = null;
+  finishReorder();
+}
+document.addEventListener('pointerup', endDrag);
+document.addEventListener('pointercancel', endDrag);
+
+// Keyboard: arrow keys on the handle move the card.
+document.addEventListener('keydown', (e) => {
+  const handle = e.target.closest?.('[data-drag]');
+  if (!handle || !['ArrowLeft', 'ArrowUp', 'ArrowRight', 'ArrowDown'].includes(e.key)) return;
+  e.preventDefault();
+  const card = handle.closest('.card');
+  const back = e.key === 'ArrowLeft' || e.key === 'ArrowUp';
+  const sib = back ? card.previousElementSibling : card.nextElementSibling;
+  if (!sib) return;
+  card.parentElement.insertBefore(card, back ? sib : sib.nextSibling);
+  finishReorder();
+  handle.focus();
 });
 
 // ---------------------------------------------------------------- start

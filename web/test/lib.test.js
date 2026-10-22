@@ -69,3 +69,20 @@ test('rankingsByPoints picks each swimmer’s best swim across events', async ()
   const out = rankingsByPoints(sw, ov);
   assert.deepEqual(out.map((x) => [x.swimmer.id, x.result.event]), [[1, 51], [2, 13]]);
 });
+
+test('sortSwimmers by name, birth year, club, new PBs and recency', async () => {
+  const { sortSwimmers } = await import('../lib.js');
+  const sw = [
+    { id: 1, name: 'Örjan', born: 2010, club: 'B' },
+    { id: 2, name: 'Anna', born: 2012, club: 'A' },
+    { id: 3, name: 'Bo', born: 2008, club: '' },
+  ];
+  const info = (id) => ({ 1: { newPbs: 2, latest: '2026-10-01' }, 2: { newPbs: 5, latest: '2026-09-01' }, 3: null })[id];
+  const ids = (m) => sortSwimmers(sw, m, info, 'sv').map((s) => s.id);
+  assert.deepEqual(ids('manual'), [1, 2, 3]);
+  assert.deepEqual(ids('name'), [2, 3, 1]);
+  assert.deepEqual(ids('born'), [3, 1, 2]);
+  assert.deepEqual(ids('club'), [2, 1, 3]);
+  assert.deepEqual(ids('newPbs'), [2, 1, 3]);
+  assert.deepEqual(ids('recent'), [1, 2, 3]);
+});
