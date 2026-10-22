@@ -57,12 +57,14 @@ plattform och fungerar med `site=fi`.
      hämtas först när grenen öppnas och cachas 6 timmar
    - Klubbvy: alla simmare i en klubb, om Tempus erbjuder det på ett snällt sätt
    - Masters: procent av världsrekordet för åldersgruppen (World Aquatics mastersrekord)
-   - Simprofil (sprint/distans, simsätt), form (senaste loppen mot PB), inbördes möten, prognos mot kvaltid
+   - ✅ Profil: spindeldiagram per simsätt, sprint/mellan/distans, form (senaste loppen mot PB)
+   - ✅ Prognos: när nästa kvaltid nås i nuvarande takt (trend senaste 24 mån)
+   - ✅ Inbördes möten mellan två simmare i Jämför
 5. **Senare**
    - Mellantider, om de finns i Tempus
    - Synka listan mellan enheter (idag delas den som länk, en ögonblicksbild)
    - Notiser om nya personbästa
-   - Installera som app (PWA, offline)
+   - ✅ Installera som app (service worker, fungerar offline med senast hämtade data)
    - "Senaste lopp" direkt på korten (kräver grensidor för alla i listan, alltså fler anrop)
    - Kortanpassning: välja vilka rutor korten visar
    - Mål per gren (egna mål utöver kvaltiderna)

@@ -152,3 +152,45 @@ test('25 m events do not count as improvements', async () => {
   assert.equal(s.topImprove, null);
   assert.equal(s.newPbs, 1);
 });
+
+test('profile: strokes and distance type', async () => {
+  const { profile } = await import('../lib.js');
+  const p = profile([r(11, 25, 2500, 'd', 700), r(13, 25, 5600, 'd', 650), r(17, 25, 26000, 'd', 500), r(43, 25, 6000, 'd', 720), r(4, 25, 1100, 'd', 900)]);
+  assert.equal(p.strokes.back, 720);
+  assert.equal(p.strokes.free, 700);
+  assert.equal(p.best, 'back');
+  assert.deepEqual(p.dist, { sprint: 700, middle: 720, distance: 500 });
+  assert.equal(p.type, 'allround');
+  assert.equal(profile([r(11, 25, 2500, 'd', 800), r(13, 25, 5600, 'd', 650)]).type, 'sprint');
+});
+
+test('form compares recent swims with the PB before them', async () => {
+  const { form } = await import('../lib.js');
+  const ev = { results: [r(11, 25, 3000, '2025-01-01'), r(11, 25, 3030, '2025-02-01'), r(11, 25, 2970, '2025-03-01')] };
+  const f = form([ev], 8);
+  assert.equal(f.recent.length, 2);
+  assert.equal(f.pbs, 1);
+  assert.ok(Math.abs(f.recent[0].pct - -1) < 1e-9);
+  assert.ok(Math.abs(f.recent[1].pct - 1) < 1e-9);
+});
+
+test('prognosis projects a steady improvement', async () => {
+  const { prognosis } = await import('../lib.js');
+  const today = new Date('2026-10-01T00:00:00Z');
+  // one second (100) better every ~100 days
+  const res = [0, 100, 200, 300, 400].map((d, i) => ({ ...r(13, 25, 6400 - i * 100, new Date(Date.UTC(2025, 6, 1) + d * 86400000).toISOString().slice(0, 10)), meet: 'M' + i }));
+  const p = prognosis(res, 5900, today);
+  assert.ok(p && p.date > '2026-10-01' && p.date < '2027-12-31');
+  assert.equal(prognosis(res.map((x, i) => ({ ...x, time: 6000 + i * 50 })), 5900, today), null);
+});
+
+test('head-to-head matches the same race', async () => {
+  const { headToHead } = await import('../lib.js');
+  const a = [{ pool: 25, results: [{ ...r(11, 25, 3000, '2026-01-01'), meet: 'X', round: 'Final' }, { ...r(11, 25, 3100, '2026-02-01'), meet: 'Y', round: 'Final' }] }];
+  const b = [{ pool: 25, results: [{ ...r(11, 25, 3050, '2026-01-01'), meet: 'X', round: 'Final' }, { ...r(11, 25, 3000, '2026-02-01'), meet: 'Y', round: 'Final' }, { ...r(11, 25, 2900, '2026-03-01'), meet: 'Z', round: 'Final' }] }];
+  const h = headToHead(a, b);
+  assert.equal(h.races.length, 2);
+  assert.equal(h.a, 1);
+  assert.equal(h.b, 1);
+  assert.equal(h.races[0].meet, 'Y');
+});

@@ -305,3 +305,104 @@ export function toCsv(rows) {
   };
   return '\ufeff' + rows.map((r) => r.map(cell).join(';')).join('\r\n') + '\r\n';
 }
+
+// ---------------------------------------------------------------- profile, form, prognosis, head-to-head
+
+const STROKES_ORDER = ['free', 'back', 'breast', 'fly', 'medley'];
+
+/**
+ * Swimmer profile from personal bests: best AQUA points per stroke and per distance class
+ * (sprint 50 m, middle 100–200 m, distance 400 m+). 25 m events are left out.
+ */
+export function profile(bests) {
+  const strokes = Object.fromEntries(STROKES_ORDER.map((s) => [s, 0]));
+  const dist = { sprint: 0, middle: 0, distance: 0 };
+  for (const b of bests || []) {
+    const e = eventInfo(b.event, b.name);
+    if (!e.stroke || !e.dist || e.dist <= 25 || !b.points) continue;
+    strokes[e.stroke] = Math.max(strokes[e.stroke], b.points);
+    const cls = e.dist <= 50 ? 'sprint' : e.dist <= 200 ? 'middle' : 'distance';
+    dist[cls] = Math.max(dist[cls], b.points);
+  }
+  const top = Object.entries(strokes).sort((a, b) => b[1] - a[1])[0];
+  const d = Object.entries(dist).filter(([, v]) => v).sort((a, b) => b[1] - a[1]);
+  // A clear type only when the best class leads the next by more than 3 %.
+  const type = d.length >= 2 && d[0][1] > d[1][1] * 1.03 ? d[0][0] : d.length ? 'allround' : null;
+  return { strokes, dist, best: top && top[1] ? top[0] : null, type };
+}
+
+/**
+ * Form: how close recent swims are to the personal best that stood before each swim.
+ * Uses the last `n` swims (25 m events excluded). Positive pct = slower than PB.
+ */
+export function form(eventPayloads, n = 8) {
+  const swims = [];
+  for (const ev of eventPayloads || []) {
+    const sorted = [...(ev?.results || [])].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    let best = Infinity;
+    for (const r of sorted) {
+      const e = eventInfo(r.event, r.name);
+      if (best < Infinity && e.dist > 25) swims.push({ ...r, pct: ((r.time - best) / best) * 100 });
+      best = Math.min(best, r.time);
+    }
+  }
+  swims.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const recent = swims.slice(0, n);
+  const prev = swims.slice(n, n * 2);
+  const avg = (l) => (l.length ? l.reduce((s, x) => s + x.pct, 0) / l.length : null);
+  return { recent, avg: avg(recent), prevAvg: avg(prev), pbs: recent.filter((x) => x.pct < 0).length };
+}
+
+/**
+ * When will the swimmer reach `target` at the current rate? Linear trend of the best time per
+ * meet over the last `months` months. Returns an ISO date, or null without a clear improving trend.
+ */
+export function prognosis(results, target, today = new Date(), months = 24) {
+  const since = new Date(today);
+  since.setUTCMonth(since.getUTCMonth() - months);
+  const byMeet = new Map();
+  for (const r of results || []) {
+    if (!r.date || Date.parse(r.date) < since.getTime()) continue;
+    const k = `${r.meet}|${r.date.slice(0, 7)}`;
+    if (!byMeet.has(k) || r.time < byMeet.get(k).time) byMeet.set(k, r);
+  }
+  const pts = [...byMeet.values()].map((r) => ({ x: Date.parse(r.date) / 86400000, y: r.time }));
+  if (pts.length < 4) return null;
+  const n = pts.length;
+  const mx = pts.reduce((s, p) => s + p.x, 0) / n;
+  const my = pts.reduce((s, p) => s + p.y, 0) / n;
+  const sxx = pts.reduce((s, p) => s + (p.x - mx) ** 2, 0);
+  if (!sxx) return null;
+  const slope = pts.reduce((s, p) => s + (p.x - mx) * (p.y - my), 0) / sxx; // hundredths per day
+  if (slope >= 0) return null;
+  const now = today.getTime() / 86400000;
+  const current = my + slope * (now - mx);
+  if (current <= target) return { date: today.toISOString().slice(0, 10), slope, current };
+  const days = (target - current) / slope;
+  if (days > 3 * 365) return null;
+  return { date: new Date((now + days) * 86400000).toISOString().slice(0, 10), slope, current };
+}
+
+/**
+ * Head-to-head: races where both swimmers swam the same event, pool, meet and date
+ * (heats and finals counted separately when the round matches).
+ */
+export function headToHead(aEvents, bEvents) {
+  const key = (r) => `${r.event}|${r.pool}|${r.meet}|${r.date}|${r.round || ''}`;
+  const bMap = new Map();
+  for (const ev of bEvents || []) for (const r of ev?.results || []) bMap.set(key({ ...r, pool: r.pool ?? ev.pool }), r);
+  const races = [];
+  for (const ev of aEvents || []) {
+    for (const r of ev?.results || []) {
+      const other = bMap.get(key({ ...r, pool: r.pool ?? ev.pool }));
+      if (other) races.push({ event: r.event, name: r.name, pool: r.pool ?? ev.pool, meet: r.meet, date: r.date, round: r.round, a: r.time, b: other.time });
+    }
+  }
+  races.sort((x, y) => String(y.date).localeCompare(String(x.date)));
+  return {
+    races,
+    a: races.filter((r) => r.a < r.b).length,
+    b: races.filter((r) => r.b < r.a).length,
+    ties: races.filter((r) => r.a === r.b).length,
+  };
+}

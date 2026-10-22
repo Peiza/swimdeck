@@ -7,7 +7,7 @@ import { LANGS, makeT, detectLang } from './i18n.js';
 import {
   eventLabel, eventShort, eventSortKey, eventInfo, fmtTime, fmtDiff, periodRange, seasonLabel,
   summarize, progression, parseTempusRef, rankings, rankingsByPoints, sortSwimmers,
-  seasonBests, meets, compareTable, rankingsByImprovement, toCsv,
+  seasonBests, meets, compareTable, rankingsByImprovement, toCsv, profile, form, prognosis, headToHead,
 } from './lib.js';
 
 // ---------------------------------------------------------------- state
@@ -68,6 +68,11 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const sexLabel = (x) => (/^(wo|fe|kvin|dam|nai|flick|tyt)/i.test(x || '') ? t('women') : x ? t('men') : '');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
+const shortDate = (iso) => {
+  const d = new Date(iso + 'T12:00:00Z');
+  const sameYear = d.getUTCFullYear() === new Date().getUTCFullYear();
+  return d.toLocaleDateString(state.lang, sameYear ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: '2-digit' });
+};
 const fmtPct = (p) => `−${p.toLocaleString(undefined, { maximumFractionDigits: 1, minimumFractionDigits: 1 })} %`;
 
 function downloadCsv(name, rows) {
@@ -440,7 +445,41 @@ function compareView() {
       <tbody>${table.map((row) => `<tr><th scope="row">${esc(eventLabel(row.event, state.lang, row.name))}</th>${row.cells.map((c) => c
         ? `<td class="num ${c.time === row.fastest && chosen.length > 1 ? 'fastest' : ''}"><b>${fmtTime(c.time)}</b>${c.time !== row.fastest ? `<small>${fmtDiff(c.time - row.fastest)}</small>` : `<small>${esc(c.date.slice(0, 4))}</small>`}</td>`
         : '<td class="num muted">–</td>').join('')}</tr>`).join('')}</tbody>
-    </table></div>` : `<p class="muted">${esc(t('noneInEvent'))}</p>`}`;
+    </table></div>` : `<p class="muted">${esc(t('noneInEvent'))}</p>`}
+    ${chosen.length === 2 ? `<div class="h2h"><h3 class="small">${esc(t('h2hTitle', { a: first(chosen[0].name), b: first(chosen[1].name) }))}</h3>
+      <div id="h2hBox"><button class="btn small" data-action="h2h">${esc(t('h2hShow'))}</button><p class="muted small">${esc(t('h2hHint'))}</p></div></div>` : `<p class="muted small h2h-hint">${esc(t('h2hPickTwo'))}</p>`}`;
+}
+
+async function fillH2h() {
+  const ids = compareSelection();
+  if (ids.length !== 2) return;
+  const [a, b] = ids.map((id) => state.swimmers.find((s) => s.id === id));
+  const box = () => (state.view === 'compare' ? $('#h2hBox') : null);
+  const codesOf = (s) => new Set((state.data[s.id]?.all?.bests || []).map((x) => x.event));
+  const shared = [...codesOf(a)].filter((c) => codesOf(b).has(c));
+  if (!shared.length) {
+    if (box()) box().innerHTML = `<p class="muted small">${esc(t('h2hNone'))}</p>`;
+    return;
+  }
+  let doneA = 0, doneB = 0;
+  const progress = () => box() && (box().innerHTML = `<p class="muted small">${esc(t('loadingMeets', { done: doneA + doneB, total: shared.length * 2 }))}</p>`);
+  const [ra, rb] = await Promise.all([
+    loadAllEvents(a, (d) => { doneA = d; progress(); }, shared),
+    loadAllEvents(b, (d) => { doneB = d; progress(); }, shared),
+  ]);
+  if (!box()) return;
+  const h = headToHead(ra.results, rb.results);
+  const first = (n) => esc(String(n || '').split(' ')[0]);
+  if (!h.races.length) {
+    box().innerHTML = `<p class="muted small">${esc(t('h2hNone'))}</p>`;
+    return;
+  }
+  box().innerHTML = `
+    <div class="h2h-score"><span><b>${first(a.name)}</b> ${h.a}</span><span class="muted">–</span><span>${h.b} <b>${first(b.name)}</b></span>${h.ties ? `<span class="small muted">(${esc(t('h2hTies', { n: h.ties }))})</span>` : ''}</div>
+    <ol class="meets">${h.races.slice(0, 30).map((r) => `
+      <li class="h2h-race"><span class="small muted">${esc(r.date)} · ${esc(r.meet)}${r.round ? ' · ' + esc(r.round) : ''}</span>
+        <span>${esc(eventLabel(r.event, state.lang, r.name))} <span class="pool">${r.pool} m</span></span>
+        <span class="num"><b class="${r.a < r.b ? 'good' : ''}">${fmtTime(r.a)}</b> – <b class="${r.b < r.a ? 'good' : ''}">${fmtTime(r.b)}</b></span></li>`).join('')}</ol>`;
 }
 
 function compareCsv() {
@@ -561,8 +600,9 @@ function renderSwimmerDialog() {
       <nav class="tabs sheet-tabs" role="tablist">
         <button role="tab" data-otab="events" aria-selected="${state.openTab === 'events'}">${esc(t('tabEvents'))}</button>
         <button role="tab" data-otab="meets" aria-selected="${state.openTab === 'meets'}">${esc(t('tabMeets'))}</button>
+        <button role="tab" data-otab="profile" aria-selected="${state.openTab === 'profile'}">${esc(t('tabProfile'))}</button>
       </nav>
-      ${state.openTab === 'meets' ? `<div id="meetsBox"><p class="muted">${esc(t('loading'))}</p></div>` : `
+      ${state.openTab === 'profile' ? profileView(s) : state.openTab === 'meets' ? `<div id="meetsBox"><p class="muted">${esc(t('loading'))}</p></div>` : `
       <div class="sheet-tools">
         <div class="seg" role="tablist">${pools.sort().map((p) => `<button data-pool="${p}" aria-pressed="${p === state.openPool}">${esc(t(p === 25 ? 'pool25' : 'pool50'))}</button>`).join('')}</div>
         <span class="muted small">${esc(t('periodBest'))}: ${esc(seasonLabel(state.period))}</span>
@@ -579,7 +619,82 @@ function renderSwimmerDialog() {
       </footer>
     </div>`;
   if (state.openTab === 'meets') fillMeets(s);
+  else if (state.openTab === 'profile') fillForm(s);
   else if (state.openEvent) fillEventDetail(s, state.openEvent);
+}
+
+const STROKE_KEYS = ['free', 'back', 'breast', 'fly', 'medley'];
+
+function profileView(s) {
+  const d = state.data[s.id];
+  if (!d?.all) return `<p class="muted">${esc(t('loading'))}</p>`;
+  const p = profile(d.all.bests);
+  if (!p.best) return `<p class="muted">${esc(t('profileEmpty'))}</p>`;
+  const max = Math.max(...Object.values(p.strokes), 1);
+  const distMax = Math.max(...Object.values(p.dist), 1);
+  return `
+    <div class="profile">
+      <div class="profile-radar">${radar(p.strokes)}</div>
+      <div class="profile-facts">
+        <p><span class="muted small">${esc(t('strongest'))}</span><br><b>${esc(t('stroke_' + p.best))}</b> · ${p.strokes[p.best]} p</p>
+        ${p.type ? `<p><span class="muted small">${esc(t('swimmerType'))}</span><br><b>${esc(t('type_' + p.type))}</b></p>` : ''}
+        <div class="bars">${['sprint', 'middle', 'distance'].map((k) => `
+          <div class="bar-row"><span class="small">${esc(t('dist_' + k))}</span>
+            <span class="bar"><span style="width:${Math.round((p.dist[k] / distMax) * 100)}%"></span></span>
+            <span class="small num">${p.dist[k] || '–'}</span></div>`).join('')}</div>
+        <div class="bars">${STROKE_KEYS.map((k) => `
+          <div class="bar-row"><span class="small">${esc(t('stroke_' + k))}</span>
+            <span class="bar"><span style="width:${Math.round((p.strokes[k] / max) * 100)}%"></span></span>
+            <span class="small num">${p.strokes[k] || '–'}</span></div>`).join('')}</div>
+        <p class="muted small">${esc(t('profileNote'))}</p>
+      </div>
+    </div>
+    <h4 class="small muted">${esc(t('formTitle'))}</h4>
+    <div id="formBox"><p class="muted small">${esc(t('loading'))}</p></div>`;
+}
+
+function radar(strokes) {
+  const W = 220, C = 110, R = 80;
+  const keys = STROKE_KEYS;
+  const max = Math.max(...keys.map((k) => strokes[k]), 1);
+  // Scale from 70 % of the best stroke, so differences between strokes are visible.
+  const floor = max * 0.7;
+  const scale = (v) => (v ? 0.12 + 0.88 * Math.max(0, (v - floor) / (max - floor || 1)) : 0);
+  const pt = (i, v) => {
+    const a = -Math.PI / 2 + (i * 2 * Math.PI) / keys.length;
+    return [C + Math.cos(a) * R * v, C + Math.sin(a) * R * v];
+  };
+  const ring = (v) => keys.map((_, i) => pt(i, v).map((n) => n.toFixed(1)).join(',')).join(' ');
+  const poly = keys.map((k, i) => pt(i, scale(strokes[k])).map((n) => n.toFixed(1)).join(',')).join(' ');
+  return `<svg viewBox="0 0 ${W} ${W}" class="radar" role="img" aria-label="${esc(t('tabProfile'))}">
+    ${[0.25, 0.5, 0.75, 1].map((v) => `<polygon points="${ring(v)}" class="radar-ring"/>`).join('')}
+    ${keys.map((_, i) => { const [x, y] = pt(i, 1); return `<line x1="${C}" y1="${C}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" class="radar-ring"/>`; }).join('')}
+    <polygon points="${poly}" class="radar-area"/>
+    ${keys.map((k, i) => { const [x, y] = pt(i, 1.22); return `<text x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="middle" class="radar-label">${esc(t('stroke_' + k))}</text>`; }).join('')}
+  </svg>`;
+}
+
+async function fillForm(s) {
+  const box = () => (state.openId === s.id && state.openTab === 'profile' ? $('#formBox') : null);
+  const { results, failed } = await loadAllEvents(s, (done, total) => {
+    if (box() && done < total) box().innerHTML = `<p class="muted small">${esc(t('loadingMeets', { done, total }))}</p>`;
+  });
+  if (!box()) return;
+  const f = form(results);
+  if (!f.recent.length) {
+    box().innerHTML = `<p class="muted small">${esc(t('formEmpty'))}</p>`;
+    return;
+  }
+  const pct = (v) => `${v > 0 ? '+' : v < 0 ? '−' : '±'}${Math.abs(v).toLocaleString(state.lang, { maximumFractionDigits: 1, minimumFractionDigits: 1 })} %`;
+  const level = f.avg <= 0.5 ? 'top' : f.avg <= 2 ? 'good' : f.avg <= 4 ? 'ok' : 'low';
+  const trend = f.prevAvg == null ? '' : f.avg < f.prevAvg - 0.3 ? 'up' : f.avg > f.prevAvg + 0.3 ? 'down' : 'flat';
+  box().innerHTML = `
+    ${failed ? `<p class="warn small">${esc(t('error', { msg: failed.message }))}</p>` : ''}
+    <div class="form-head form-${level}"><b>${esc(t('form_' + level))}</b>
+      <span class="small">${esc(t('formAvg', { pct: pct(f.avg), n: f.recent.length }))}${trend ? ' · ' + esc(t('trend_' + trend)) : ''}</span></div>
+    <ol class="top form-list">${f.recent.map((w) => `
+      <li><span class="small muted nowrap">${esc(shortDate(w.date))}</span><span>${esc(eventLabel(w.event, state.lang, w.name))} <span class="pool">${w.pool} m</span></span>
+      <span class="time">${fmtTime(w.time)}</span><span class="small num ${w.pct < 0 ? 'good' : 'muted'}">${w.pct < 0 ? esc(t('newPb')) : pct(w.pct)}</span></li>`).join('')}</ol>`;
 }
 
 function paraSettings(s) {
@@ -589,16 +704,12 @@ function paraSettings(s) {
     <p class="small muted">${esc(t('paraHint'))}</p><div class="row">${['S', 'SB', 'SM'].map(sel).join('')}</div></details>`;
 }
 
-async function fillMeets(s) {
+/** Load every event page for a swimmer (cached per session), reporting progress. */
+async function loadAllEvents(s, onProgress = () => {}, codes = null) {
   const d = state.data[s.id];
-  const codes = [...new Set((d?.all?.bests || []).map((b) => b.event))];
-  if (!codes.length) return;
+  codes = codes || [...new Set((d?.all?.bests || []).map((b) => b.event))];
   let done = 0;
-  const box = () => (state.openId === s.id && state.openTab === 'meets' ? $('#meetsBox') : null);
-  const progress = () => {
-    if (box() && done < codes.length) box().innerHTML = `<p class="muted">${esc(t('loadingMeets', { done, total: codes.length }))}</p>`;
-  };
-  progress();
+  onProgress(done, codes.length);
   const queue = codes.slice();
   const results = [];
   let failed = null;
@@ -611,10 +722,18 @@ async function fillMeets(s) {
         failed = e;
       }
       done++;
-      progress();
+      onProgress(done, codes.length);
     }
   };
-  await Promise.all([worker(), worker(), worker(), worker()]);
+  await Promise.all([worker(), worker(), worker()]);
+  return { results, failed };
+}
+
+async function fillMeets(s) {
+  const box = () => (state.openId === s.id && state.openTab === 'meets' ? $('#meetsBox') : null);
+  const { results, failed } = await loadAllEvents(s, (done, total) => {
+    if (box() && done < total) box().innerHTML = `<p class="muted">${esc(t('loadingMeets', { done, total }))}</p>`;
+  });
   if (!box()) return;
   const list = meets(results);
   const shown = list.slice(0, state.meetsShown);
@@ -668,12 +787,23 @@ async function fillEventDetail(s, code) {
         <span class="small"><span>${esc(r.date)}</span> · <span class="muted">${esc(r.meet)}${r.round ? ' · ' + esc(r.round) : ''}</span></span>
         <span class="small muted num">${r.points || ''}</span></li>`).join('')}</ol>
       <div id="rankBox" class="rank-box"></div>
+      ${prognosisLine(s, code, ev.results)}
       ${ev.results.length > 1 ? `<h4 class="small muted">${esc(t('progression'))}</h4>${chart(ev.results)}` : ''}
       ${seasonTable(ev.results)}`;
     fillRank(s, code);
   } catch (e) {
     box.innerHTML = `<p class="warn">${esc(t('error', { msg: e.message }))}</p><button class="btn small" data-retry-event="${code}">${esc(t('retry'))}</button>`;
   }
+}
+
+function prognosisLine(s, code, results) {
+  const q = (state.qualByEvent || {})[code];
+  if (!q?.next) return '';
+  const p = prognosis(results, q.next.time);
+  const label = stdLabel(q.next.id);
+  if (!p) return `<p class="small muted prog">${esc(t('progNone', { std: label, gap: fmtTime(q.next.gap) }))}</p>`;
+  const when = new Date(p.date + 'T12:00:00Z').toLocaleDateString(state.lang, { year: 'numeric', month: 'long' });
+  return `<p class="small prog">${esc(t('progWhen', { std: label, when, gap: fmtTime(q.next.gap) }))}</p>`;
 }
 
 async function fillRank(s, code) {
@@ -1004,6 +1134,7 @@ document.addEventListener('click', (e) => {
     return renderMain();
   }
   if (el.dataset.action === 'csvRank') return rankCsv();
+  if (el.dataset.action === 'h2h') return fillH2h();
   if (el.dataset.action === 'csvCompare') return compareCsv();
   if (el.dataset.collapse) {
     const id = Number(el.dataset.collapse);
@@ -1180,4 +1311,7 @@ document.addEventListener('keydown', (e) => {
 
 render();
 checkImport();
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
 refreshAll({ only: state.swimmers.filter(needsLoad) });

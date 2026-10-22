@@ -13,6 +13,9 @@ Follow your swimmers: personal bests, top times, season bests and progression fr
 - Sort or drag cards, minimise them, remove with undo and a 30-day trash
 - Qualifying times 2026 (SM/U21-SM, USM, Para-SM) from Svensk Simidrott: badges on cards and events,
   time left to the next standard, and a Qualifying tab with all times
+- Swimmer profile (strokes, sprint/middle/distance), form, prognosis towards the next qualifying time,
+  head-to-head between two swimmers, national ranking by birth year
+- Installable, works offline with the last fetched data
 - Share your list as a link
 
 SwimDeck is not affiliated with Tempus Open or the Swedish Swimming Federation.
