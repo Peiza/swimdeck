@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>SwimDeck</title>
+  <meta name="description" content="Follow your swimmers: personal bests, top times and latest results from Tempus Open.">
+  <meta name="theme-color" content="#0b5cad" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b1724" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header id="header" class="wrap"></header>
+  <main id="main" class="wrap" aria-live="polite"></main>
+  <footer id="footer" class="wrap"></footer>
+
+  <dialog id="swimmerDialog" class="dialog"></dialog>
+  <dialog id="addDialog" class="dialog"></dialog>
+  <dialog id="confirmDialog" class="dialog"></dialog>
+  <div id="toast" role="status"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

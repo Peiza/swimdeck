@@ -1,0 +1,83 @@
+// Invented swimmers and results for offline development. Same JSON shape as the real API.
+
+const NAMES = [
+  ['Alva', 'Strand', 'Woman'], ['Elis', 'Bergvik', 'Man'], ['Saga', 'Lindqvist', 'Woman'], ['Noah', 'Ekberg', 'Man'],
+  ['Ines', 'Holmén', 'Woman'], ['Leo', 'Sjöberg', 'Man'], ['Mira', 'Dahl', 'Woman'], ['Otto', 'Nyström', 'Man'],
+  ['Ella', 'Vik', 'Woman'], ['Hugo', 'Falk', 'Man'], ['Juni', 'Ahlgren', 'Woman'], ['Malte', 'Rask', 'Man'],
+];
+const CLUBS = ['Exempelstadens SS', 'Simklubben Vågen', 'Havsörnarna SK'];
+
+// event code -> base time in hundredths for a strong 15-year-old
+const EVENTS = {
+  11: 2700, 13: 5900, 15: 13000, 17: 27500, 31: 3400, 33: 7400, 41: 3100, 43: 6600, 51: 2900, 53: 6400, 61: 6700, 63: 14500,
+  12: 2780, 14: 6050, 16: 13300, 34: 7600, 44: 6800, 52: 3000, 54: 6600, 64: 14900,
+};
+const NAMES_EN = { free: 'Freestyle', breast: 'Breaststroke', back: 'Backstroke', fly: 'Butterfly', medley: 'Medley' };
+const STROKE = (c) => ({ 1: 'free', 3: 'breast', 4: 'back', 5: 'fly', 6: 'medley' })[String(c).length === 2 ? Math.floor(c / 10) : 1];
+const DIST = { 11: 50, 12: 50, 13: 100, 14: 100, 15: 200, 16: 200, 17: 400, 31: 50, 33: 100, 34: 100, 41: 50, 43: 100, 44: 100, 51: 50, 52: 50, 53: 100, 54: 100, 61: 100, 63: 200, 64: 200 };
+const MEETS = ['Höstsimiaden', 'Vintercupen', 'Distriktsmästerskapen', 'Vårsimmet', 'Sommarspelen', 'Klubbmästerskapen'];
+
+function rng(seed) {
+  let s = seed >>> 0;
+  return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+}
+
+const fmt = (cs) => {
+  const m = Math.floor(cs / 6000), s = Math.floor(cs / 100) % 60, h = cs % 100;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(h).padStart(2, '0')}`;
+};
+
+function swimmer(id) {
+  const i = (id - 5000) % NAMES.length;
+  const [first, last, sex] = NAMES[Math.abs(i)];
+  return { id, name: `${first} ${last}`, firstName: first, lastName: last, born: 2008 + (id % 6), club: CLUBS[id % 3], sex };
+}
+
+function results(id, code) {
+  const r = rng(id * 1000 + code);
+  if (r() < 0.25 && ![11, 13, 51].includes(code)) return [];
+  const base = EVENTS[code] * (1 + (id % 7) * 0.025 + (swimmer(id).sex === 'Woman' ? 0.08 : 0));
+  const n = 3 + Math.floor(r() * 25);
+  const out = [];
+  for (let k = 0; k < n; k++) {
+    const daysAgo = Math.floor(r() * 365 * 5);
+    const date = new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10);
+    const ageFactor = 1 + daysAgo / 365 * 0.035; // faster over time
+    const time = Math.round(base * ageFactor * (1 + (r() - 0.3) * 0.04));
+    out.push({
+      id: id * 100000 + code * 100 + k, event: code, name: `${DIST[code]}m ${NAMES_EN[STROKE(code)]}`,
+      pool: code % 2 ? 25 : 50, time, display: fmt(time), date, meet: `${MEETS[Math.floor(r() * MEETS.length)]} ${date.slice(0, 4)}`,
+      round: r() < 0.6 ? 'Final' : 'Heat', place: 1 + Math.floor(r() * 8), points: Math.round(800 * (EVENTS[code] / time) ** 3), club: swimmer(id).club,
+    });
+  }
+  return out.sort((a, b) => a.time - b.time);
+}
+
+const delay = () => new Promise((r) => setTimeout(r, 150 + Math.random() * 300));
+
+export const mockApi = {
+  async search(_base, q) {
+    await delay();
+    const needle = [q.get('first'), q.get('last'), q.get('club')].filter(Boolean).join(' ').toLowerCase();
+    const all = NAMES.map((_, i) => swimmer(5000 + i));
+    const hits = all.filter((s) => `${s.name} ${s.club}`.toLowerCase().includes(needle.split(' ')[0] || ''));
+    return { total: hits.length, swimmers: hits };
+  },
+  async swimmer(_base, id, q) {
+    await delay();
+    id = Number(id);
+    if (!(id >= 5000 && id < 5000 + NAMES.length)) throw Object.assign(new Error('Not found'), { status: 404 });
+    const from = q.get('from') || '0000';
+    const to = q.get('to') || '9999';
+    const bests = Object.keys(EVENTS)
+      .map((c) => results(id, Number(c)).filter((r) => r.date >= from && r.date <= to)[0])
+      .filter(Boolean);
+    return { swimmer: swimmer(id), from: q.get('from'), to: q.get('to'), bests };
+  },
+  async event(_base, id, code) {
+    await delay();
+    id = Number(id);
+    code = Number(code);
+    return { swimmer: swimmer(id), event: { code, name: '' }, pool: code % 2 ? 25 : 50, results: results(id, code) };
+  },
+};

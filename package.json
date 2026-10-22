@@ -1,0 +1,10 @@
+{
+  "name": "swimdeck",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test worker/test/*.test.js web/test/*.test.js",
+    "dev": "node tools/dev-server.js",
+    "dev:mock": "node tools/dev-server.js --mock"
+  }
+}
