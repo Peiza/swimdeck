@@ -36,9 +36,6 @@ jobs:
           rm -rf _site/test
           if [ -n "$API_URL" ]; then
             printf "export const CONFIG = { api: %s };\n" "$(node -p 'JSON.stringify(process.env.API_URL)')" > _site/config.js
-          else
-            echo "::warning::Repository variable SWIMDECK_API_URL is not set, the app will show a setup message."
-            echo "export const CONFIG = { api: null };" > _site/config.js
           fi
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

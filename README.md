@@ -49,8 +49,10 @@ npm test
    *Edit Cloudflare Workers* template. Add two repository secrets:
    `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, then run the
    *Deploy API* workflow. It prints the Worker address (`https://swimdeck-api.<you>.workers.dev`).
-3. **Connect them** – add a repository *variable* `SWIMDECK_API_URL` with that address
-   and run the *Deploy web app* workflow again.
+3. **Connect them** – the API address is set in `web/config.js`. A repository *variable*
+   `SWIMDECK_API_URL` overrides it at deploy time (useful for forks).
+
+Live app: https://peiza.github.io/swimdeck/
 
 Allowed web origins for the API are set in `worker/wrangler.toml` (`ALLOWED_ORIGINS`).
 

@@ -1,6 +1,9 @@
 // Address of the SwimDeck API (the Cloudflare Worker).
-// The deploy workflow overwrites this file with the repository variable SWIMDECK_API_URL.
-// '' means "same origin", which is what the local dev server (tools/dev-server.js) provides.
+// - On localhost the dev server (tools/dev-server.js) provides /api itself.
+// - ?api=<url> overrides it, handy for testing another Worker.
+// - The deploy workflow can override it with the repository variable SWIMDECK_API_URL.
+const local = ['localhost', '127.0.0.1'].includes(location.hostname);
+
 export const CONFIG = {
-  api: new URLSearchParams(location.search).get('api') ?? '',
+  api: new URLSearchParams(location.search).get('api') ?? (local ? '' : 'https://swimdeck-api.peiza.workers.dev'),
 };
