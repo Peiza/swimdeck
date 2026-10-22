@@ -194,3 +194,12 @@ test('head-to-head matches the same race', async () => {
   assert.equal(h.b, 1);
   assert.equal(h.races[0].meet, 'Y');
 });
+
+test('head-to-head counts each race once', async () => {
+  const { headToHead } = await import('../lib.js');
+  const sw = (t) => ({ ...r(11, 25, t, '2026-10-11'), meet: 'DM', round: 'Final' });
+  const h = headToHead([{ pool: 25, results: [sw(2635), sw(2667)] }], [{ pool: 25, results: [sw(2634)] }]);
+  assert.equal(h.races.length, 1);
+  assert.equal(h.races[0].a, 2635);
+  assert.equal(h.b, 1);
+});

@@ -389,14 +389,24 @@ export function prognosis(results, target, today = new Date(), months = 24) {
  */
 export function headToHead(aEvents, bEvents) {
   const key = (r) => `${r.event}|${r.pool}|${r.meet}|${r.date}|${r.round || ''}`;
-  const bMap = new Map();
-  for (const ev of bEvents || []) for (const r of ev?.results || []) bMap.set(key({ ...r, pool: r.pool ?? ev.pool }), r);
-  const races = [];
-  for (const ev of aEvents || []) {
-    for (const r of ev?.results || []) {
-      const other = bMap.get(key({ ...r, pool: r.pool ?? ev.pool }));
-      if (other) races.push({ event: r.event, name: r.name, pool: r.pool ?? ev.pool, meet: r.meet, date: r.date, round: r.round, a: r.time, b: other.time });
+  // Each swimmer's best swim per race (event, pool, meet, day and round), so a race counts once.
+  const bestPerRace = (events) => {
+    const m = new Map();
+    for (const ev of events || []) {
+      for (const r of ev?.results || []) {
+        const sw = { ...r, pool: r.pool ?? ev.pool };
+        const k = key(sw);
+        if (!m.has(k) || sw.time < m.get(k).time) m.set(k, sw);
+      }
     }
+    return m;
+  };
+  const A = bestPerRace(aEvents);
+  const B = bestPerRace(bEvents);
+  const races = [];
+  for (const [k, r] of A) {
+    const other = B.get(k);
+    if (other) races.push({ event: r.event, name: r.name, pool: r.pool, meet: r.meet, date: r.date, round: r.round, a: r.time, b: other.time });
   }
   races.sort((x, y) => String(y.date).localeCompare(String(x.date)));
   return {
