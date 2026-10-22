@@ -232,3 +232,29 @@ tr.detail td { background: var(--surface-2); padding: 12px; }
   transition: 0.2s; pointer-events: none; z-index: 10;
 }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- card actions, collapse, trash */
+.card-actions { display: flex; gap: 2px; align-items: start; flex: none; }
+.icon-btn {
+  width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 9px;
+  background: none; color: var(--muted); cursor: pointer;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--text); }
+.icon-btn[data-remove]:hover { color: var(--warn); }
+.icon-btn svg { width: 19px; height: 19px; }
+.icon-btn[data-collapse] svg { transition: transform 0.15s; }
+.icon-btn[aria-expanded=false] svg { transform: rotate(-90deg); }
+.card.collapsed { gap: 4px; padding-bottom: 12px; }
+.card.collapsed .card-head p { display: none; }
+.deck-tools { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: -6px 0 10px; }
+.muted-link { color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.muted-link svg { width: 16px; height: 16px; }
+.btn.danger { background: var(--warn); border-color: var(--warn); color: #fff; }
+.btn svg { width: 16px; height: 16px; }
+.empty .muted-link { margin-top: 8px; }
+#toast { display: flex; align-items: center; gap: 14px; pointer-events: none; }
+#toast.show { pointer-events: auto; }
+#toast button { background: none; border: 0; color: var(--accent-soft); font-weight: 700; cursor: pointer; padding: 4px 2px; text-decoration: underline; }
+@media (prefers-color-scheme: dark) { #toast button { color: var(--accent); } }
+#toast { width: max-content; max-width: calc(100vw - 32px); }
+.hits li > span.row { display: flex; flex: none; }

@@ -8,6 +8,8 @@ import {
 
 // ---------------------------------------------------------------- state
 
+const TRASH_DAYS = 30;
+
 const store = {
   get(k, fallback) {
     try {
@@ -30,6 +32,8 @@ const state = {
   view: 'deck',
   topN: store.get('topN', 5),
   swimmers: store.get('swimmers', []),
+  collapsed: store.get('collapsed', []), // ids of minimised cards
+  trash: store.get('trash', []).filter((x) => Date.now() - x.removedAt < TRASH_DAYS * 86400000), // { swimmer, removedAt, index }
   data: store.get('data', {}), // id -> { all, period, periodKey, fetchedAt, error }
   events: {}, // `${site}:${id}:${code}` -> event payload (memory only)
   busy: null, // { done, total }
@@ -54,7 +58,14 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 function save() {
   store.set('swimmers', state.swimmers);
   store.set('data', state.data);
+  store.set('collapsed', state.collapsed);
+  store.set('trash', state.trash);
 }
+
+const ICON = {
+  chevron: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+};
 
 // ---------------------------------------------------------------- api
 
@@ -183,6 +194,7 @@ function renderMain() {
         <h2>${esc(t('emptyTitle'))}</h2>
         <p>${esc(t('emptyBody'))}</p>
         <button class="btn primary" data-action="add">+ ${esc(t('add'))}</button>
+        ${trashLink()}
       </div>`;
     return;
   }
@@ -190,26 +202,51 @@ function renderMain() {
 }
 
 function deckView() {
-  return `<ul class="deck">${state.swimmers.map(cardView).join('')}</ul>`;
+  const allCollapsed = state.swimmers.every((s) => state.collapsed.includes(s.id));
+  return `
+    <div class="deck-tools">
+      <button class="link" data-action="${allCollapsed ? 'expandAll' : 'collapseAll'}">${esc(t(allCollapsed ? 'expandAll' : 'collapseAll'))}</button>
+      ${trashLink()}
+    </div>
+    <ul class="deck">${state.swimmers.map(cardView).join('')}</ul>`;
+}
+
+function trashLink() {
+  return state.trash.length
+    ? `<button class="link muted-link" data-action="trash">${ICON.trash}<span>${esc(t('trashCount', { n: state.trash.length }))}</span></button>`
+    : '';
 }
 
 function cardView(s) {
   const d = state.data[s.id];
+  const collapsed = state.collapsed.includes(s.id);
   const head = `
     <div class="card-head">
       <div>
         <h3>${esc(s.name || '#' + s.id)}</h3>
         <p class="muted small">${[s.born ? t('born', { year: s.born }) : '', s.club].filter(Boolean).map(esc).join(' · ')}</p>
       </div>
-      ${s.site !== 'se' ? `<span class="tag">${esc(s.site.toUpperCase())}</span>` : ''}
+      <div class="card-actions">
+        ${s.site !== 'se' ? `<span class="tag">${esc(s.site.toUpperCase())}</span>` : ''}
+        <button class="icon-btn" data-collapse="${s.id}" aria-expanded="${!collapsed}" aria-label="${esc(t(collapsed ? 'expand' : 'collapse'))}" title="${esc(t(collapsed ? 'expand' : 'collapse'))}">${ICON.chevron}</button>
+        <button class="icon-btn" data-remove="${s.id}" aria-label="${esc(t('remove'))}" title="${esc(t('remove'))}">${ICON.trash}</button>
+      </div>
     </div>`;
+  if (collapsed) {
+    const sum = d?.all ? summarize(d.all, d.period) : null;
+    const line = sum
+      ? [sum.newPbs ? `<b class="good">${sum.newPbs} ${esc(t('newPbsLabel'))}</b>` : esc(t('noPbsInPeriod')),
+         sum.latest ? `${esc(eventLabel(sum.latest.event, state.lang, sum.latest.name))} <span class="time">${fmtTime(sum.latest.time)}</span>` : ''].filter(Boolean).join(' · ')
+      : esc(d?.error ? t('error', { msg: d.error }) : t('loading'));
+    return `<li class="card collapsed" data-open="${s.id}" tabindex="0">${head}<p class="small muted">${line}</p></li>`;
+  }
   if (!d || !d.all) {
     return `<li class="card ${d?.error ? 'has-error' : 'loading'}" data-open="${s.id}" tabindex="0">${head}
       <p class="muted">${d?.error ? esc(t('error', { msg: d.error })) : esc(t('loading'))}</p></li>`;
   }
   const sum = summarize(d.all, d.period);
   const latest = sum.latest;
-  return `<li class="card" data-open="${s.id}" tabindex="0" role="button">
+  return `<li class="card" data-open="${s.id}" tabindex="0">
     ${head}
     <div class="stats">
       <div class="stat ${sum.newPbs ? 'good' : ''}"><b>${sum.newPbs}</b><span>${esc(t('newPbsLabel'))}</span></div>
@@ -446,6 +483,7 @@ async function doSearch(form) {
 
 function addSwimmer(s) {
   if (state.swimmers.some((x) => x.id === s.id)) return null;
+  state.trash = state.trash.filter((x) => x.swimmer.id !== s.id);
   const sw = { id: s.id, site: s.site || 'se', name: s.name || '', born: s.born ?? null, club: s.club || '', sex: s.sex || '' };
   state.swimmers.push(sw);
   save();
@@ -497,12 +535,94 @@ function checkImport() {
   dlg.showModal();
 }
 
-function toast(msg) {
+function toast(msg, action = null) {
   const el = $('#toast');
-  el.textContent = msg;
+  el.innerHTML = `<span>${esc(msg)}</span>${action ? `<button data-toast-action>${esc(action.label)}</button>` : ''}`;
+  toast.action = action?.run || null;
   el.classList.add('show');
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => el.classList.remove('show'), 2500);
+  toast.timer = setTimeout(() => el.classList.remove('show'), action ? 8000 : 2500);
+}
+
+function hideToast() {
+  clearTimeout(toast.timer);
+  $('#toast').classList.remove('show');
+}
+
+/** A small yes/no dialog. Resolves true when the person confirms. */
+function ask({ title, body, yes, danger = false }) {
+  return new Promise((resolve) => {
+    const dlg = $('#confirmDialog');
+    dlg.innerHTML = `<form method="dialog" class="sheet small-sheet">
+      <h2>${esc(title)}</h2><p>${esc(body)}</p>
+      <div class="row end"><button class="btn" value="no">${esc(t('cancel'))}</button><button class="btn ${danger ? 'danger' : 'primary'}" value="yes">${esc(yes)}</button></div></form>`;
+    dlg.returnValue = '';
+    dlg.onclose = () => resolve(dlg.returnValue === 'yes');
+    dlg.showModal();
+    $('button[value=no]', dlg).focus();
+  });
+}
+
+// ---------------------------------------------------------------- remove, trash, undo
+
+async function askRemove(id) {
+  const s = state.swimmers.find((x) => x.id === Number(id));
+  if (!s) return;
+  const ok = await ask({ title: t('removeTitle'), body: t('removeBody', { name: s.name || '#' + s.id, days: TRASH_DAYS }), yes: t('remove'), danger: true });
+  if (!ok) return;
+  const index = state.swimmers.indexOf(s);
+  state.swimmers.splice(index, 1);
+  state.collapsed = state.collapsed.filter((x) => x !== s.id);
+  state.trash = [{ swimmer: s, removedAt: Date.now(), index }, ...state.trash.filter((x) => x.swimmer.id !== s.id)];
+  delete state.data[s.id];
+  save();
+  if ($('#swimmerDialog').open && state.openId === s.id) $('#swimmerDialog').close();
+  render();
+  toast(t('removed', { name: s.name || '#' + s.id }), { label: t('undo'), run: () => restore(s.id) });
+}
+
+function restore(id) {
+  const item = state.trash.find((x) => x.swimmer.id === Number(id));
+  if (!item) return;
+  state.trash = state.trash.filter((x) => x !== item);
+  if (!state.swimmers.some((x) => x.id === item.swimmer.id)) {
+    state.swimmers.splice(Math.min(item.index ?? state.swimmers.length, state.swimmers.length), 0, item.swimmer);
+  }
+  save();
+  render();
+  if ($('#trashDialog').open) renderTrash();
+  refreshAll({ only: [item.swimmer] });
+}
+
+function openTrash() {
+  renderTrash();
+  const dlg = $('#trashDialog');
+  if (!dlg.open) dlg.showModal();
+}
+
+function renderTrash() {
+  const dlg = $('#trashDialog');
+  const fmtDate = (ms) => new Date(ms).toLocaleDateString(state.lang);
+  dlg.innerHTML = `<div class="sheet">
+    <header class="sheet-head"><div><h2>${esc(t('trash'))}</h2><p class="muted small">${esc(t('trashHint', { days: TRASH_DAYS }))}</p></div>
+      <button class="icon" data-action="close" aria-label="${esc(t('close'))}">✕</button></header>
+    ${state.trash.length ? `<ul class="hits">${state.trash.map((x) => `
+      <li><span><b>${esc(x.swimmer.name || '#' + x.swimmer.id)}</b><span class="muted small">${esc(t('removedOn', { date: fmtDate(x.removedAt) }))}</span></span>
+        <span class="row"><button class="btn small primary" data-restore="${x.swimmer.id}">${esc(t('restore'))}</button>
+        <button class="btn small" data-purge="${x.swimmer.id}" aria-label="${esc(t('deletePermanent'))}" title="${esc(t('deletePermanent'))}">${ICON.trash}</button></span></li>`).join('')}</ul>
+      <div class="row end"><button class="link danger" data-action="emptyTrash">${esc(t('emptyTrash'))}</button></div>`
+      : `<p class="muted">${esc(t('trashEmpty'))}</p>`}
+  </div>`;
+}
+
+async function purge(ids) {
+  const n = ids.length;
+  const ok = await ask({ title: t('deletePermanent'), body: t('purgeConfirm', { n }), yes: t('deletePermanent'), danger: true });
+  if (!ok) return;
+  state.trash = state.trash.filter((x) => !ids.includes(x.swimmer.id));
+  save();
+  renderTrash();
+  render();
 }
 
 // ---------------------------------------------------------------- events
@@ -538,6 +658,27 @@ document.addEventListener('click', (e) => {
     store.set('rankSex', state.rankSex);
     return renderMain();
   }
+  if (el.hasAttribute('data-toast-action')) {
+    const run = toast.action;
+    hideToast();
+    return run && run();
+  }
+  if (el.dataset.collapse) {
+    const id = Number(el.dataset.collapse);
+    state.collapsed = state.collapsed.includes(id) ? state.collapsed.filter((x) => x !== id) : [...state.collapsed, id];
+    save();
+    return renderMain();
+  }
+  if (el.dataset.action === 'collapseAll' || el.dataset.action === 'expandAll') {
+    state.collapsed = el.dataset.action === 'collapseAll' ? state.swimmers.map((s) => s.id) : [];
+    save();
+    return renderMain();
+  }
+  if (el.dataset.remove) return askRemove(el.dataset.remove);
+  if (el.dataset.action === 'trash') return openTrash();
+  if (el.dataset.restore) return restore(el.dataset.restore);
+  if (el.dataset.purge) return purge([Number(el.dataset.purge)]);
+  if (el.dataset.action === 'emptyTrash') return purge(state.trash.map((x) => x.swimmer.id));
   if (el.dataset.open) return openSwimmer(el.dataset.open);
   if (el.dataset.pool) {
     state.openPool = Number(el.dataset.pool);
@@ -559,17 +700,7 @@ document.addEventListener('click', (e) => {
     const s = state.swimmers.find((x) => x.id === state.openId);
     return fillEventDetail(s, Number(el.dataset.retryEvent));
   }
-  if (el.dataset.action === 'remove') {
-    const s = state.swimmers.find((x) => x.id === state.openId);
-    if (s && confirm(t('removeConfirm', { name: s.name }))) {
-      state.swimmers = state.swimmers.filter((x) => x.id !== s.id);
-      delete state.data[s.id];
-      save();
-      $('#swimmerDialog').close();
-      render();
-    }
-    return;
-  }
+  if (el.dataset.action === 'remove') return askRemove(state.openId);
   if (el.dataset.add) {
     const sw = addSwimmer(JSON.parse(el.dataset.add));
     if (sw) {
