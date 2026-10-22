@@ -10,6 +10,15 @@ export const STROKES = {
   medley: { sv: 'medley', en: 'medley', fi: 'sekauinti' },
 };
 
+// Short stroke names for compact places such as the cards' best events.
+export const STROKES_SHORT = {
+  free: { sv: 'fri', en: 'free', fi: 'vapaa' },
+  back: { sv: 'rygg', en: 'back', fi: 'selkä' },
+  breast: { sv: 'bröst', en: 'breast', fi: 'rinta' },
+  fly: { sv: 'fjäril', en: 'fly', fi: 'perho' },
+  medley: { sv: 'medley', en: 'IM', fi: 'seka' },
+};
+
 const T = {
   sv: {
     sortBy: 'Sortera',

@@ -1,6 +1,6 @@
 // Pure helpers: events, times, periods, stats. No DOM here, so it can be tested in Node.
 
-import { STROKES } from './i18n.js';
+import { STROKES, STROKES_SHORT } from './i18n.js';
 
 // Tempus event codes: odd = 25 m pool, even = 50 m pool.
 const BASE_EVENTS = [
@@ -40,6 +40,13 @@ export function eventLabel(code, lang, name = '') {
   const e = eventInfo(code, name);
   if (!e.dist || !e.stroke) return name || `#${code}`;
   return `${e.dist} m ${STROKES[e.stroke][lang] || STROKES[e.stroke].sv}`;
+}
+
+/** Compact label, e.g. "100 rygg". */
+export function eventShort(code, lang, name = '') {
+  const e = eventInfo(code, name);
+  if (!e.dist || !e.stroke) return name || `#${code}`;
+  return `${e.dist} ${STROKES_SHORT[e.stroke][lang] || STROKES_SHORT[e.stroke].sv}`;
 }
 
 export function eventSortKey(code, name = '') {
@@ -123,7 +130,7 @@ export function summarize(allTime, period) {
   const best = [...list]
     .filter((r) => r.pb && r.pb.points)
     .sort((a, b) => b.pb.points - a.pb.points)
-    .slice(0, 3);
+    .slice(0, 4);
   return { rows: list, newPbs: list.filter((r) => r.newPb).length, latest, best, swumInPeriod: inPeriod.length };
 }
 

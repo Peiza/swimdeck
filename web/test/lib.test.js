@@ -86,3 +86,11 @@ test('sortSwimmers by name, birth year, club, new PBs and recency', async () => 
   assert.deepEqual(ids('newPbs'), [2, 1, 3]);
   assert.deepEqual(ids('recent'), [1, 2, 3]);
 });
+
+test('short event labels', async () => {
+  const { eventShort } = await import('../lib.js');
+  assert.equal(eventShort(43, 'sv'), '100 rygg');
+  assert.equal(eventShort(12, 'en'), '50 free');
+  assert.equal(eventShort(63, 'en'), '200 IM');
+  assert.equal(eventShort(53, 'fi'), '100 perho');
+});

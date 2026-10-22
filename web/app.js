@@ -3,7 +3,7 @@ import { supportLine } from './support.js';
 import { VERSION } from './version.js';
 import { LANGS, makeT, detectLang } from './i18n.js';
 import {
-  eventLabel, eventSortKey, fmtTime, fmtDiff, periodRange, seasonLabel,
+  eventLabel, eventShort, eventSortKey, fmtTime, fmtDiff, periodRange, seasonLabel,
   summarize, progression, parseTempusRef, rankings, rankingsByPoints, sortSwimmers,
 } from './lib.js';
 
@@ -277,7 +277,7 @@ function cardView(s) {
            <div class="muted small">${esc(latest.date)} · ${esc(latest.meet)}</div>`
         : `<span class="muted small">${esc(t('noSwims'))}</span>`}
     </div>
-    ${sum.best.length ? `<div class="chips" aria-label="${esc(t('bestEvents'))}">${sum.best.map((r) => `<span class="chip">${esc(eventLabel(r.event, state.lang, r.name))} <small>${r.pool}</small> <b>${fmtTime(r.pb.time)}</b></span>`).join('')}</div>` : ''}
+    ${sum.best.length ? `<div class="chips" aria-label="${esc(t('bestEvents'))}">${sum.best.map((r) => `<span class="chip" title="${esc(eventLabel(r.event, state.lang, r.name))} · ${r.pool} m"><span>${esc(eventShort(r.event, state.lang, r.name))} <small>${r.pool}m</small></span><b>${fmtTime(r.pb.time)}</b></span>`).join('')}</div>` : ''}
     ${d.error ? `<p class="warn small">${esc(t('error', { msg: d.error }))}</p>` : ''}
   </li>`;
 }
