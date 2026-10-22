@@ -37,6 +37,11 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           DATE=$(TZ=Europe/Stockholm date +%F)
           printf "export const VERSION = { version: '%s', date: '%s' };\n" "$VERSION" "$DATE" > _site/version.js
+          # Cache busting: give every file reference a per-deploy version so
+          # browsers fetch the new files right away instead of after the cache expires.
+          BUST="${VERSION}-${GITHUB_SHA::7}"
+          sed -i -E "s#(href|src)=\"(style\.css|app\.js|manifest\.webmanifest)\"#\1=\"\2?v=${BUST}\"#g" _site/index.html
+          sed -i -E "s#from '\./([a-z0-9-]+\.js)'#from './\1?v=${BUST}'#g" _site/*.js
           if [ -n "$API_URL" ]; then
             printf "export const CONFIG = { api: %s };\n" "$(node -p 'JSON.stringify(process.env.API_URL)')" > _site/config.js
           fi
