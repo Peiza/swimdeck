@@ -125,7 +125,9 @@ export function summarize(allTime, period, before = null) {
   }
   const list = [...rows.values()].map((row) => {
     const newPb = !!(row.period && row.pb && row.period.time <= row.pb.time);
-    const improve = row.period && row.prev && row.period.time < row.prev.time ? row.prev.time - row.period.time : null;
+    // 25 m events are mostly swum by young children years apart, so they would dominate "improvement".
+    const counts = (eventInfo(row.event, row.name).dist || 0) > 25;
+    const improve = counts && row.period && row.prev && row.period.time < row.prev.time ? row.prev.time - row.period.time : null;
     return {
       ...row,
       newPb,

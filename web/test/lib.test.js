@@ -144,3 +144,11 @@ test('improvement ranking and CSV', async () => {
   assert.deepEqual(rankingsByImprovement([{ id: 1 }, { id: 2 }], sums, 11, 25).map((x) => x.swimmer.id), [1]);
   assert.equal(toCsv([['a', 'b;c'], [1, 'x"y']]), '﻿a;"b;c"\r\n1;"x""y"\r\n');
 });
+
+test('25 m events do not count as improvements', async () => {
+  const { summarize } = await import('../lib.js');
+  const s = summarize({ bests: [r(4, 25, 1100, '2026-10-01')] }, { bests: [r(4, 25, 1100, '2026-10-01')] }, { bests: [r(4, 25, 1300, '2018-01-01')] });
+  assert.equal(s.rows[0].improve, null);
+  assert.equal(s.topImprove, null);
+  assert.equal(s.newPbs, 1);
+});
