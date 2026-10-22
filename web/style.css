@@ -99,7 +99,7 @@ a { color: var(--accent); }
   padding: 0 10px; width: 100%;
 }
 .select select { padding-right: 28px; }
-.link { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 6px 0; font-weight: 600; }
+.link { background: none; border: 0; text-decoration: none; color: var(--accent); cursor: pointer; padding: 6px 0; font-weight: 600; }
 .link.danger { color: var(--warn); }
 .icon { background: var(--surface-2); border: 0; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; flex: none; }
 .seg { display: inline-flex; background: var(--surface-2); border-radius: 10px; padding: 3px; gap: 2px; flex-wrap: wrap; }
@@ -218,6 +218,8 @@ tr.detail td { background: var(--surface-2); padding: 12px; }
 /* ---------- footer */
 #footer { padding-top: 12px; padding-bottom: 32px; display: grid; gap: 10px; justify-items: center; text-align: center; border-top: 1px solid var(--line); }
 .lang { display: flex; gap: 4px; }
+.foot-links { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; }
+.rank-controls .select.compact { min-width: 0; }
 .lang button { border: 0; background: none; padding: 4px 8px; border-radius: 8px; cursor: pointer; color: var(--muted); }
 .lang [aria-pressed=true] { background: var(--surface-2); color: var(--text); font-weight: 600; }
 

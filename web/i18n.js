@@ -12,6 +12,13 @@ export const STROKES = {
 
 const T = {
   sv: {
+    allEventsAqua: 'Alla grenar (AQUA-poäng)',
+    basisPb: 'Personbästa',
+    basisPeriod: 'Periodbästa {period}',
+    birthYear: 'Årskull',
+    allYears: 'Alla årskullar',
+    noneInPeriod: 'Ingen i listan har simmat den här grenen under perioden.',
+    feedback: 'Tyck till / rapportera fel',
     men: 'Herrar',
     women: 'Damer',
     newPbsLabel: 'nya PB',
@@ -88,6 +95,13 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    allEventsAqua: 'All events (AQUA points)',
+    basisPb: 'Personal best',
+    basisPeriod: 'Period best {period}',
+    birthYear: 'Birth year',
+    allYears: 'All birth years',
+    noneInPeriod: 'Nobody in the list has swum this event in the period.',
+    feedback: 'Feedback / report a bug',
     men: 'Men',
     women: 'Women',
     newPbsLabel: 'new PBs',
@@ -164,6 +178,13 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    allEventsAqua: 'Kaikki lajit (AQUA-pisteet)',
+    basisPb: 'Ennätys',
+    basisPeriod: 'Jakson paras {period}',
+    birthYear: 'Syntymävuosi',
+    allYears: 'Kaikki ikäluokat',
+    noneInPeriod: 'Kukaan listalla ei ole uinut tätä lajia jaksolla.',
+    feedback: 'Palaute / ilmoita virheestä',
     men: 'Miehet',
     women: 'Naiset',
     newPbsLabel: 'uutta ennätystä',

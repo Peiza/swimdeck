@@ -61,3 +61,11 @@ test('rankings sort by time within event and pool', () => {
   const ov = { 1: { bests: [r(11, 25, 3000)] }, 2: { bests: [r(11, 25, 2900), r(11, 50, 2000)] }, 3: { bests: [] } };
   assert.deepEqual(rankings(sw, ov, 11, 25).map((x) => x.swimmer.id), [2, 1]);
 });
+
+test('rankingsByPoints picks each swimmer’s best swim across events', async () => {
+  const { rankingsByPoints } = await import('../lib.js');
+  const sw = [{ id: 1 }, { id: 2 }];
+  const ov = { 1: { bests: [r(11, 25, 3000, 'd', 500), r(51, 25, 3000, 'd', 640)] }, 2: { bests: [r(13, 50, 6000, 'd', 600)] } };
+  const out = rankingsByPoints(sw, ov);
+  assert.deepEqual(out.map((x) => [x.swimmer.id, x.result.event]), [[1, 51], [2, 13]]);
+});

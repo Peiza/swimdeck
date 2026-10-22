@@ -1,0 +1,11 @@
+name: Idé eller önskemål
+description: Föreslå en förbättring eller ny funktion
+labels: [idea]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Vad skulle du vilja kunna göra?
+      description: Beskriv gärna varför, och hur du gör idag.
+    validations:
+      required: true

@@ -2,7 +2,7 @@ import { CONFIG } from './config.js';
 import { LANGS, makeT, detectLang } from './i18n.js';
 import {
   eventLabel, eventSortKey, fmtTime, fmtDiff, periodRange, seasonLabel,
-  summarize, progression, parseTempusRef, rankings,
+  summarize, progression, parseTempusRef, rankings, rankingsByPoints,
 } from './lib.js';
 
 // ---------------------------------------------------------------- state
@@ -34,6 +34,8 @@ const state = {
   busy: null, // { done, total }
   rankEvent: store.get('rankEvent', '25:11'),
   rankSex: store.get('rankSex', ''),
+  rankBasis: store.get('rankBasis', 'pb'),
+  rankYear: store.get('rankYear', ''),
   openId: null,
   openPool: 25,
   openEvent: null,
@@ -42,6 +44,7 @@ const state = {
 let t = makeT(state.lang);
 const API = (CONFIG.api ?? '').replace(/\/$/, '');
 const STALE_MS = 6 * 60 * 60 * 1000;
+const FEEDBACK_URL = 'https://github.com/Peiza/swimdeck/issues/new/choose';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const sexLabel = (x) => (/^(wo|fe|kvin|dam|nai|flick|tyt)/i.test(x || '') ? t('women') : x ? t('men') : '');
@@ -224,30 +227,50 @@ function cardView(s) {
 }
 
 function rankView() {
-  const overviews = Object.fromEntries(state.swimmers.map((s) => [s.id, state.data[s.id]?.all]));
+  const basis = state.rankBasis;
+  const source = (id) => (basis === 'period' ? state.data[id]?.period : state.data[id]?.all);
+  const overviews = Object.fromEntries(state.swimmers.map((s) => [s.id, source(s.id)]));
   const options = new Map();
-  for (const o of Object.values(overviews)) for (const b of o?.bests || []) options.set(`${b.pool}:${b.event}`, b);
+  for (const s of state.swimmers) for (const b of state.data[s.id]?.all?.bests || []) options.set(`${b.pool}:${b.event}`, b);
   const opts = [...options.values()].sort((a, b) => a.pool - b.pool || eventSortKey(a.event, a.name) - eventSortKey(b.event, b.name));
-  if (!options.has(state.rankEvent) && opts[0]) state.rankEvent = `${opts[0].pool}:${opts[0].event}`;
-  const [pool, event] = state.rankEvent.split(':').map(Number);
+  if (state.rankEvent !== 'aqua' && !options.has(state.rankEvent) && opts[0]) state.rankEvent = `${opts[0].pool}:${opts[0].event}`;
+  const aqua = state.rankEvent === 'aqua';
   const sexes = [...new Set(state.swimmers.map((s) => s.sex).filter(Boolean))];
-  const swimmers = state.swimmers.filter((s) => !state.rankSex || s.sex === state.rankSex);
-  const rows = rankings(swimmers, overviews, event, pool);
+  const years = [...new Set(state.swimmers.map((s) => s.born).filter(Boolean))].sort((a, b) => b - a);
+  const swimmers = state.swimmers.filter(
+    (s) => (!state.rankSex || s.sex === state.rankSex) && (!state.rankYear || String(s.born) === String(state.rankYear)),
+  );
+  let rows;
+  if (aqua) rows = rankingsByPoints(swimmers, overviews);
+  else {
+    const [pool, event] = state.rankEvent.split(':').map(Number);
+    rows = rankings(swimmers, overviews, event, pool);
+  }
+  const lead = rows[0]?.result;
   return `
     <div class="rank-controls">
       <label class="select"><span>${esc(t('chooseEvent'))}</span>
-        <select id="rankEvent">${opts.map((b) => `<option value="${b.pool}:${b.event}" ${`${b.pool}:${b.event}` === state.rankEvent ? 'selected' : ''}>${esc(eventLabel(b.event, state.lang, b.name))} · ${b.pool} m</option>`).join('')}</select>
+        <select id="rankEvent">
+          <option value="aqua" ${aqua ? 'selected' : ''}>${esc(t('allEventsAqua'))}</option>
+          ${opts.map((b) => `<option value="${b.pool}:${b.event}" ${`${b.pool}:${b.event}` === state.rankEvent ? 'selected' : ''}>${esc(eventLabel(b.event, state.lang, b.name))} · ${b.pool} m</option>`).join('')}
+        </select>
       </label>
+      <div class="seg" role="group">${['pb', 'period'].map((x) => `<button data-basis="${x}" aria-pressed="${basis === x}">${esc(x === 'pb' ? t('basisPb') : t('basisPeriod', { period: seasonLabel(state.period) }))}</button>`).join('')}</div>
       ${sexes.length > 1 ? `<div class="seg" role="group">${['', ...sexes].map((x) => `<button data-sex="${esc(x)}" aria-pressed="${state.rankSex === x}">${esc(x ? sexLabel(x) : t('allSexes'))}</button>`).join('')}</div>` : ''}
+      ${years.length > 1 ? `<label class="select compact"><span class="sr">${esc(t('birthYear'))}</span><select id="rankYear"><option value="">${esc(t('allYears'))}</option>${years.map((y) => `<option value="${y}" ${String(state.rankYear) === String(y) ? 'selected' : ''}>${y}</option>`).join('')}</select></label>` : ''}
     </div>
     ${rows.length ? `<ol class="ranking">${rows.map((r, i) => `
       <li data-open="${r.swimmer.id}" tabindex="0" role="button">
         <span class="pos">${i + 1}</span>
         <span class="who"><b>${esc(r.swimmer.name)}</b><span class="muted small">${esc([r.swimmer.born, r.swimmer.club].filter(Boolean).join(' · '))}</span></span>
-        <span class="time">${fmtTime(r.result.time)}</span>
-        <span class="muted small when">${esc(r.result.date)}<br>${esc(r.result.meet)}</span>
-        ${i > 0 ? `<span class="gap small muted">${fmtDiff(r.result.time - rows[0].result.time)}</span>` : '<span class="gap"></span>'}
-      </li>`).join('')}</ol>` : `<p class="muted">${esc(t('noneInEvent'))}</p>`}`;
+        ${aqua
+          ? `<span class="time">${r.result.points} <small class="muted">p</small></span>
+             <span class="muted small when">${esc(eventLabel(r.result.event, state.lang, r.result.name))} ${r.result.pool} m · <b>${fmtTime(r.result.time)}</b><br>${esc(r.result.date)} · ${esc(r.result.meet)}</span>
+             ${i > 0 ? `<span class="gap small muted">−${lead.points - r.result.points} p</span>` : '<span class="gap"></span>'}`
+          : `<span class="time">${fmtTime(r.result.time)}</span>
+             <span class="muted small when">${esc(r.result.date)}<br>${esc(r.result.meet)}</span>
+             ${i > 0 ? `<span class="gap small muted">${fmtDiff(r.result.time - lead.time)}</span>` : '<span class="gap"></span>'}`}
+      </li>`).join('')}</ol>` : `<p class="muted">${esc(basis === 'period' ? t('noneInPeriod') : t('noneInEvent'))}</p>`}`;
 }
 
 function renderFooter() {
@@ -255,7 +278,10 @@ function renderFooter() {
     <div class="lang" role="group" aria-label="${esc(t('language'))}">
       ${Object.entries(LANGS).map(([k, v]) => `<button data-lang="${k}" aria-pressed="${state.lang === k}">${esc(v)}</button>`).join('')}
     </div>
-    ${state.swimmers.length ? `<button class="link" id="share">${esc(t('share'))}</button>` : ''}
+    <div class="foot-links">
+      ${state.swimmers.length ? `<button class="link" id="share">${esc(t('share'))}</button>` : ''}
+      <a class="link" href="${FEEDBACK_URL}" target="_blank" rel="noopener">${esc(t('feedback'))}</a>
+    </div>
     <p class="muted small">${esc(t('dataFrom'))}</p>`;
 }
 
@@ -500,6 +526,11 @@ document.addEventListener('click', (e) => {
     t = makeT(state.lang);
     return render();
   }
+  if (el.dataset.basis) {
+    state.rankBasis = el.dataset.basis;
+    store.set('rankBasis', state.rankBasis);
+    return renderMain();
+  }
   if (el.dataset.sex !== undefined && el.closest('.rank-controls')) {
     state.rankSex = el.dataset.sex;
     store.set('rankSex', state.rankSex);
@@ -576,6 +607,11 @@ document.addEventListener('change', (e) => {
     store.set('period', state.period);
     render();
     refreshAll({ only: state.swimmers.filter(needsLoad) });
+  }
+  if (e.target.id === 'rankYear') {
+    state.rankYear = e.target.value;
+    store.set('rankYear', state.rankYear);
+    renderMain();
   }
   if (e.target.id === 'rankEvent') {
     state.rankEvent = e.target.value;

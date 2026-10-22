@@ -41,8 +41,9 @@ plattform och fungerar med `site=fi`.
    mobil- och desktoplayout, tre språk.
 3. **Driftsättning.** Pages och Worker kopplas ihop och testas mot riktig data.
 4. **Topplistor och statistik**
-   - Topplistor i den egna listan: ✅ per gren och bassänglängd, filter på kön.
-     Senare även årskull och åldersklass.
+   - Topplistor i den egna listan: ✅ per gren och bassänglängd, ✅ personbästa
+     eller periodbästa, ✅ AQUA-poäng över alla grenar, ✅ filter på kön och årskull.
+     Senare: listans snabbaste lopp, där samma simmare kan förekomma flera gånger.
    - Säsongsbästa per säsong i en tabell, utveckling över säsonger
    - Förbättring i procent eller sekunder, till exempel "mest förbättrade"
    - Bästa lopp efter AQUA-poäng, oavsett gren
@@ -52,6 +53,7 @@ plattform och fungerar med `site=fi`.
    - Riktiga "senaste lopp" och inte bara periodbästa. Det kräver att
      grensidorna hämtas och bör göras med försiktig cachning.
    - Mellantider, om de finns i Tempus
+   - Synka listan mellan enheter (idag delas den som länk, en ögonblicksbild)
    - Export till CSV eller Excel
    - Notiser om nya personbästa
    - Installera som app (PWA, offline)

@@ -1,0 +1,25 @@
+name: Något fungerar inte
+description: Rapportera ett fel i SwimDeck
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: Vad hände?
+      description: Beskriv vad du gjorde och vad som gick fel. En skärmbild hjälper mycket.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Vad borde ha hänt?
+  - type: input
+    id: device
+    attributes:
+      label: Enhet och webbläsare
+      placeholder: t.ex. Android + Brave, iPhone + Safari, Windows + Chrome
+  - type: input
+    id: link
+    attributes:
+      label: Tempus-länk (om det gäller en viss simmare)
+      placeholder: https://www.tempusopen.se/swimmers/…

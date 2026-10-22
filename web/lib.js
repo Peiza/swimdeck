@@ -156,3 +156,14 @@ export function rankings(swimmers, overviews, event, pool) {
   out.sort((a, b) => a.result.time - b.result.time);
   return out;
 }
+
+/** Each swimmer's single best swim by AQUA points, across all events. */
+export function rankingsByPoints(swimmers, overviews) {
+  const out = [];
+  for (const s of swimmers) {
+    const best = (overviews[s.id]?.bests || []).reduce((acc, r) => (r.points > (acc?.points || 0) ? r : acc), null);
+    if (best) out.push({ swimmer: s, result: best });
+  }
+  out.sort((a, b) => b.result.points - a.result.points);
+  return out;
+}
