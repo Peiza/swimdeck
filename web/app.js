@@ -1375,6 +1375,10 @@ function renderMeet() {
         </div>
         <button class="icon" data-action="close" aria-label="${esc(t('close'))}">✕</button>
       </header>
+      <details class="help" data-help="meet" ${state.helpOpen.meet ? 'open' : ''}>
+        <summary><span class="help-i" aria-hidden="true">i</span> ${esc(t('helpSummary'))}</summary>
+        <div class="help-body">${t('help_meet').split('\n').map((p) => `<p>${esc(p)}</p>`).join('')}</div>
+      </details>
       <div class="sheet-tools">
         <b>${esc(eventLabel(m.code, state.lang))}</b>
         <div class="seg small" role="group">${[['W', t('women')], ['M', t('men')]].map(([k, v]) => `<button data-msex="${k}" aria-pressed="${m.sex === k}">${esc(v)}</button>`).join('')}</div>
@@ -1390,7 +1394,7 @@ function renderMeet() {
             <td class="num"><b>${fmtTime(r.time)}</b><small class="muted">${r.points || ''}</small></td>
           </tr>`).join('')}</tbody></table>` : `<p class="muted">${esc(t('meetEmpty'))}</p>`}
         ${d.complete ? '' : `<p class="muted small">${esc(t('meetPartial', { n: d.results.length, total: d.total }))}</p>`}
-        <p class="muted small">${esc(t(d.ambiguous ? 'meetNoteMixed' : 'meetNote'))}</p>`}
+        ${d.ambiguous ? `<p class="warn small">${esc(t('meetNoteMixed'))}</p>` : ''}`}
       <footer class="sheet-foot">
         ${m.id ? `<a href="${base}/competitions/swimming/${Number(m.id)}" target="_blank" rel="noopener">${esc(t('meetOnTempus'))} ↗</a>` : '<span></span>'}
         <button class="btn primary" data-action="close">${esc(t('done'))}</button>

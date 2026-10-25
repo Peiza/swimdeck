@@ -21,6 +21,7 @@ export const STROKES_SHORT = {
 
 const T = {
   sv: {
+    help_meet: 'Resultatlistan för grenen på tävlingen, hämtad från Tempus. Simmaren du kom ifrån är markerad och andra i din lista står i fetstil.\nPlaceringen räknas fram av SwimDeck: först alla som simmade final, sedan semifinal och försök, och inom varje omgång efter tid. Den som inte gick till final hamnar aldrig före en finalist. Flikarna visar varje omgång för sig.\nValet med simmarens födelseår räknar om placeringen bland jämnåriga. Tempus skiljer inte på A-, B- och åldersfinaler, så placeringen kan avvika från den officiella prislistan.',
     theme: 'Tema',
     themeAuto: 'Auto',
     themeLight: 'Ljust',
@@ -345,6 +346,7 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    help_meet: 'The result list for the event at this meet, from Tempus. The swimmer you came from is highlighted and others in your list are in bold.\nPlaces are worked out by SwimDeck: everyone who swam the final first, then semifinals and heats, ordered by time within each round. Nobody who missed the final ranks above a finalist. The tabs show each round on its own.\nThe birth-year option re-ranks among swimmers born the same year. Tempus does not tell A, B and age-group finals apart, so places may differ from the official list.',
     theme: 'Theme',
     themeAuto: 'Auto',
     themeLight: 'Light',
@@ -669,6 +671,7 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    help_meet: 'Lajin tulosluettelo tästä kilpailusta Tempuksesta. Uimari, jonka kautta tulit, on korostettu ja muut listasi uimarit lihavoitu.\nSwimDeck laskee sijoitukset: ensin finaalin uineet, sitten välierät ja alkuerät, kunkin erän sisällä ajan mukaan. Finaalista pudonnut ei sijoitu finalistin edelle. Välilehdet näyttävät jokaisen erän erikseen.\nSyntymävuosivalinta laskee sijoituksen saman ikäisten kesken. Tempus ei erottele A-, B- ja ikäluokkafinaaleja, joten sijoitus voi poiketa virallisesta.',
     theme: 'Teema',
     themeAuto: 'Auto',
     themeLight: 'Vaalea',
