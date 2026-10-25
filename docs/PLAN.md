@@ -92,3 +92,6 @@ plattform och fungerar med `site=fi`.
   allt som "Final"; då räknas bästa tid och appen säger att placeringen kan avvika. A/B-finaler och åldersfinaler
   (USM) heter också "Final" i Tempus, därför finns filtret "Födda <år>" (v0.22.0).
   Tävlingen hittas via namn och datum. Cachas 6 timmar.
+- ✅ v0.23.0: topplista med en distans på båda banlängderna (två kolumner, sortera per kolumn), period "Senaste 24 mån",
+  logga/namn leder till startsidan, kvaltider "Klarade" (översikt per simmare, båda banor), "Vad visas här?" i varje vy
+  och sidan "Om SwimDeck" med begrepp. Tempus skiljer inte på inne och ute, bara 25/50 m.

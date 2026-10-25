@@ -36,7 +36,8 @@ function swimmer(id) {
 function results(id, code) {
   const r = rng(id * 1000 + code);
   if (r() < 0.25 && ![11, 13, 51].includes(code)) return [];
-  const base = EVENTS[code] * (1 + (id % 7) * 0.025 + (swimmer(id).sex === 'Woman' ? 0.08 : 0));
+  // one fast swimmer so qualifying badges show up in development
+  const base = EVENTS[code] * (id === 5001 ? 0.86 : 1 + (id % 7) * 0.025 + (swimmer(id).sex === 'Woman' ? 0.08 : 0));
   const n = 3 + Math.floor(r() * 25);
   const out = [];
   for (let k = 0; k < n; k++) {

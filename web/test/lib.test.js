@@ -29,6 +29,7 @@ test('seasons start 1 September', () => {
   assert.deepEqual(periodRange('season', new Date('2026-10-22')), { from: '2026-09-01', to: '2026-10-22' });
   assert.deepEqual(periodRange('last', new Date('2026-10-22')), { from: '2025-09-01', to: '2026-08-31' });
   assert.deepEqual(periodRange('12m', new Date('2026-10-22')), { from: '2025-10-23', to: '2026-10-22' });
+  assert.deepEqual(periodRange('24m', new Date('2026-10-22')), { from: '2024-10-23', to: '2026-10-22' });
 });
 
 const r = (event, pool, time, date, points = 500) => ({ event, pool, time, date, points, name: '', meet: 'M' });
@@ -241,6 +242,18 @@ test('older seasons and all time', async () => {
   assert.deepEqual(periodRange('all', today), { from: '1990-01-01', to: '2026-10-25' });
   assert.equal(seasonLabel('s2022', today), '2022/23');
   assert.equal(seasonLabel('all', today), null);
-  assert.deepEqual(periodOptions(2022, today), ['season', '12m', 'last', 's2024', 's2023', 's2022', 'all']);
-  assert.deepEqual(periodOptions(2026, today), ['season', '12m', 'last', 'all']);
+  assert.deepEqual(periodOptions(2022, today), ['season', '12m', '24m', 'last', 's2024', 's2023', 's2022', 'all']);
+  assert.deepEqual(periodOptions(2026, today), ['season', '12m', '24m', 'last', 'all']);
+});
+
+test('rankingsBothPools puts 25 m and 50 m side by side and sorts by the chosen pool', async () => {
+  const { rankingsBothPools } = await import('../lib.js');
+  const sw = [{ id: 1 }, { id: 2 }, { id: 3 }];
+  const ov = {
+    1: { bests: [{ event: 13, pool: 25, time: 6000 }, { event: 14, pool: 50, time: 6300 }] },
+    2: { bests: [{ event: 14, pool: 50, time: 6100 }] },
+    3: { bests: [{ event: 13, pool: 25, time: 5900 }] },
+  };
+  assert.deepEqual(rankingsBothPools(sw, ov, 13, 14, 25).map((r) => r.swimmer.id), [3, 1, 2]);
+  assert.deepEqual(rankingsBothPools(sw, ov, 13, 14, 50).map((r) => r.swimmer.id), [2, 1, 3]);
 });

@@ -84,8 +84,8 @@ export function seasonStart(today = new Date()) {
 
 export function periodRange(kind, today = new Date()) {
   const start = seasonStart(today);
-  if (kind === '12m') {
-    const d = new Date(Date.UTC(today.getUTCFullYear() - 1, today.getUTCMonth(), today.getUTCDate() + 1));
+  if (kind === '12m' || kind === '24m') {
+    const d = new Date(Date.UTC(today.getUTCFullYear() - (kind === '24m' ? 2 : 1), today.getUTCMonth(), today.getUTCDate() + 1));
     return { from: iso(d), to: iso(today) };
   }
   if (kind === 'all') return { from: '1990-01-01', to: iso(today) };
@@ -102,7 +102,7 @@ export function periodRange(kind, today = new Date()) {
 export function seasonLabel(kind, today = new Date()) {
   if (kind === 'all') return null;
   const { from, to } = periodRange(kind, today);
-  if (kind === '12m') return `${from} – ${to}`;
+  if (kind === '12m' || kind === '24m') return `${from} – ${to}`;
   const y = Number(from.slice(0, 4));
   return `${y}/${String((y + 1) % 100).padStart(2, '0')}`;
 }
@@ -110,7 +110,7 @@ export function seasonLabel(kind, today = new Date()) {
 /** Period choices: this season, 12 months, last season, older seasons back to `oldest`, all time. */
 export function periodOptions(oldestYear, today = new Date()) {
   const start = seasonStart(today).getUTCFullYear();
-  const out = ['season', '12m', 'last'];
+  const out = ['season', '12m', '24m', 'last'];
   for (let y = start - 2; y >= Math.max(oldestYear || start - 2, start - 25); y--) out.push(`s${y}`);
   out.push('all');
   return out;
@@ -188,6 +188,23 @@ export function rankings(swimmers, overviews, event, pool) {
     if (r) out.push({ swimmer: s, result: r });
   }
   out.sort((a, b) => a.result.time - b.result.time);
+  return out;
+}
+
+/**
+ * One distance in both pools: each swimmer's time in the 25 m event and the 50 m event side by side,
+ * sorted by `sortPool` (swimmers without a time there come last, ordered by the other pool).
+ */
+export function rankingsBothPools(swimmers, overviews, code25, code50, sortPool = 25) {
+  const out = [];
+  for (const s of swimmers) {
+    const bests = overviews[s.id]?.bests || [];
+    const r25 = bests.find((b) => b.event === code25 && b.pool === 25) || null;
+    const r50 = code50 ? bests.find((b) => b.event === code50 && b.pool === 50) || null : null;
+    if (r25 || r50) out.push({ swimmer: s, r25, r50 });
+  }
+  const [k, other] = sortPool === 50 ? ['r50', 'r25'] : ['r25', 'r50'];
+  out.sort((a, b) => (a[k] ? 0 : 1) - (b[k] ? 0 : 1) || (a[k]?.time ?? 0) - (b[k]?.time ?? 0) || (a[other]?.time ?? Infinity) - (b[other]?.time ?? Infinity));
   return out;
 }
 
@@ -302,7 +319,7 @@ export function rankingsByImprovement(swimmers, summaries, event = null, pool = 
   const out = [];
   for (const s of swimmers) {
     const rows = (summaries[s.id]?.rows || []).filter(
-      (r) => r.improve != null && (event == null || (r.event === event && r.pool === pool)),
+      (r) => r.improve != null && (event == null || (Array.isArray(event) ? event.includes(r.event) : r.event === event && r.pool === pool)),
     );
     const top = rows.sort((a, b) => b.improvePct - a.improvePct)[0];
     if (top) out.push({ swimmer: s, row: top });

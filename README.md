@@ -9,11 +9,12 @@ Follow your swimmers: personal bests, top times, season bests and progression fr
 - Biggest improvement against the personal best before the period
 - A Meets tab with every swim, newest meet first, PBs marked; season bests per event
 - Tap a meet to see its result list for that event, with places worked out per round
-- Rankings within your list: per event, period best, AQUA points or improvement
+- Rankings within your list: per event, period best, AQUA points or improvement; one distance in both pools side by side
 - Compare up to four swimmers event by event; export rankings and comparisons as CSV
 - Sort or drag cards, minimise them, remove with undo and a 30-day trash
 - Qualifying times 2026 (SM/U21-SM, USM, Para-SM) from Svensk Simidrott: badges on cards and events,
-  time left to the next standard, and a Qualifying tab with all times
+  time left to the next standard, and a Qualifying tab with an overview of every standard reached and all times
+- Short help in each view and an About page with the swimming terms explained
 - Swimmer profile (strokes, sprint/middle/distance), form, prognosis towards the next qualifying time,
   head-to-head between two swimmers, national ranking by birth year
 - Personal goals per event, shown on cards, in the event table and as a line in the progression chart
