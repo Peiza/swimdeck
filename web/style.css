@@ -553,3 +553,5 @@ button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4
 .meet-pick button { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: grid; gap: 2px; padding: 9px 12px; border-radius: 10px; background: var(--surface-2); }
 .meet-pick button:hover, .meet-pick button:focus-visible { outline: 2px solid var(--accent); }
 #meetSearchForm input { flex: 1; min-width: 0; }
+.period-sheet { display: inline-flex; align-items: center; gap: 8px; }
+.period-sheet select { max-width: 100%; width: auto; padding-right: 32px; }

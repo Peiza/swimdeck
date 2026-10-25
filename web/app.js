@@ -1113,7 +1113,8 @@ function renderSwimmerDialog() {
       ${state.openTab === 'profile' ? profileView(s) : state.openTab === 'meets' ? `<div id="meetsBox"><p class="muted">${esc(t('loading'))}</p></div>` : `
       <div class="sheet-tools">
         <div class="seg" role="tablist">${pools.sort().map((p) => `<button data-pool="${p}" aria-pressed="${p === state.openPool}">${esc(t(p === 25 ? 'pool25' : 'pool50'))}</button>`).join('')}</div>
-        <span class="muted small">${esc(t('periodBest'))}: ${esc(periodName())}</span>
+        <label class="select compact period-sheet"><span class="muted small">${esc(t('periodBest'))}</span>
+          <select id="periodSheet">${[...new Set([...periodOptions(oldestSwimYear()), state.period])].map((p) => `<option value="${p}" ${p === state.period ? 'selected' : ''}>${esc(periodOptionLabel(p))}</option>`).join('')}</select></label>
       </div>
       ${!sum ? `<p class="muted">${esc(d?.error ? t('error', { msg: d.error }) : t('loading'))}</p>` : `
       <table class="events">
@@ -2313,7 +2314,7 @@ document.addEventListener('toggle', (e) => {
 }, true);
 
 document.addEventListener('change', (e) => {
-  if (e.target.id === 'period') {
+  if (e.target.id === 'period' || e.target.id === 'periodSheet') {
     state.period = e.target.value;
     store.set('period', state.period);
     render();
