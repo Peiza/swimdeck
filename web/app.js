@@ -49,6 +49,7 @@ const state = {
   rankEvent: store.get('rankEvent2', 'both:11'),
   rankSortPool: store.get('rankSortPool', 25),
   helpOpen: {},
+  theme: store.get('theme', 'auto'),
   rankSex: store.get('rankSex', ''),
   rankBasis: store.get('rankBasis', 'pb'),
   rankYear: store.get('rankYear', ''),
@@ -459,6 +460,20 @@ function helpBox(view) {
 }
 
 const helpHtml = (view) => t('help_' + view).split('\n').map((p) => `<p>${esc(p)}</p>`).join('');
+
+/** 'auto' follows the device; 'light' or 'dark' is a manual choice kept in this browser. */
+function applyTheme(theme) {
+  state.theme = theme;
+  store.set('theme', theme);
+  const root = document.documentElement;
+  if (theme === 'auto') delete root.dataset.theme;
+  else root.dataset.theme = theme;
+  const dark = theme === 'dark' || (theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => {
+    if (theme === 'auto') m.media = m.dataset.media || m.media;
+    else { m.dataset.media = m.dataset.media || m.media; m.media = 'all'; m.content = dark ? '#0b1724' : '#0b5cad'; }
+  });
+}
 
 function goHome() {
   document.querySelectorAll('dialog[open]').forEach((d) => d.close());
@@ -1084,6 +1099,9 @@ function renderFooter() {
   $('#footer').innerHTML = `
     <div class="lang" role="group" aria-label="${esc(t('language'))}">
       ${Object.entries(LANGS).map(([k, v]) => `<button data-lang="${k}" aria-pressed="${state.lang === k}">${esc(v)}</button>`).join('')}
+    </div>
+    <div class="lang theme" role="group" aria-label="${esc(t('theme'))}">
+      ${[['auto', t('themeAuto')], ['light', t('themeLight')], ['dark', t('themeDark')]].map(([k, v]) => `<button data-theme-set="${k}" aria-pressed="${state.theme === k}">${esc(v)}</button>`).join('')}
     </div>
     <div class="foot-links">
       ${state.swimmers.length ? `<button class="link" id="share">${esc(t('share'))}</button>` : ''}
@@ -2093,6 +2111,10 @@ document.addEventListener('click', (e) => {
   if (el.dataset.view) {
     state.view = el.dataset.view;
     return render();
+  }
+  if (el.dataset.themeSet) {
+    applyTheme(el.dataset.themeSet);
+    return renderFooter();
   }
   if (el.dataset.lang) {
     state.lang = el.dataset.lang;

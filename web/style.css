@@ -17,7 +17,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #0b1724;
     --surface: #122235;
     --surface-2: #182b42;
@@ -33,6 +33,22 @@
     --shadow: 0 1px 2px rgb(0 0 0 / 30%);
     color-scheme: dark;
   }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1724;
+  --surface: #122235;
+  --surface-2: #182b42;
+  --text: #e7eef7;
+  --muted: #93a6bd;
+  --line: #24384f;
+  --accent: #4aa3ff;
+  --accent-soft: #15314f;
+  --on-accent: #06121f;
+  --good: #45cf96;
+  --good-soft: #123829;
+  --warn: #ff9a73;
+  --shadow: 0 1px 2px rgb(0 0 0 / 30%);
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -259,7 +275,10 @@ tr.detail td { background: var(--surface-2); padding: 12px; }
 #toast { display: flex; align-items: center; gap: 14px; pointer-events: none; }
 #toast.show { pointer-events: auto; }
 #toast button { background: none; border: 0; color: var(--accent-soft); font-weight: 700; cursor: pointer; padding: 4px 2px; text-decoration: underline; }
-@media (prefers-color-scheme: dark) { #toast button { color: var(--accent); } }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) #toast button { color: var(--accent); }
+}
+:root[data-theme="dark"] #toast button { color: var(--accent); }
 #toast { width: max-content; max-width: calc(100vw - 32px); }
 .hits li > span.row { display: flex; flex: none; }
 
@@ -327,12 +346,17 @@ body:has(.card.dragging) { user-select: none; -webkit-user-select: none; }
 .q-paraA { background: #e3d4ff; color: #3d1d82; }
 .q-paraB { background: #efe6ff; color: #4d3485; }
 @media (prefers-color-scheme: dark) {
-  .q-smA { background: #6b5317; color: #ffe39a; }
-  .q-smB { background: #3a4757; color: #e3e9f0; }
-  .q-usm { background: #173c6b; color: #bcd9ff; }
-  .q-paraA { background: #3d2a6b; color: #ddd0ff; }
-  .q-paraB { background: #33284f; color: #d2c6f0; }
+  :root:not([data-theme="light"]) .q-smA { background: #6b5317; color: #ffe39a; }
+  :root:not([data-theme="light"]) .q-smB { background: #3a4757; color: #e3e9f0; }
+  :root:not([data-theme="light"]) .q-usm { background: #173c6b; color: #bcd9ff; }
+  :root:not([data-theme="light"]) .q-paraA { background: #3d2a6b; color: #ddd0ff; }
+  :root:not([data-theme="light"]) .q-paraB { background: #33284f; color: #d2c6f0; }
 }
+:root[data-theme="dark"] .q-smA { background: #6b5317; color: #ffe39a; }
+:root[data-theme="dark"] .q-smB { background: #3a4757; color: #e3e9f0; }
+:root[data-theme="dark"] .q-usm { background: #173c6b; color: #bcd9ff; }
+:root[data-theme="dark"] .q-paraA { background: #3d2a6b; color: #ddd0ff; }
+:root[data-theme="dark"] .q-paraB { background: #33284f; color: #d2c6f0; }
 .qual-block { display: grid; gap: 4px; }
 .qchips { display: flex; flex-wrap: wrap; gap: 6px; }
 .qchips .q { font-size: 12px; padding: 3px 9px; }
@@ -406,7 +430,10 @@ body:has(.card.dragging) { user-select: none; -webkit-user-select: none; }
 /* ---------- new since last visit */
 .card.has-new { border-color: var(--good); box-shadow: 0 0 0 1px var(--good), var(--shadow); }
 .new-tag { display: inline-block; font-size: 11px; font-weight: 800; color: #fff; background: var(--good); border-radius: 99px; padding: 2px 8px; }
-@media (prefers-color-scheme: dark) { .new-tag { color: #06121f; } }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .new-tag { color: #06121f; }
+}
+:root[data-theme="dark"] .new-tag { color: #06121f; }
 .new-block { display: grid; gap: 3px; background: var(--good-soft); border-radius: 10px; padding: 8px 10px; }
 .new-banner { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--good-soft); border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; font-weight: 600; }
 .new-block .new-tag { justify-self: start; }
@@ -555,3 +582,5 @@ button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4
 #meetSearchForm input { flex: 1; min-width: 0; }
 .period-sheet { display: inline-flex; align-items: center; gap: 8px; }
 .period-sheet select { max-width: 100%; width: auto; padding-right: 32px; }
+
+.theme { display: inline-flex; gap: 2px; }
