@@ -791,9 +791,9 @@ function rankView() {
   const leadTime = (k) => rows.find((r) => r[k])?.[k]?.time;
   const cell = (r, k) => {
     const x = r[k];
-    if (!x) return '<td class="num muted">–</td>';
+    if (!x) return '<td class="num muted">–</td><td class="gapc"></td>';
     const gap = x.time - leadTime(k);
-    return `<td class="num"><b>${fmtTime(x.time)}</b><small class="muted">${gap > 0 ? fmtDiff(gap) : x.date || ''}</small></td>`;
+    return `<td class="num"><b>${fmtTime(x.time)}</b><small class="muted">${esc(x.date || '')}</small></td><td class="gapc muted">${gap > 0 ? fmtDiff(gap) : ''}</td>`;
   };
   return `
     <div class="rank-controls">
@@ -812,10 +812,10 @@ function rankView() {
     ${!rows.length ? `<p class="muted">${esc(improveMode ? t('noImprove') : basis === 'period' ? t('noneInPeriod') : t('noneInEvent'))}</p>`
       : twoCols ? `<div class="row end"><button class="link small" data-action="csvRank">${esc(t('exportCsv'))}</button></div>
       <div class="table-scroll"><table class="compare rank-both">
-        <thead><tr><th class="pos">#</th><th>${esc(t('swimmer'))}</th>${[[25, 'r25', 'shortCourse'], ...(c50 ? [[50, 'r50', 'longCourse']] : [])].map(([p, k, label]) => `<th class="num"><button class="sort-head" data-sortpool="${p}" aria-pressed="${sortKey === k}">${p} m${sortKey === k ? ' ↓' : ''}<small>${esc(t(label))}</small></button></th>`).join('')}</tr></thead>
+        <thead><tr><th class="pos">#</th><th>${esc(t('swimmer'))}</th>${[[25, 'r25', 'shortCourse'], ...(c50 ? [[50, 'r50', 'longCourse']] : [])].map(([p, k, label]) => `<th class="num"><button class="sort-head" data-sortpool="${p}" aria-pressed="${sortKey === k}">${p} m${sortKey === k ? ' ↓' : ''}<small>${esc(t(label))}</small></button></th><th class="gapc"></th>`).join('')}</tr></thead>
         <tbody>${rows.map((r, i) => `<tr data-open="${r.swimmer.id}" tabindex="0">
           <td class="pos">${r[sortKey] ? i + 1 : ''}</td>
-          <td><b>${esc(r.swimmer.name)}</b><small class="muted">${esc([r.swimmer.born, r.swimmer.club].filter(Boolean).join(' · '))}</small></td>
+          <td><b>${esc(r.swimmer.name)}</b><small class="muted">${esc(r.swimmer.born || '')}${r.swimmer.club ? `<span class="club-part">${r.swimmer.born ? ' · ' : ''}${esc(r.swimmer.club)}</span>` : ''}</small></td>
           ${cell(r, 'r25')}${c50 ? cell(r, 'r50') : ''}</tr>`).join('')}</tbody>
       </table></div>`
       : `<div class="row end"><button class="link small" data-action="csvRank">${esc(t('exportCsv'))}</button></div><ol class="ranking">${rows.map((r, i) => `
