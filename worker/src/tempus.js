@@ -355,14 +355,23 @@ export function pickMeet(competitions, name, date) {
   return cands.find((c) => normName(c.name) === want) || cands.find((c) => normName(c.name).includes(want) || want.includes(normName(c.name))) || null;
 }
 
-/** Places within each round: ties share a place. Rows come back grouped by round, fastest first. */
+/**
+ * Places within each round: ties share a place. Tempus often labels both heats and finals "Final",
+ * so each swimmer counts once per round, with their fastest swim.
+ * Rows come back grouped by round, fastest first.
+ */
 export function placeRows(rows) {
   const byRound = new Map();
   for (const r of rows) {
     const k = r.round || '';
-    if (!byRound.has(k)) byRound.set(k, []);
-    byRound.get(k).push(r);
+    if (!byRound.has(k)) byRound.set(k, new Map());
+    const g = byRound.get(k);
+    const id = r.swimmerId || r.swimmer;
+    const prev = g.get(id);
+    if (!prev || r.time < prev.time) g.set(id, { ...r, swims: (prev?.swims || 0) + 1 });
+    else prev.swims += 1;
   }
+  for (const [k, g] of byRound) byRound.set(k, [...g.values()]);
   const order = (k) => (/^final$/i.test(k) ? 0 : /final/i.test(k) ? 1 : /semi/i.test(k) ? 2 : 3);
   const out = [];
   for (const k of [...byRound.keys()].sort((a, b) => order(a) - order(b) || a.localeCompare(b))) {

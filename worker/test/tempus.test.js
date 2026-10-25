@@ -315,4 +315,6 @@ test('fetchMeet finds the meet by name and date, reads every page and sets place
   assert.equal(r.complete, true);
   await assert.rejects(fetchMeet('https://t.example', { code: 99 }, f), (e) => e.status === 400);
   assert.equal(placeRows([]).length, 0);
+  const twice = placeRows([{ swimmerId: 1, time: 3000, round: 'Final' }, { swimmerId: 1, time: 2900, round: 'Final' }, { swimmerId: 2, time: 2950, round: 'Final' }]);
+  assert.deepEqual(twice.map((x) => [x.swimmerId, x.time, x.place, x.of, x.swims]), [[1, 2900, 1, 2, 2], [2, 2950, 2, 2, 1]]);
 });

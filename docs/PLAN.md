@@ -86,5 +86,6 @@ plattform och fungerar med `site=fi`.
 - Namn och slogan: behåll SwimDeck tills vidare, välj slogan.
 - ✅ Resultatlista per tävling (v0.20.0): tryck på en tävling i Grenar eller Tävlingar. Tempus lagrar ingen placering
   per lopp (`event_position` är bara loppets plats bland simmarens egna lopp), så placeringen räknas fram från
-  tävlingens resultatlista (`/competitions/swimming/<id>`, filter gren + klass), per omgång och för alla åldrar.
+  tävlingens resultatlista (`/competitions/swimming/<id>`, filter gren + klass): varje simmares bästa tid,
+  alla åldrar. Tempus märker ofta både försök och final som "Final", så en simmare räknas en gång per omgång.
   Tävlingen hittas via namn och datum. Cachas 6 timmar.

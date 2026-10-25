@@ -1180,7 +1180,7 @@ function renderMeet() {
       </div>
       ${rounds.length > 1 ? `<div class="seg small" role="group">${rounds.map((k) => `<button data-mround="${esc(k)}" aria-pressed="${(m.round ?? rounds[0]) === k}">${esc(k || '–')}</button>`).join('')}</div>` : ''}
       ${m.error ? `<p class="warn">${esc(m.error)}</p>` : !d ? `<p class="muted">${esc(t('loading'))}</p>` : `
-        ${me ? `<p class="meet-me">${esc(t('placeOf', { place: me.place, of: me.of }))}${me.round ? ` · ${esc(me.round)}` : ''} · <b>${fmtTime(me.time)}</b></p>` : ''}
+        ${me ? `<p class="meet-me">${esc(t('placeOf', { place: me.place, of: me.of }))}${me.round && rounds.length > 1 ? ` · ${esc(me.round)}` : ''} · <b>${fmtTime(me.time)}</b>${me.swims > 1 ? ` <span class="muted small">· ${esc(t('meetBestOf', { n: me.swims }))}</span>` : ''}</p>` : ''}
         ${rows.length ? `<table class="meet-list"><tbody>${rows.map((r) => `
           <tr class="${r.swimmerId === m.me ? 'me' : listed.has(r.swimmerId) ? 'mine' : ''}">
             <td class="num place">${r.place}</td>
