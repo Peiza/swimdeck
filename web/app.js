@@ -1060,7 +1060,9 @@ async function fillForm(s) {
 function paraSettings(s) {
   const p = s.para || {};
   const sel = (k) => `<label class="select compact"><span>${k}</span><select data-para="${k}"><option value="">–</option>${Array.from({ length: 14 }, (_, i) => `<option value="${i + 1}" ${Number(p[k]) === i + 1 ? 'selected' : ''}>${k}${i + 1}</option>`).join('')}</select></label>`;
-  return `<details class="para-set" ${s.para ? 'open' : ''}><summary class="small muted">${esc(t('paraClass'))}</summary>
+  const set = ['S', 'SB', 'SM'].filter((k) => p[k]).map((k) => k + p[k]).join(' · ');
+  const label = set ? `${t('paraClass')}: ${set}` : t('paraAdd');
+  return `<details class="para-set"><summary class="small muted">${esc(label)}</summary>
     <p class="small muted">${esc(t('paraHint'))}</p><div class="row">${['S', 'SB', 'SM'].map(sel).join('')}</div></details>`;
 }
 
