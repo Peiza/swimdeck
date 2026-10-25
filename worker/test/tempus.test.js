@@ -325,3 +325,30 @@ test('fetchMeet finds the meet by name and date, reads every page and sets place
   const twice = placeRows([{ swimmerId: 1, time: 3000, round: 'Final' }, { swimmerId: 1, time: 2900, round: 'Final' }, { swimmerId: 2, time: 2950, round: 'Final' }]);
   assert.deepEqual(twice.map((x) => [x.swimmerId, x.time, x.place, x.of, x.swims]), [[1, 2900, 1, 2, 2], [2, 2950, 2, 2, 1]]);
 });
+
+test('meetSwimmers lists clubs, then folds a club\'s results into swimmers per sex', async () => {
+  const { meetSwimmers, searchMeets } = await import('../src/tempus.js');
+  const bodies = [];
+  const row = (id, code) => ({ swimmer_id: id, swimmer_name: 'Simmare ' + id, swimmer_birth_year: '2012', club_name: 'Klubben', event_code: code, result_time: 6000, round_type_name: 'Final' });
+  const f = async (url, init = {}) => {
+    if (!init.method) {
+      const h = new Headers();
+      h.append('Set-Cookie', 'XSRF-TOKEN=t; path=/');
+      return new Response(html({ component: 'X', version: 'v1', props: {} }), { headers: h });
+    }
+    const b = JSON.parse(init.body);
+    bodies.push(b);
+    if (new URL(url).pathname === '/competitions/swimming') return Response.json({ props: { competitions: { data: [{ id: 7, name: 'Höstsim', competition_date: '2026-10-01', pool_type_name: '25 M' }], meta: { current_page: 1, last_page: 1 } } } });
+    const data = b.club === '' && b.class === '' ? [row(1, 13)] : b.class === '2' ? (b.page === 1 ? [row(1, 13), row(1, 33)] : [row(2, 13)]) : [row(3, 14)];
+    return Response.json({ props: { competition: { id: 7, name: 'Höstsim', competition_date: '2026-10-01', pool_type_name: '25 M' }, swim_clubs: { data: [{ id: 5, name: 'Klubben' }] }, results: { data, meta: { total: 120, last_page: b.class === '2' ? 2 : 1 } } } });
+  };
+  const head = await meetSwimmers('https://t.example', 7, {}, f);
+  assert.deepEqual(head.clubs, [{ id: 5, name: 'Klubben' }]);
+  assert.equal(head.allowAll, true);
+  assert.equal(head.swimmers, undefined);
+  const r = await meetSwimmers('https://t.example', 7, { club: '5' }, f);
+  assert.deepEqual(r.swimmers.map((s) => [s.id, s.sex, s.events]), [[1, 'Woman', [13, 33]], [2, 'Woman', [13]], [3, 'Man', [14]]]);
+  assert.equal(r.complete, true);
+  const m = await searchMeets('https://t.example', { name: 'Höst' }, f);
+  assert.equal(m.meets[0].id, 7);
+});

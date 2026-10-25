@@ -457,3 +457,60 @@ export async function fetchMeet(base, { id, name, date, code, sex }, fetchImpl =
     })(),
   };
 }
+
+// ---------------------------------------------------------------- importing from a meet
+
+/** Competitions matching a name (or all) between two dates, newest first. */
+export async function searchMeets(base, { name = '', from = '', to = '', page = 1 }, fetchImpl = fetch) {
+  const today = new Date().toISOString().slice(0, 10);
+  const sess = await session(base, '/competitions/swimming', fetchImpl);
+  const props = await inertiaPost(sess, '/competitions/swimming', {
+    name: String(name).slice(0, 80), organizer: '', location: '', pool_type: '', competition_group: '',
+    from_date: DATE.test(from) ? from : shiftDate(today, -365), to_date: DATE.test(to) ? to : today,
+    page: Math.max(1, Math.min(20, Number(page) || 1)),
+  }, fetchImpl);
+  const c = props.competitions || {};
+  return { meets: list(c.data ?? c).map(normMeet), page: c.meta?.current_page ?? 1, lastPage: c.meta?.last_page ?? 1 };
+}
+
+const listOpts = (x) => list(x).map((o) => ({ id: Number(o.id ?? o.value), name: String(o.name ?? o.label ?? '').trim() })).filter((o) => o.id && o.name);
+
+/**
+ * Swimmers who swam at a meet. Without `club` only the meet, its clubs and its size are returned.
+ * With a club (or `club=all` on small meets) every result row is read, once per sex, and folded into
+ * one entry per swimmer with the events they swam.
+ */
+export async function meetSwimmers(base, id, { club = '' } = {}, fetchImpl = fetch, maxPages = 20) {
+  const meetId = Number(id);
+  if (!meetId) throw httpError(400, 'Bad meet id');
+  const sess = await session(base, '/competitions/swimming', fetchImpl);
+  const first = await inertiaPost(sess, `/competitions/swimming/${meetId}`, { swim_event: '', class: '', club: '', page: 1 }, fetchImpl);
+  const meet = normMeet(first.competition) || { id: meetId };
+  const clubs = listOpts(first.swim_clubs).sort((a, b) => a.name.localeCompare(b.name, 'sv'));
+  const total = first.results?.meta?.total ?? list(first.results?.data).length;
+  const out = { meet, clubs, total, allowAll: total <= 400 };
+  if (!club) return out;
+  const clubId = club === 'all' ? '' : String(Number(club) || '');
+  if (club !== 'all' && !clubId) throw httpError(400, 'Bad club');
+  if (club === 'all' && !out.allowAll) throw httpError(400, 'Meet too large, pick a club');
+  const swimmers = new Map();
+  let complete = true;
+  for (const [cls, sex] of [['2', 'Woman'], ['1', 'Man']]) {
+    for (let p = 1; p <= maxPages; p++) {
+      const props = await inertiaPost(sess, `/competitions/swimming/${meetId}`, { swim_event: '', class: cls, club: clubId, page: p }, fetchImpl);
+      const res = props.results || {};
+      for (const r of list(res.data ?? res)) {
+        const sid = Number(r.swimmer_id);
+        if (!sid) continue;
+        const s = swimmers.get(sid) || { id: sid, name: r.swimmer_name ?? '', born: r.swimmer_birth_year ? Number(r.swimmer_birth_year) : null, club: r.club_name ?? '', sex, events: [] };
+        const code = Number(r.event_code);
+        if (code && !s.events.includes(code)) s.events.push(code);
+        swimmers.set(sid, s);
+      }
+      const last = res.meta?.last_page || 1;
+      if (p >= last) break;
+      if (p === maxPages) complete = false;
+    }
+  }
+  return { ...out, club: clubId || 'all', complete, swimmers: [...swimmers.values()].sort((a, b) => (b.born || 0) - (a.born || 0) || a.name.localeCompare(b.name, 'sv')) };
+}

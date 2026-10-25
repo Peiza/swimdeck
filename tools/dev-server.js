@@ -10,7 +10,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SITES, fetchOverview, fetchEvent, searchSwimmers, nationalRank, fetchMeet } from '../worker/src/tempus.js';
+import { SITES, fetchOverview, fetchEvent, searchSwimmers, nationalRank, fetchMeet, searchMeets, meetSwimmers } from '../worker/src/tempus.js';
 import { mockApi } from './mock.js';
 import { handleSync } from '../worker/src/sync.js';
 
@@ -35,6 +35,8 @@ const live = {
   search: (base, q) => searchSwimmers(base, { first: q.get('first') || '', last: q.get('last') || '', club: q.get('club') || '', active: q.get('active') === '1', sex: q.get('sex') || '', page: q.get('page') || 1 }),
   swimmer: (base, id, q) => fetchOverview(base, id, { from: q.get('from'), to: q.get('to') }),
   event: (base, id, code) => fetchEvent(base, id, code),
+  meets: (base, q) => searchMeets(base, { name: q.get('name') || '' }),
+  meetSwimmers: (base, id, q) => meetSwimmers(base, id, { club: q.get('club') || '' }),
   meet: (base, q) => fetchMeet(base, { id: q.get('id'), name: q.get('name'), date: q.get('date') || '', code: q.get('code'), sex: q.get('sex') || '' }),
   rank: (base, q) => nationalRank(base, { code: Number(q.get('event')), sex: q.get('sex'), born: Number(q.get('born')), from: q.get('from'), to: q.get('to'), time: Number(q.get('time')) }),
 };
@@ -46,6 +48,8 @@ async function handleApi(url) {
   if (url.pathname === '/api/search') return impl.search(base, url.searchParams);
   if (url.pathname === '/api/rank') return impl.rank(base, url.searchParams);
   if (url.pathname === '/api/meet') return impl.meet(base, url.searchParams);
+  if (url.pathname === '/api/meets') return impl.meets(base, url.searchParams);
+  if ((m = url.pathname.match(/^\/api\/meet\/(\d+)\/swimmers$/))) return impl.meetSwimmers(base, m[1], url.searchParams);
   if ((m = url.pathname.match(/^\/api\/swimmer\/(\d+)$/))) return impl.swimmer(base, m[1], url.searchParams);
   if ((m = url.pathname.match(/^\/api\/swimmer\/(\d+)\/event\/(\d+)$/))) return impl.event(base, m[1], m[2]);
   throw Object.assign(new Error('Not found'), { status: 404 });

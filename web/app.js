@@ -1522,6 +1522,10 @@ function openAdd() {
         <span class="muted small">${esc(t('importCta'))}</span>
         <button type="button" class="btn small" data-action="importOpen">${esc(t('importOpen'))}</button>
       </div>
+      <div class="paste import-cta">
+        <span class="muted small">${esc(t('meetImportCta'))}</span>
+        <button type="button" class="btn small" data-action="meetImport">${esc(t('meetImportOpen'))}</button>
+      </div>
       <div class="paste">
         <label><span class="muted small">${esc(t('orPaste'))}</span>
           <div class="row"><input name="link" placeholder="${esc(t('pastePlaceholder'))}" inputmode="url"><button type="button" class="btn" id="addLink">${esc(t('addBtn'))}</button></div>
@@ -1663,6 +1667,169 @@ function addImported() {
     if (sw) added.push(sw);
   }
   importState = null;
+  $('#addDialog').close();
+  render();
+  if (added.length) refreshAll({ only: added });
+  toast(t('importDone', { n: added.length }));
+}
+
+// ---------------------------------------------------------------- import from a meet in Tempus
+
+let meetImport = null; // { step, q, meets, busy, error, meet, clubs, club, data, sex, born, groupBy, selected:Set }
+const MEET_IMPORT_MAX = 80;
+
+function openMeetImport() {
+  meetImport = { step: 'pick', q: '', meets: null, busy: true, error: '', sex: '', born: '', groupBy: 'born', selected: new Set() };
+  renderMeetImport();
+  findMeets();
+}
+
+async function findMeets() {
+  const mi = meetImport;
+  mi.busy = true;
+  mi.error = '';
+  renderMeetImport();
+  try {
+    const r = await api('/api/meets', { name: mi.q });
+    if (meetImport !== mi) return;
+    mi.meets = r.meets;
+  } catch (e) {
+    mi.error = t('error', { msg: e.message });
+  }
+  mi.busy = false;
+  renderMeetImport();
+}
+
+async function pickMeet(id) {
+  const mi = meetImport;
+  Object.assign(mi, { step: 'swimmers', meet: (mi.meets || []).find((m) => m.id === id) || { id }, clubs: null, club: '', data: null, busy: true, error: '', selected: new Set() });
+  renderMeetImport();
+  try {
+    const head = await api(`/api/meet/${id}/swimmers`, {});
+    if (meetImport !== mi) return;
+    mi.meet = head.meet || mi.meet;
+    mi.clubs = head.clubs;
+    mi.allowAll = head.allowAll;
+    // start with the club most swimmers in the list belong to, when it took part
+    const counts = {};
+    for (const s of state.swimmers) if (s.club) counts[s.club] = (counts[s.club] || 0) + 1;
+    const mine = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([c]) => head.clubs.find((x) => x.name === c)).find(Boolean);
+    mi.busy = false;
+    if (mine) return loadMeetClub(String(mine.id));
+    if (head.allowAll && !head.clubs.length) return loadMeetClub('all');
+  } catch (e) {
+    mi.error = t('error', { msg: e.message });
+    mi.busy = false;
+  }
+  renderMeetImport();
+}
+
+async function loadMeetClub(club) {
+  const mi = meetImport;
+  Object.assign(mi, { club, data: null, busy: !!club, error: '', born: '' });
+  renderMeetImport();
+  if (!club) return;
+  try {
+    const r = await api(`/api/meet/${mi.meet.id}/swimmers`, { club });
+    if (meetImport !== mi || mi.club !== club) return;
+    mi.data = r;
+  } catch (e) {
+    mi.error = t('error', { msg: e.message });
+  }
+  mi.busy = false;
+  renderMeetImport();
+}
+
+const inList = (id) => state.swimmers.some((s) => s.id === id);
+
+function meetImportShown() {
+  const mi = meetImport;
+  return (mi.data?.swimmers || []).filter((s) => (!mi.sex || (mi.sex === 'W') === (s.sex === 'Woman')) && (!mi.born || String(s.born) === mi.born));
+}
+
+function meetImportGroups() {
+  const mi = meetImport;
+  const list = meetImportShown();
+  if (mi.groupBy === 'event') {
+    const map = new Map();
+    for (const s of list) for (const c of s.events) {
+      if (!map.has(c)) map.set(c, []);
+      map.get(c).push(s);
+    }
+    return [...map.entries()].sort((a, b) => a[0] % 2 - b[0] % 2 || eventSortKey(a[0]) - eventSortKey(b[0])).map(([c, l]) => [`e${c}`, `${eventLabel(c, state.lang)} · ${c % 2 ? 25 : 50} m`, l]);
+  }
+  const map = new Map();
+  for (const s of list) {
+    const k = String(s.born || '');
+    if (!map.has(k)) map.set(k, []);
+    map.get(k).push(s);
+  }
+  return [...map.entries()].sort((a, b) => Number(b[0]) - Number(a[0])).map(([k, l]) => [`b${k}`, k ? t('born', { year: k }) : '–', l]);
+}
+
+function renderMeetImport() {
+  const mi = meetImport;
+  const dlg = $('#addDialog');
+  const head = `<header class="sheet-head"><div><h2>${esc(mi.step === 'pick' ? t('meetImportTitle') : mi.meet?.name || '')}</h2>
+      <p class="muted small">${esc(mi.step === 'pick' ? t('meetImportHint') : [mi.meet?.location, mi.meet?.date, mi.meet?.pool ? mi.meet.pool + ' m' : ''].filter(Boolean).join(' · '))}</p></div>
+    <button type="button" class="icon" data-action="close" aria-label="${esc(t('close'))}">✕</button></header>`;
+  let body;
+  if (mi.step === 'pick') {
+    body = `
+      <form class="row" id="meetSearchForm"><input name="q" value="${esc(mi.q)}" placeholder="${esc(t('meetSearchPlaceholder'))}" autocomplete="off"><button class="btn">${esc(t('search'))}</button></form>
+      ${mi.error ? `<p class="warn small">${esc(mi.error)}</p>` : ''}
+      ${mi.busy ? `<p class="muted">${esc(t('loading'))}</p>` : !mi.meets?.length ? `<p class="muted">${esc(t('meetNoneFound'))}</p>` : `
+        <p class="muted small">${esc(mi.q ? t('meetHits', { n: mi.meets.length }) : t('meetRecent'))}</p>
+        <ul class="meet-pick">${mi.meets.map((m) => `<li><button type="button" data-mpick="${m.id}"><b>${esc(m.name)}</b><span class="muted small">${esc([m.date, m.location, m.pool ? m.pool + ' m' : ''].filter(Boolean).join(' · '))}</span></button></li>`).join('')}</ul>`}
+      <div class="row"><button type="button" class="link" data-action="add">${esc(t('back'))}</button></div>`;
+  } else {
+    const shown = meetImportShown();
+    const years = [...new Set((mi.data?.swimmers || []).map((s) => s.born).filter(Boolean))].sort((a, b) => b - a);
+    const groups = mi.data ? meetImportGroups() : [];
+    const free = (l) => l.filter((s) => !inList(s.id));
+    body = `
+      <div class="row wrap import-tools">
+        <label class="select compact"><span class="sr">${esc(t('club'))}</span><select id="miClub">
+          <option value="">${esc(t('meetChooseClub'))}</option>
+          ${mi.allowAll ? `<option value="all" ${mi.club === 'all' ? 'selected' : ''}>${esc(t('meetAllClubs'))}</option>` : ''}
+          ${(mi.clubs || []).map((c) => `<option value="${c.id}" ${String(c.id) === mi.club ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
+        </select></label>
+        ${mi.data ? `
+          <div class="seg small" role="group">${[['', t('allSexes')], ['W', t('women')], ['M', t('men')]].map(([k, v]) => `<button type="button" data-misex="${k}" aria-pressed="${mi.sex === k}">${esc(v)}</button>`).join('')}</div>
+          ${years.length > 1 ? `<label class="select compact"><span class="sr">${esc(t('birthYear'))}</span><select id="miBorn"><option value="">${esc(t('allYears'))}</option>${years.map((y) => `<option value="${y}" ${mi.born === String(y) ? 'selected' : ''}>${y}</option>`).join('')}</select></label>` : ''}
+          <div class="seg small" role="group">${[['born', t('birthYear')], ['event', t('event')]].map(([k, v]) => `<button type="button" data-migroup="${k}" aria-pressed="${mi.groupBy === k}">${esc(v)}</button>`).join('')}</div>` : ''}
+      </div>
+      ${mi.error ? `<p class="warn small">${esc(mi.error)}</p>` : ''}
+      ${mi.busy ? `<p class="muted">${esc(t('loading'))}</p>` : !mi.club ? `<p class="muted">${esc(mi.allowAll ? t('meetPickClubOrAll') : t('meetPickClub'))}</p>` : !mi.data ? '' : `
+        <p class="muted small">${esc(t('meetSwimmersFound', { n: shown.length }))}${mi.data.complete ? '' : ' · ' + esc(t('meetPartialShort'))}</p>
+        <div class="import-list">${groups.map(([key, label, list]) => `
+          <section class="igroup">
+            <label class="igroup-head"><input type="checkbox" data-migroup-all="${key}" ${free(list).length && free(list).every((s) => mi.selected.has(s.id)) ? 'checked' : ''} ${free(list).length ? '' : 'disabled'}>
+              <b>${esc(label)}</b> <span class="muted small">${list.length}</span></label>
+            ${list.map((s) => `<label class="irow ${inList(s.id) ? 'off' : ''}">
+              <input type="checkbox" data-misel="${s.id}" ${mi.selected.has(s.id) ? 'checked' : ''} ${inList(s.id) ? 'disabled' : ''}>
+              <span class="iname"><b>${esc(s.name)}</b><span class="muted small">${esc([s.born, s.club].filter(Boolean).join(' · '))}</span></span>
+              <span class="iright small muted">${inList(s.id) ? esc(t('alreadyInList')) : esc(t('meetSwims', { n: s.events.length }))}</span></label>`).join('')}
+          </section>`).join('')}</div>`}
+      <div class="row end wrap import-foot">
+        <button type="button" class="link" data-action="meetImportBack">${esc(t('meetOtherMeet'))}</button>
+        <button type="button" class="btn primary" data-action="meetImportAdd" ${mi.selected.size ? '' : 'disabled'}>${esc(t('importAdd', { n: mi.selected.size }))}</button>
+      </div>`;
+  }
+  const box = $('.import-list');
+  const top = box ? box.scrollTop : 0;
+  dlg.innerHTML = `<div class="sheet import-sheet meet-import">${head}${body}</div>`;
+  if (!dlg.open) dlg.showModal();
+  const nb = $('.import-list');
+  if (nb) nb.scrollTop = top;
+}
+
+function addFromMeet() {
+  const mi = meetImport;
+  const picks = (mi.data?.swimmers || []).filter((s) => mi.selected.has(s.id) && !inList(s.id)).slice(0, MEET_IMPORT_MAX);
+  if (mi.selected.size > MEET_IMPORT_MAX) toast(t('importMax', { n: MEET_IMPORT_MAX }));
+  const added = picks.map((p) => addSwimmer({ id: p.id, name: p.name, born: p.born, club: p.club, sex: p.sex, site: 'se' }, { load: false })).filter(Boolean);
+  meetImport = null;
   $('#addDialog').close();
   render();
   if (added.length) refreshAll({ only: added });
@@ -2072,6 +2239,21 @@ document.addEventListener('click', (e) => {
     return;
   }
   if (el.dataset.action === 'importOpen') return openImport();
+  if (el.dataset.action === 'meetImport') return openMeetImport();
+  if (el.dataset.mpick) return pickMeet(Number(el.dataset.mpick));
+  if (el.dataset.action === 'meetImportBack') {
+    Object.assign(meetImport, { step: 'pick', data: null, club: '' });
+    return meetImport.meets ? renderMeetImport() : findMeets();
+  }
+  if (el.dataset.action === 'meetImportAdd') return addFromMeet();
+  if (el.dataset.misex != null && meetImport) {
+    meetImport.sex = el.dataset.misex;
+    return renderMeetImport();
+  }
+  if (el.dataset.migroup && meetImport) {
+    meetImport.groupBy = el.dataset.migroup;
+    return renderMeetImport();
+  }
   if (el.dataset.action === 'cardsCustomize') return openCustomize();
   if (el.dataset.action === 'notifyOpen') return openNotify();
   if (el.dataset.action === 'notifyOn') return enableNotify();
@@ -2114,6 +2296,11 @@ document.addEventListener('keydown', (e) => {
 });
 
 document.addEventListener('submit', (e) => {
+  if (e.target.id === 'meetSearchForm') {
+    e.preventDefault();
+    meetImport.q = new FormData(e.target).get('q').trim();
+    return findMeets();
+  }
   if (e.target.id === 'searchForm') {
     e.preventDefault();
     doSearch(e.target);
@@ -2136,6 +2323,22 @@ document.addEventListener('change', (e) => {
     state.cardParts = { ...state.cardParts, [e.target.dataset.part]: e.target.checked };
     store.set('cardParts', state.cardParts);
     return renderMain();
+  }
+  if (e.target.id === 'miClub') return loadMeetClub(e.target.value);
+  if (e.target.id === 'miBorn') {
+    meetImport.born = e.target.value;
+    return renderMeetImport();
+  }
+  if (e.target.dataset?.misel) {
+    const id = Number(e.target.dataset.misel);
+    if (e.target.checked) meetImport.selected.add(id);
+    else meetImport.selected.delete(id);
+    return renderMeetImport();
+  }
+  if (e.target.dataset?.migroupAll !== undefined) {
+    const list = meetImportGroups().find(([k]) => k === e.target.dataset.migroupAll)?.[2] || [];
+    for (const sw of list) if (!inList(sw.id)) e.target.checked ? meetImport.selected.add(sw.id) : meetImport.selected.delete(sw.id);
+    return renderMeetImport();
   }
   if (e.target.dataset?.isel) {
     const k = e.target.dataset.isel;

@@ -547,3 +547,9 @@ button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4
   .rank-both th.num, .rank-both td.num { width: auto; padding-right: 4px; }
   .rank-both td small { font-size: 10px; }
 }
+
+/* import from a meet */
+.meet-pick { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 50dvh; overflow: auto; }
+.meet-pick button { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: grid; gap: 2px; padding: 9px 12px; border-radius: 10px; background: var(--surface-2); }
+.meet-pick button:hover, .meet-pick button:focus-visible { outline: 2px solid var(--accent); }
+#meetSearchForm input { flex: 1; min-width: 0; }

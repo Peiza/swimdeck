@@ -95,3 +95,6 @@ plattform och fungerar med `site=fi`.
 - ✅ v0.23.0: topplista med en distans på båda banlängderna (två kolumner, sortera per kolumn), period "Senaste 24 mån",
   logga/namn leder till startsidan, kvaltider "Klarade" (översikt per simmare, båda banor), "Vad visas här?" i varje vy
   och sidan "Om SwimDeck" med begrepp. Tempus skiljer inte på inne och ute, bara 25/50 m.
+- ✅ v0.26.0: importera från tävling i Tempus. Sök tävling (senaste året), välj klubb (förvald: klubben flest i listan
+  tillhör), filtrera på kön och årskull, gruppera på årskull eller gren, markera hela grupper. Läser resultatlistan per
+  klubb och kön (max 20 sidor à 20 rader per kön); "Alla klubbar" bara på tävlingar med högst 400 resultat.

@@ -87,6 +87,22 @@ export const mockApi = {
     const rank = 1 + (Math.round(time / 7) % 140);
     return { available: true, rank, complete: rank < 120, leader: Math.round(time * 0.9), scanned: 300, totalAllAges: 2400 };
   },
+  async meets(_base, q) {
+    await delay();
+    const name = (q.get('name') || '').toLowerCase();
+    const all = MEETS.map((m, i) => ({ id: 100 + i, name: `${m} 2026`, location: 'Exempelstaden', organizer: CLUBS[i % 3], date: `2026-${String(10 - i).padStart(2, '0')}-12`, pool: i % 2 ? 50 : 25 }));
+    return { meets: all.filter((m) => m.name.toLowerCase().includes(name)), page: 1, lastPage: 1 };
+  },
+  async meetSwimmers(_base, id, q) {
+    await delay();
+    const meet = { id: Number(id), name: 'Höstsimiaden 2026', location: 'Exempelstaden', date: '2026-10-12', pool: 25 };
+    const clubs = CLUBS.map((name, i) => ({ id: i + 1, name }));
+    const club = q.get('club');
+    if (!club) return { meet, clubs, total: 300, allowAll: true };
+    const pick = club === 'all' ? null : CLUBS[Number(club) - 1];
+    const swimmers = NAMES.map((_, i) => swimmer(5000 + i)).filter((s) => !pick || s.club === pick).map((s) => ({ id: s.id, name: s.name, born: s.born, club: s.club, sex: s.sex, events: [11, 13, 31, 51].filter((c, k) => (s.id + k) % 3) }));
+    return { meet, clubs, total: 300, allowAll: true, club, complete: true, swimmers };
+  },
   async meet(_base, q) {
     await delay();
     const code = Number(q.get('code'));
