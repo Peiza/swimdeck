@@ -84,3 +84,7 @@ plattform och fungerar med `site=fi`.
 - Livetider från Swimify: Swimifys data kräver deras egen klientnyckel, så den används inte utan tillstånd.
   Alternativ: länk till tävlingen på live.swimify.com, och fråga Swimify/IC Control om ett API.
 - Namn och slogan: behåll SwimDeck tills vidare, välj slogan.
+- ✅ Resultatlista per tävling (v0.20.0): tryck på en tävling i Grenar eller Tävlingar. Tempus lagrar ingen placering
+  per lopp (`event_position` är bara loppets plats bland simmarens egna lopp), så placeringen räknas fram från
+  tävlingens resultatlista (`/competitions/swimming/<id>`, filter gren + klass), per omgång och för alla åldrar.
+  Tävlingen hittas via namn och datum. Cachas 6 timmar.

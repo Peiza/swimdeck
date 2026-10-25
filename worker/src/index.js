@@ -4,6 +4,7 @@
 //   GET /api/swimmer/:id?from=YYYY-MM-DD      personal bests (optionally since a date)
 //   GET /api/swimmer/:id/event/:code          every swim in one event
 //   GET /api/rank?event=&sex=&born=&from=&to=&time=   place in Sweden by birth year
+//   GET /api/meet?id=|name=&date=, code=, sex=    result list for one event at a meet, with places
 //   POST /api/sync, GET|PUT|DELETE /api/sync/:token  sync a list between devices
 //   GET /api/push/key, POST|DELETE /api/push          notifications for new personal bests
 //   scheduled (cron): checks watched swimmers and sends push notifications
@@ -11,7 +12,7 @@
 // Every route accepts ?site=se (default) or ?site=fi.
 // Responses are cached at the edge so Tempus sees as few requests as possible.
 
-import { SITES, fetchOverview, fetchEvent, searchSwimmers, nationalRank } from './tempus.js';
+import { SITES, fetchOverview, fetchEvent, searchSwimmers, nationalRank, fetchMeet } from './tempus.js';
 import { handleSync } from './sync.js';
 import { handlePush, runCheck } from './push.js';
 
@@ -22,6 +23,7 @@ const TTL = {
   swimmer: 30 * 60, // 30 min
   event: 30 * 60,
   rank: 6 * 60 * 60, // 6 h
+  meet: 6 * 60 * 60,
 };
 
 export default {
@@ -114,6 +116,12 @@ function matchRoute(path) {
           to: q.get('to') || '',
           time: Number(q.get('time')),
         }),
+    };
+  }
+  if (path === '/api/meet') {
+    return {
+      kind: 'meet',
+      run: (base, q) => fetchMeet(base, { id: q.get('id'), name: clean(q.get('name')), date: q.get('date') || '', code: q.get('code'), sex: q.get('sex') || '' }),
     };
   }
   if ((m = path.match(/^\/api\/swimmer\/(\d{1,9})$/))) {

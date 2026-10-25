@@ -21,6 +21,13 @@ export const STROKES_SHORT = {
 
 const T = {
   sv: {
+    meetOpen: 'Visa resultatlistan',
+    placeOf: 'Plats {place} av {of}',
+    meetNotFound: 'Hittade inte tävlingen i Tempus.',
+    meetEmpty: 'Inga resultat i den här grenen.',
+    meetPartial: 'Visar de {n} första av {total}.',
+    meetOnTempus: 'Tävlingen på Tempus',
+    meetNote: 'Placeringen räknas fram från resultatlistan i Tempus, per omgång och för alla åldrar.',
     notifyTest: 'Skicka testnotis',
     notifyTestSent: 'Testnotis skickad. Den brukar komma inom några sekunder.',
     notifyWait: 'Vänta en minut mellan testerna.',
@@ -282,6 +289,13 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    meetOpen: 'Show the result list',
+    placeOf: 'Place {place} of {of}',
+    meetNotFound: 'Could not find the meet in Tempus.',
+    meetEmpty: 'No results in this event.',
+    meetPartial: 'Showing the first {n} of {total}.',
+    meetOnTempus: 'The meet on Tempus',
+    meetNote: 'Places are worked out from the Tempus result list, per round and across all ages.',
     notifyTest: 'Send test notification',
     notifyTestSent: 'Test sent. It usually arrives within seconds.',
     notifyWait: 'Wait a minute between tests.',
@@ -543,6 +557,13 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    meetOpen: 'Näytä tulosluettelo',
+    placeOf: 'Sija {place}/{of}',
+    meetNotFound: 'Kilpailua ei löytynyt Tempuksesta.',
+    meetEmpty: 'Ei tuloksia tässä lajissa.',
+    meetPartial: 'Näytetään {n} ensimmäistä / {total}.',
+    meetOnTempus: 'Kilpailu Tempuksessa',
+    meetNote: 'Sijoitukset lasketaan Tempuksen tulosluettelosta, erää kohden ja kaikista ikäluokista.',
     notifyTest: 'Lähetä testi-ilmoitus',
     notifyTestSent: 'Testi lähetetty. Se saapuu yleensä sekunneissa.',
     notifyWait: 'Odota minuutti testien välillä.',

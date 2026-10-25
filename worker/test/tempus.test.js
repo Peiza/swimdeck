@@ -285,3 +285,34 @@ test('sync: create, read, update, delete; only clean fields stored', async () =>
   r = await worker.fetch(new Request('https://api.example/api/sync', { method: 'POST', headers: { Origin: 'https://evil.example' }, body: '{}' }), env, ctx);
   assert.equal(r.status, 403);
 });
+
+test('fetchMeet finds the meet by name and date, reads every page and sets places per round', async () => {
+  const { fetchMeet, placeRows } = await import('../src/tempus.js');
+  const row = (id, time, round) => ({ swimmer_id: id, swimmer_name: 'Simmare ' + id, swimmer_birth_year: '2012', club_name: 'Klubb', competition_name: 'Höstsim', result_date: '2026-10-18', result_time: time, swim_time: '', event_name: '100m Frisim', pool_type_name: '25 M', event_code: 13, round_type_name: round });
+  const bodies = [];
+  const f = async (url, init = {}) => {
+    const path = new URL(url).pathname;
+    if (!init.method) {
+      const h = new Headers();
+      h.append('Set-Cookie', 'XSRF-TOKEN=t; path=/');
+      return new Response(html({ component: 'Competition/Swimming/Index', version: 'v1', props: {} }), { headers: h });
+    }
+    const body = JSON.parse(init.body);
+    bodies.push({ path, body });
+    if (path === '/competitions/swimming') {
+      return Response.json({ props: { competitions: { data: [
+        { id: 9, name: 'Höstsim', competition_date: '2025-10-18', pool_type_name: '25 M' },
+        { id: 10, name: 'Höstsim ', competition_date: '2026-10-17', pool_type_name: '25 M' },
+      ] } } });
+    }
+    const pages = { 1: [row(1, 6000, 'Final'), row(2, 6100, 'Final')], 2: [row(3, 6100, 'Final'), row(4, 6200, 'Heat')] };
+    return Response.json({ props: { competition: { id: 10, name: 'Höstsim', competition_date: '2026-10-17', pool_type_name: '25 M' }, swim_events: { data: [{ id: 6, name: '100m Frisim' }] }, results: { data: pages[body.page], meta: { total: 4, last_page: 2 } } } });
+  };
+  const r = await fetchMeet('https://t.example', { name: 'Höstsim', date: '2026-10-18', code: 13, sex: 'W' }, f);
+  assert.equal(r.meet.id, 10);
+  assert.deepEqual(bodies.slice(1).map((b) => [b.path, b.body.swim_event, b.body.class, b.body.page]), [['/competitions/swimming/10', 6, '2', 1], ['/competitions/swimming/10', 6, '2', 2]]);
+  assert.deepEqual(r.results.map((x) => [x.swimmerId, x.place, x.of]), [[1, 1, 3], [2, 2, 3], [3, 2, 3], [4, 1, 1]]);
+  assert.equal(r.complete, true);
+  await assert.rejects(fetchMeet('https://t.example', { code: 99 }, f), (e) => e.status === 400);
+  assert.equal(placeRows([]).length, 0);
+});

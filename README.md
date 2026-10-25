@@ -8,6 +8,7 @@ Follow your swimmers: personal bests, top times, season bests and progression fr
 - Per event: personal best, period best, top 3/5/10/all swims and a progression chart
 - Biggest improvement against the personal best before the period
 - A Meets tab with every swim, newest meet first, PBs marked; season bests per event
+- Tap a meet to see its result list for that event, with places worked out per round
 - Rankings within your list: per event, period best, AQUA points or improvement
 - Compare up to four swimmers event by event; export rankings and comparisons as CSV
 - Sort or drag cards, minimise them, remove with undo and a 30-day trash
@@ -40,6 +41,7 @@ reads the JSON that Tempus Open embeds in them and returns a compact shape:
 | `GET /api/search?first=&last=&club=` | matching swimmers |
 | `GET /api/swimmer/:id?from=YYYY-MM-DD&to=YYYY-MM-DD` | best time per event (all time, or within dates) |
 | `GET /api/swimmer/:id/event/:code` | every swim in one event, fastest first |
+| `GET /api/meet?name=&date=&code=&sex=` (or `id=`) | result list for one event at a meet, with places per round |
 | `GET /api/rank?event=&sex=&born=&from=&to=&time=` | place in Sweden among swimmers born the same year |
 | `GET /api/push/key`, `POST`/`DELETE /api/push`, `POST /api/push/test` | push notification subscriptions (checked by a cron trigger) |
 | `POST /api/sync`, `GET/PUT/DELETE /api/sync/:token` | synced list (Cloudflare KV, created by the deploy workflow) |

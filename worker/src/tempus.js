@@ -51,7 +51,6 @@ export function normResult(r, pool) {
     date: r.result_date ?? null,
     meet: r.competition_name ?? '',
     round: r.round_type_name ?? '',
-    place: r.event_position ?? null,
     points: r.aqua_points ?? null,
     club: r.club_name ?? '',
   };
@@ -308,5 +307,115 @@ export async function nationalRank(base, { code, sex, born, from, to, time }, fe
     leader: cohort[0]?.time ?? null,
     scanned: cohort.length,
     totalAllAges: total,
+  };
+}
+
+// ---------------------------------------------------------------- meet results
+
+/** A Laravel session (cookies + XSRF token + Inertia version) taken from one GET. */
+async function session(base, path, fetchImpl) {
+  const { page, res } = await getPage(base, path, fetchImpl);
+  const cookies = cookieHeader(res);
+  const xsrf = decodeURIComponent((cookies.match(/XSRF-TOKEN=([^;]+)/) || [])[1] || '');
+  return { base, cookies, xsrf, version: page.version ?? '', page };
+}
+
+async function inertiaPost(sess, path, body, fetchImpl) {
+  const res = await fetchImpl(sess.base + path, {
+    method: 'POST',
+    headers: {
+      'User-Agent': UA,
+      'Content-Type': 'application/json',
+      Accept: 'text/html, application/xhtml+xml',
+      'X-Inertia': 'true',
+      'X-Inertia-Version': sess.version,
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-XSRF-TOKEN': sess.xsrf,
+      Cookie: sess.cookies,
+    },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 404) throw httpError(404, 'Not found');
+  if (!res.ok) throw httpError(502, `Tempus answered ${res.status}`);
+  return (await res.json()).props || {};
+}
+
+const shiftDate = (iso, days) => new Date(Date.parse(iso) + days * 86400000).toISOString().slice(0, 10);
+const normName = (s) => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+export function normMeet(c) {
+  return c ? { id: Number(c.id), name: String(c.name || '').trim(), location: c.location ?? '', organizer: c.organizer ?? '', date: c.competition_date ?? null, pool: poolOf(c, null) } : null;
+}
+
+/** Pick the competition a swim belongs to: same name, starting on or before the swim date, closest first. */
+export function pickMeet(competitions, name, date) {
+  const want = normName(name);
+  const cands = list(competitions).map(normMeet).filter((c) => c && (!date || !c.date || c.date <= date));
+  cands.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  return cands.find((c) => normName(c.name) === want) || cands.find((c) => normName(c.name).includes(want) || want.includes(normName(c.name))) || null;
+}
+
+/** Places within each round: ties share a place. Rows come back grouped by round, fastest first. */
+export function placeRows(rows) {
+  const byRound = new Map();
+  for (const r of rows) {
+    const k = r.round || '';
+    if (!byRound.has(k)) byRound.set(k, []);
+    byRound.get(k).push(r);
+  }
+  const order = (k) => (/^final$/i.test(k) ? 0 : /final/i.test(k) ? 1 : /semi/i.test(k) ? 2 : 3);
+  const out = [];
+  for (const k of [...byRound.keys()].sort((a, b) => order(a) - order(b) || a.localeCompare(b))) {
+    const g = byRound.get(k).sort((a, b) => a.time - b.time);
+    g.forEach((r, i) => out.push({ ...r, place: i > 0 && g[i - 1].time === r.time ? out.at(-1).place : i + 1, of: g.length }));
+  }
+  return out;
+}
+
+/**
+ * Result list for one event (and sex) at one meet. Finds the meet by name and date when no id is given.
+ * At most `maxPages` pages of 20 rows are read.
+ */
+export async function fetchMeet(base, { id, name, date, code, sex }, fetchImpl = fetch, maxPages = 15) {
+  const ev = statEvent(Number(code));
+  if (!ev) throw httpError(400, 'Unknown event');
+  const sess = await session(base, '/competitions/swimming', fetchImpl);
+  let meetId = Number(id) || null;
+  if (!meetId) {
+    if (!name || !DATE.test(date || '')) throw httpError(400, 'Need meet id, or name and date');
+    const props = await inertiaPost(sess, '/competitions/swimming', { name: String(name).slice(0, 80), organizer: '', location: '', pool_type: '', competition_group: '', from_date: shiftDate(date, -21), to_date: date }, fetchImpl);
+    const m = pickMeet(props.competitions, name, date);
+    if (!m) throw httpError(404, 'Meet not found');
+    meetId = m.id;
+  }
+  const cls = sex === 'W' ? '2' : sex === 'M' ? '1' : '';
+  let meet = null;
+  let events = [];
+  const rows = [];
+  let total = 0;
+  let pages = 0;
+  for (let p = 1; p <= maxPages; p++) {
+    const props = await inertiaPost(sess, `/competitions/swimming/${meetId}`, { swim_event: ev.id, class: cls, club: '', page: p }, fetchImpl);
+    meet = meet || normMeet(props.competition);
+    if (!events.length) events = list(props.swim_events).map((e) => ({ id: Number(e.id), name: e.name }));
+    const res = props.results || {};
+    const data = list(res.data ?? res);
+    total = res.meta?.total ?? data.length;
+    pages = p;
+    for (const r of data) {
+      const x = normResult(r, meet?.pool);
+      if (!isValid(x)) continue;
+      rows.push({ swimmerId: Number(r.swimmer_id), swimmer: r.swimmer_name ?? '', born: r.swimmer_birth_year ? Number(r.swimmer_birth_year) : null, club: x.club, event: x.event, time: x.time, date: x.date, round: x.round, points: x.points });
+    }
+    if (!data.length || p >= (res.meta?.last_page || 1)) break;
+  }
+  return {
+    meet: meet || { id: meetId },
+    code: Number(code),
+    sex: cls ? sex : '',
+    events: events.map((e) => e.name),
+    total,
+    complete: rows.length >= total || pages < maxPages,
+    results: placeRows(rows),
   };
 }

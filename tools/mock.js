@@ -47,7 +47,7 @@ function results(id, code) {
     out.push({
       id: id * 100000 + code * 100 + k, event: code, name: `${DIST[code]}m ${NAMES_EN[STROKE(code)]}`,
       pool: code % 2 ? 25 : 50, time, display: fmt(time), date, meet: `${MEETS[Math.floor(r() * MEETS.length)]} ${date.slice(0, 4)}`,
-      round: r() < 0.6 ? 'Final' : 'Heat', place: 1 + Math.floor(r() * 8), points: Math.round(800 * (EVENTS[code] / time) ** 3), club: swimmer(id).club,
+      round: r() < 0.6 ? 'Final' : 'Heat', points: Math.round(800 * (EVENTS[code] / time) ** 3), club: swimmer(id).club,
     });
   }
   return out.sort((a, b) => a.time - b.time);
@@ -85,6 +85,28 @@ export const mockApi = {
     const time = Number(q.get('time'));
     const rank = 1 + (Math.round(time / 7) % 140);
     return { available: true, rank, complete: rank < 120, leader: Math.round(time * 0.9), scanned: 300, totalAllAges: 2400 };
+  },
+  async meet(_base, q) {
+    await delay();
+    const code = Number(q.get('code'));
+    const name = q.get('name') || '';
+    const date = q.get('date') || '';
+    const sex = q.get('sex') || '';
+    if (!EVENTS[code]) throw Object.assign(new Error('Unknown event'), { status: 400 });
+    const rows = [];
+    for (let i = 0; i < NAMES.length; i++) {
+      const sw = swimmer(5000 + i);
+      if (sex && (sex === 'W') !== (sw.sex === 'Woman')) continue;
+      for (const r of results(sw.id, code)) if (r.meet === name && r.date === date) rows.push({ swimmerId: sw.id, swimmer: sw.name, born: sw.born, club: sw.club, event: code, time: r.time, date, round: r.round, points: r.points });
+    }
+    const r = rng(code * 7 + name.length);
+    const ref = rows[0]?.time || EVENTS[code] * 1.1;
+    for (let k = 0; k < 14; k++) {
+      const time = Math.round(ref * (0.94 + r() * 0.16));
+      rows.push({ swimmerId: 90000 + k, swimmer: `Simmare ${String.fromCharCode(65 + k)}`, born: 2008 + Math.floor(r() * 6), club: CLUBS[k % 3], event: code, time, date, round: rows[0]?.round || 'Final', points: Math.round(800 * (EVENTS[code] / time) ** 3) });
+    }
+    const { placeRows } = await import('../worker/src/tempus.js');
+    return { meet: { id: 1, name, location: 'Exempelstaden', date, pool: code % 2 ? 25 : 50 }, code, sex, events: [], total: rows.length, complete: true, results: placeRows(rows) };
   },
   async event(_base, id, code) {
     await delay();

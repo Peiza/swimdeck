@@ -448,3 +448,21 @@ body:has(.card.dragging) { user-select: none; -webkit-user-select: none; }
 .parts { display: grid; gap: 8px; }
 .parts .check { display: flex; gap: 8px; align-items: center; }
 .deck-tools-left { row-gap: 6px; }
+
+/* meet result lists */
+.meet-link { all: unset; cursor: pointer; color: inherit; border-bottom: 1px dotted var(--muted); }
+.meet-link:hover, .meet-link:focus-visible { color: var(--accent); border-bottom-color: var(--accent); }
+.meet-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+.meet-link.strong { font-weight: 600; justify-self: start; }
+.meet-link.plain { border-bottom-color: transparent; }
+.meet-link.plain:hover { border-bottom-color: var(--accent); }
+.top li .meet-link { color: var(--muted); }
+.meet-me { margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--surface-2); }
+.meet-list { width: 100%; border-collapse: collapse; }
+.meet-list td { padding: 6px 0; border-top: 1px solid var(--line); vertical-align: baseline; }
+.meet-list tr:first-child td { border-top: 0; }
+.meet-list td small { display: block; }
+.meet-list td.num { white-space: nowrap; text-align: right; padding-left: 10px; }
+.meet-list td.place { width: 2.2em; text-align: left; padding-left: 0; color: var(--muted); }
+.meet-list tr.mine td:nth-child(2) { font-weight: 600; }
+.meet-list tr.me td { color: var(--accent); font-weight: 600; }
