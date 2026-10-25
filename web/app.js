@@ -1,6 +1,7 @@
 import { CONFIG } from './config.js';
 import { supportLine } from './support.js';
 import { VERSION } from './version.js';
+import { parseList, rankCandidates } from './importer.js';
 import { QUAL } from './qual-data.js';
 import { ORDER, qualify, qualCounts, usmAgeGroup, sexOf } from './qual.js';
 import { LANGS, makeT, detectLang } from './i18n.js';
@@ -794,7 +795,7 @@ function renderFooter() {
     </div>
     ${supportLine(t, esc)}
     <p class="muted small">${esc(t('dataFrom'))}</p>
-    <p class="version">${esc(versionLabel())}</p>`;
+    <p class="version">SwimDeck – ${esc(t('slogan'))} · © ${new Date().getFullYear()} Peiza · ${esc(versionLabel())}</p>`;
 }
 
 // ---------------------------------------------------------------- swimmer dialog
@@ -1151,6 +1152,10 @@ function openAdd() {
       </div>
       <button class="btn primary" type="submit" id="doSearch">${esc(t('search'))}</button>
       <div id="hits" aria-live="polite"></div>
+      <div class="paste import-cta">
+        <span class="muted small">${esc(t('importCta'))}</span>
+        <button type="button" class="btn small" data-action="importOpen">${esc(t('importOpen'))}</button>
+      </div>
       <div class="paste">
         <label><span class="muted small">${esc(t('orPaste'))}</span>
           <div class="row"><input name="link" placeholder="${esc(t('pastePlaceholder'))}" inputmode="url"><button type="button" class="btn" id="addLink">${esc(t('addBtn'))}</button></div>
@@ -1162,6 +1167,141 @@ function openAdd() {
 }
 
 let searchState = null;
+
+// ---------------------------------------------------------------- import from a pasted list
+
+let importState = null; // { entries, groups, groupBy, status: Map(key -> {state, candidates, pick}), selected: Set }
+
+function openImport() {
+  importState = importState || { entries: [], groups: [], groupBy: 'club', status: new Map(), selected: new Set(), text: '' };
+  renderImport();
+}
+
+function renderImport() {
+  const dlg = $('#addDialog');
+  const st = importState;
+  const found = st.entries.filter((e) => st.status.get(e.key)?.pick);
+  dlg.innerHTML = `
+    <div class="sheet import-sheet">
+      <header class="sheet-head"><div><h2>${esc(t('importTitle2'))}</h2><p class="muted small">${esc(t('importHint'))}</p></div>
+        <button type="button" class="icon" data-action="close" aria-label="${esc(t('close'))}">✕</button></header>
+      ${!st.entries.length ? `
+        <textarea id="importText" rows="10" placeholder="${esc(t('importPlaceholder'))}">${esc(st.text)}</textarea>
+        <div class="row"><button type="button" class="btn primary" data-action="importParse">${esc(t('importFind'))}</button>
+          <button type="button" class="link" data-action="add">${esc(t('back'))}</button></div>
+        <p class="muted small">${esc(t('importPrivacy'))}</p>`
+      : `
+        <div class="row wrap import-tools">
+          <span class="small muted">${esc(t('importFound', { n: st.entries.length, m: found.length }))}</span>
+          <span class="spacer"></span>
+          ${st.groups.length ? `<div class="seg small" role="group">${['club', 'group'].map((k) => `<button type="button" data-igroup="${k}" aria-pressed="${st.groupBy === k}">${esc(t(k === 'club' ? 'club' : 'event'))}</button>`).join('')}</div>` : ''}
+        </div>
+        <div class="import-list">${importGroups().map(([label, list]) => `
+          <section class="igroup">
+            <label class="igroup-head"><input type="checkbox" data-igroup-all="${esc(label)}" ${list.every((e) => !selectable(e) || st.selected.has(e.key)) && list.some(selectable) ? 'checked' : ''} ${list.some(selectable) ? '' : 'disabled'}>
+              <b>${esc(label || t('importNoGroup'))}</b> <span class="muted small">${list.length}</span></label>
+            ${list.map(importRow).join('')}
+          </section>`).join('')}</div>
+        <div class="row end wrap import-foot">
+          <button type="button" class="link" data-action="importReset">${esc(t('importAgain'))}</button>
+          <button type="button" class="btn primary" data-action="importAdd" ${st.selected.size ? '' : 'disabled'}>${esc(t('importAdd', { n: st.selected.size }))}</button>
+        </div>`}
+    </div>`;
+  if (!dlg.open) dlg.showModal();
+  $('#importText')?.focus();
+}
+
+function selectable(e) {
+  const pick = importState.status.get(e.key)?.pick;
+  return !!pick && !state.swimmers.some((s) => s.id === pick.id);
+}
+
+function importGroups() {
+  const st = importState;
+  const map = new Map();
+  for (const e of st.entries) {
+    const labels = st.groupBy === 'group' ? (e.groups.length ? e.groups : ['']) : [e.club || ''];
+    for (const l of labels) {
+      if (!map.has(l)) map.set(l, []);
+      map.get(l).push(e);
+    }
+  }
+  return [...map.entries()].sort((a, b) => (st.groupBy === 'group' ? 0 : a[0].localeCompare(b[0], state.lang)));
+}
+
+function importRow(e) {
+  const st = importState.status.get(e.key) || { state: 'wait' };
+  const pick = st.pick;
+  const inList = pick && state.swimmers.some((s) => s.id === pick.id);
+  const meta = [e.born, e.club].filter(Boolean).join(' · ');
+  let right;
+  if (st.state === 'wait') right = `<span class="muted small">${esc(t('searching'))}</span>`;
+  else if (inList) right = `<span class="muted small">${esc(t('alreadyInList'))}</span>`;
+  else if (!st.candidates?.length) right = `<span class="warn small">${esc(t('importNotFound'))}</span>`;
+  else if (st.candidates.length > 1 && !st.sure)
+    right = `<select class="ipick" data-ipick="${esc(e.key)}"><option value="">${esc(t('importChoose'))}</option>${st.candidates.slice(0, 6).map((c) => `<option value="${c.id}" ${pick?.id === c.id ? 'selected' : ''}>${esc(c.name)} · ${esc([c.born, c.club].filter(Boolean).join(' · '))}</option>`).join('')}</select>`;
+  else right = `<span class="small ok-match">✓ ${esc([pick.born, pick.club].filter(Boolean).join(' · '))}</span>`;
+  return `<label class="irow ${selectable(e) ? '' : 'off'}">
+    <input type="checkbox" data-isel="${esc(e.key)}" ${importState.selected.has(e.key) ? 'checked' : ''} ${selectable(e) ? '' : 'disabled'}>
+    <span class="iname"><b>${esc(e.first)} ${esc(e.last)}</b><span class="muted small">${esc(meta)}</span></span>
+    <span class="iright">${right}</span></label>`;
+}
+
+const importCache = new Map();
+async function importSearch(first, last) {
+  const k = `${first}|${last}`.toLocaleLowerCase('sv');
+  if (!importCache.has(k)) importCache.set(k, api('/api/search', { first, last }).then((r) => r.swimmers).catch(() => []));
+  return importCache.get(k);
+}
+
+async function runImport(text) {
+  const { entries, groups } = parseList(text);
+  const MAX = 80;
+  importState = { entries: entries.slice(0, MAX), groups, groupBy: groups.length > 1 ? 'group' : 'club', status: new Map(), selected: new Set(), text, truncated: entries.length > MAX };
+  if (!entries.length) {
+    toast(t('importNothing'));
+    importState.entries = [];
+    return renderImport();
+  }
+  if (importState.truncated) toast(t('importMax', { n: MAX }));
+  renderImport();
+  const queue = importState.entries.slice();
+  const work = async () => {
+    while (queue.length) {
+      const e = queue.shift();
+      let list = await importSearch(e.first.split(' ')[0], e.last);
+      if (!list.length) list = await importSearch('', e.last);
+      const { candidates, sure } = rankCandidates(e, list);
+      const pick = candidates.length && (sure || candidates.length === 1) ? candidates[0] : null;
+      importState.status.set(e.key, { state: 'done', candidates, sure, pick });
+      if (pick && !state.swimmers.some((s) => s.id === pick.id)) importState.selected.add(e.key);
+      if ($('#addDialog').open && $('.import-sheet')) renderImportKeepScroll();
+    }
+  };
+  await Promise.all([work(), work(), work()]);
+}
+
+function renderImportKeepScroll() {
+  const box = $('.import-list');
+  const top = box ? box.scrollTop : 0;
+  renderImport();
+  const nb = $('.import-list');
+  if (nb) nb.scrollTop = top;
+}
+
+function addImported() {
+  const picks = importState.entries.filter((e) => importState.selected.has(e.key)).map((e) => importState.status.get(e.key)?.pick).filter(Boolean);
+  const added = [];
+  for (const p of picks) {
+    const sw = addSwimmer({ ...p, site: 'se' }, { load: false });
+    if (sw) added.push(sw);
+  }
+  importState = null;
+  $('#addDialog').close();
+  render();
+  if (added.length) refreshAll({ only: added });
+  toast(t('importDone', { n: added.length }));
+}
 
 async function doSearch(form, page = 1) {
   const f = new FormData(form);
@@ -1544,6 +1684,21 @@ document.addEventListener('click', (e) => {
     toast(t('addedN', { n: todo.length }));
     return;
   }
+  if (el.dataset.action === 'importOpen') return openImport();
+  if (el.dataset.action === 'importParse') {
+    const text = $('#importText')?.value || '';
+    if (!text.trim()) return $('#importText')?.focus();
+    return runImport(text);
+  }
+  if (el.dataset.action === 'importReset') {
+    importState = { ...importState, entries: [], status: new Map(), selected: new Set() };
+    return renderImport();
+  }
+  if (el.dataset.action === 'importAdd') return addImported();
+  if (el.dataset.igroup) {
+    importState.groupBy = el.dataset.igroup;
+    return renderImportKeepScroll();
+  }
   if (el.id === 'addLink') {
     const input = $('input[name=link]');
     const ref = parseTempusRef(input.value);
@@ -1579,6 +1734,26 @@ document.addEventListener('change', (e) => {
     store.set('period', state.period);
     render();
     refreshAll({ only: state.swimmers.filter(needsLoad) });
+  }
+  if (e.target.dataset?.isel) {
+    const k = e.target.dataset.isel;
+    if (e.target.checked) importState.selected.add(k);
+    else importState.selected.delete(k);
+    return renderImportKeepScroll();
+  }
+  if (e.target.dataset?.igroupAll !== undefined) {
+    const label = e.target.dataset.igroupAll;
+    const list = importGroups().find(([l]) => l === label)?.[1] || [];
+    for (const en of list) if (selectable(en)) e.target.checked ? importState.selected.add(en.key) : importState.selected.delete(en.key);
+    return renderImportKeepScroll();
+  }
+  if (e.target.dataset?.ipick) {
+    const k = e.target.dataset.ipick;
+    const st = importState.status.get(k);
+    st.pick = st.candidates.find((c) => String(c.id) === e.target.value) || null;
+    if (st.pick && !state.swimmers.some((s) => s.id === st.pick.id)) importState.selected.add(k);
+    else importState.selected.delete(k);
+    return renderImportKeepScroll();
   }
   if (e.target.id === 'qClass') {
     state.qClass = Number(e.target.value);

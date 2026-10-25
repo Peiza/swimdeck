@@ -428,3 +428,19 @@ body:has(.card.dragging) { user-select: none; -webkit-user-select: none; }
 .top.recent li { grid-template-columns: 4px 96px 1fr auto; }
 .top .time.is-pb { color: var(--accent); }
 .top .time small { font-weight: 500; font-size: 11px; }
+
+/* ---------- import from list */
+.import-cta { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.import-sheet textarea { width: 100%; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); padding: 10px; font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); resize: vertical; }
+.import-tools { align-items: center; }
+.import-list { max-height: 55dvh; overflow: auto; display: grid; gap: 10px; }
+.igroup { display: grid; gap: 4px; background: var(--surface-2); border-radius: 12px; padding: 8px 10px; }
+.igroup-head { display: flex; gap: 8px; align-items: center; padding: 2px 0 4px; border-bottom: 1px solid var(--line); }
+.irow { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center; padding: 4px 0; cursor: pointer; }
+.irow.off { opacity: 0.7; cursor: default; }
+.iname { display: grid; }
+.iright { text-align: right; }
+.ok-match { color: var(--good); }
+.ipick { max-width: 220px; min-height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); }
+.import-foot { position: sticky; bottom: 0; background: var(--surface); padding-top: 8px; border-top: 1px solid var(--line); }
+.row.wrap { flex-wrap: wrap; }

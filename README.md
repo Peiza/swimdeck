@@ -18,6 +18,7 @@ Follow your swimmers: personal bests, top times, season bests and progression fr
 - Personal goals per event, shown on cards, in the event table and as a line in the progression chart
 - Installable, works offline with the last fetched data
 - Sync the list between devices with a secret link or QR code (no account; only Tempus ids, order and para class are stored)
+- Import swimmers from a pasted start list or result list (Swimify, PDF, e-mail): pick by event, club or swimmer
 - Share your list as a link
 
 SwimDeck is not affiliated with Tempus Open or the Swedish Swimming Federation.
