@@ -46,7 +46,7 @@ const state = {
   data: store.get('data', {}), // id -> { all, period, periodKey, fetchedAt, error }
   events: {}, // `${site}:${id}:${code}` -> event payload (memory only)
   busy: null, // { done, total }
-  rankEvent: store.get('rankEvent', 'both:11'),
+  rankEvent: store.get('rankEvent2', 'both:11'),
   rankSortPool: store.get('rankSortPool', 25),
   helpOpen: {},
   rankSex: store.get('rankSex', ''),
@@ -2160,7 +2160,7 @@ document.addEventListener('change', (e) => {
   }
   if (e.target.id === 'rankEvent') {
     state.rankEvent = e.target.value;
-    store.set('rankEvent', state.rankEvent);
+    store.set('rankEvent2', state.rankEvent);
     renderMain();
   }
 });
