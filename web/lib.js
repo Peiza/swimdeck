@@ -434,3 +434,30 @@ export function newSince(bests, snapshot) {
     .map((b) => ({ ...b, prev: snapshot[bestKey(b)] ?? null }))
     .sort((a, b) => String(b.date).localeCompare(String(a.date)));
 }
+
+// ---------------------------------------------------------------- personal goals
+
+/** "1:05.50", "1.05,50", "65.5", "32,10" → hundredths of a second, or null. */
+export function parseTime(text) {
+  const s = String(text || '').trim().replace(/\s+/g, '');
+  if (!s) return null;
+  let m = s.match(/^(\d{1,2})[:.](\d{1,2})[.,](\d{1,2})$/);
+  if (m) {
+    const [min, sec, h] = [Number(m[1]), Number(m[2]), Number(m[3].padEnd(2, '0'))];
+    return sec < 60 ? min * 6000 + sec * 100 + h : null;
+  }
+  m = s.match(/^(\d{1,4})(?:[.,](\d{1,2}))?$/);
+  if (m) return Number(m[1]) * 100 + Number((m[2] || '0').padEnd(2, '0'));
+  return null;
+}
+
+/** Goals ({ eventCode: hundredths }) checked against personal bests. */
+export function goalStatus(goals, bests) {
+  const out = [];
+  for (const [k, goal] of Object.entries(goals || {})) {
+    const event = Number(k);
+    const pb = (bests || []).find((b) => b.event === event) || null;
+    out.push({ event, pool: event % 2 ? 25 : 50, goal, pb, reached: !!pb && pb.time <= goal, gap: pb ? pb.time - goal : null });
+  }
+  return out.sort((a, b) => a.pool - b.pool || eventSortKey(a.event) - eventSortKey(b.event));
+}

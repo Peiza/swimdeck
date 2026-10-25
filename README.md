@@ -15,6 +15,7 @@ Follow your swimmers: personal bests, top times, season bests and progression fr
   time left to the next standard, and a Qualifying tab with all times
 - Swimmer profile (strokes, sprint/middle/distance), form, prognosis towards the next qualifying time,
   head-to-head between two swimmers, national ranking by birth year
+- Personal goals per event, shown on cards, in the event table and as a line in the progression chart
 - Installable, works offline with the last fetched data
 - Sync the list between devices with a secret link or QR code (no account; only Tempus ids, order and para class are stored)
 - Share your list as a link

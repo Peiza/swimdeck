@@ -410,3 +410,16 @@ body:has(.card.dragging) { user-select: none; -webkit-user-select: none; }
 .new-block { display: grid; gap: 3px; background: var(--good-soft); border-radius: 10px; padding: 8px 10px; }
 .new-banner { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--good-soft); border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; font-weight: 600; }
 .new-block .new-tag { justify-self: start; }
+
+/* ---------- personal goals */
+.goal-edit { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; background: var(--surface); border-radius: 10px; padding: 8px 10px; }
+.goal-edit label { display: grid; gap: 2px; color: var(--muted); font-weight: 600; }
+.goal-edit input { min-height: 34px; width: 120px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); padding: 0 8px; font-variant-numeric: tabular-nums; }
+.goal-status { align-self: center; }
+.goal-ok { color: var(--good); font-weight: 700; }
+.gbadge { display: inline-flex; font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: var(--surface-2); color: var(--text); white-space: nowrap; vertical-align: 1px; }
+.gbadge.ok { background: var(--good-soft); color: var(--good); }
+.goal-card { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.goal-card .gbadge { font-size: 12px; padding: 3px 9px; }
+.chart .goal-line { stroke: var(--good); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.chart .goal-label { fill: var(--good); font-weight: 700; }

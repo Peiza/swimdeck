@@ -69,4 +69,4 @@ plattform och fungerar med `site=fi`.
    - ✅ Installera som app (service worker, fungerar offline med senast hämtade data)
    - "Senaste lopp" direkt på korten (kräver grensidor för alla i listan, alltså fler anrop)
    - Kortanpassning: välja vilka rutor korten visar
-   - Mål per gren (egna mål utöver kvaltiderna)
+   - ✅ Egna mål per gren: sätts i grenvyn, mållinje i grafen, märken i tabellen, sammanfattning på kortet, synkas

@@ -2,7 +2,7 @@
 //
 // A list is identified by a random secret token (in the sync link). The KV key is the SHA-256
 // of the token, so the stored keys alone cannot be used to read or change a list.
-// Only what is needed to rebuild the list is stored: Tempus ids, site, order and para class.
+// Only what is needed to rebuild the list is stored: Tempus ids, site, order, para class and goals.
 
 const TOKEN = /^[A-Za-z0-9_-]{32,64}$/;
 const TTL = 400 * 24 * 60 * 60; // a list not written for ~13 months expires
@@ -40,6 +40,15 @@ export function cleanList(input) {
         if (Number.isInteger(v) && v >= 1 && v <= 14) para[k] = v;
       }
       if (Object.keys(para).length) out.para = para;
+    }
+    if (s.goals && typeof s.goals === 'object') {
+      const goals = {};
+      for (const [k, v] of Object.entries(s.goals).slice(0, 60)) {
+        const code = Number(k);
+        const time = Number(v);
+        if (Number.isInteger(code) && code >= 1 && code <= 99 && Number.isInteger(time) && time >= 100 && time <= 1e7) goals[code] = time;
+      }
+      if (Object.keys(goals).length) out.goals = goals;
     }
     swimmers.push(out);
   }

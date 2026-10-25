@@ -6,7 +6,7 @@ import { ORDER, qualify, qualCounts, usmAgeGroup, sexOf } from './qual.js';
 import { LANGS, makeT, detectLang } from './i18n.js';
 import {
   eventLabel, eventShort, eventSortKey, eventInfo, fmtTime, fmtDiff, periodRange, seasonLabel,
-  summarize, progression, parseTempusRef, rankings, rankingsByPoints, sortSwimmers,
+  summarize, progression, parseTempusRef, parseTime, goalStatus, rankings, rankingsByPoints, sortSwimmers,
   seasonBests, meets, compareTable, rankingsByImprovement, toCsv, profile, form, prognosis, headToHead,
   bestsSnapshot, newSince,
 } from './lib.js';
@@ -108,7 +108,7 @@ state.sync = store.get('sync', null); // { token, updatedAt, payload }
 let pushTimer = null;
 let lastPull = 0;
 
-const syncPayload = () => ({ swimmers: state.swimmers.map((s) => ({ id: s.id, site: s.site, ...(s.para ? { para: s.para } : {}) })) });
+const syncPayload = () => ({ swimmers: state.swimmers.map((s) => ({ id: s.id, site: s.site, ...(s.para ? { para: s.para } : {}), ...(s.goals && Object.keys(s.goals).length ? { goals: s.goals } : {}) })) });
 const syncLink = () => `${location.origin}${location.pathname}#sync=${state.sync.token}`;
 
 async function syncApi(method, path, body) {
@@ -165,7 +165,7 @@ async function pullSync({ force = false } = {}) {
 
 function applyRemote(remote) {
   const known = new Map(state.swimmers.map((s) => [s.id, s]));
-  const next = remote.swimmers.map((r) => ({ ...(known.get(r.id) || { name: '', born: null, club: '', sex: '' }), id: r.id, site: r.site, para: r.para }));
+  const next = remote.swimmers.map((r) => ({ ...(known.get(r.id) || { name: '', born: null, club: '', sex: '' }), id: r.id, site: r.site, para: r.para, goals: r.goals }));
   const added = next.filter((s) => !known.has(s.id));
   state.swimmers = next;
   store.set('swimmers', state.swimmers);
@@ -535,6 +535,7 @@ function cardView(s) {
       <span><b>${esc(eventLabel(sum.topImprove.event, state.lang, sum.topImprove.name))}</b> <span class="pool">${sum.topImprove.pool} m</span>
       <b class="good">${fmtDiff(-sum.topImprove.improve)}</b> <span class="muted">(${fmtPct(sum.topImprove.improvePct)})</span></span></div>` : ''}
     ${qualChips(s)}
+    ${goalChip(s)}
     ${sum.best.length ? `<div class="best-block"><span class="muted small">${esc(t('bestEventsAqua'))}</span><div class="chips">${sum.best.map((r) => `<span class="chip"><span class="chip-name">${esc(eventLabel(r.event, state.lang, r.name))}</span><span class="chip-meta"><small>${r.pool} m</small><b>${fmtTime(r.pb.time)}</b></span></span>`).join('')}</div></div>` : ''}
     ${d.error ? `<p class="warn small">${esc(t('error', { msg: d.error }))}</p>` : ''}
   </li>`;
@@ -546,6 +547,15 @@ function newBlock(s) {
   return `<div class="new-block"><span class="new-tag">${esc(t('newSince', { n: list.length }))}</span>
     ${list.slice(0, 3).map((b) => `<div class="small"><b>${esc(eventLabel(b.event, state.lang, b.name))}</b> <span class="pool">${b.pool} m</span> <b class="time">${fmtTime(b.time)}</b>${b.prev ? ` <span class="good">${fmtDiff(b.time - b.prev)}</span>` : ` <span class="muted">${esc(t('firstSwim'))}</span>`}</div>`).join('')}
     ${list.length > 3 ? `<div class="small muted">${esc(t('andMore', { n: list.length - 3 }))}</div>` : ''}</div>`;
+}
+
+function goalChip(s) {
+  const g = goalStatus(s.goals, state.data[s.id]?.all?.bests);
+  if (!g.length) return '';
+  const done = g.filter((x) => x.reached).length;
+  const near = g.filter((x) => !x.reached && x.gap != null).sort((a, b) => a.gap / a.goal - b.gap / b.goal)[0];
+  return `<div class="goal-card small"><span class="gbadge ${done === g.length ? 'ok' : ''}">${esc(t('goalsCard', { done, n: g.length }))}</span>
+    ${near ? `<span class="muted">${esc(t('goalNearest', { event: eventLabel(near.event, state.lang), pool: near.pool, gap: fmtTime(near.gap) }))}</span>` : ''}</div>`;
 }
 
 function qualChips(s) {
@@ -969,9 +979,11 @@ function eventRow(s, r) {
   const open = state.openEvent === r.event;
   const q = (state.qualByEvent || {})[r.event];
   const qHtml = q ? `${q.best.map((x) => ' ' + qBadge(x.id)).join('')}${q.next && q.next.gap / q.result.time < 0.08 ? `<small class="qnext">${esc(t('toNext', { std: stdLabel(q.next.id), gap: fmtTime(q.next.gap) }))}</small>` : ''}` : '';
+  const goal = s.goals?.[r.event];
+  const gHtml = goal ? (r.pb && r.pb.time <= goal ? ` <span class="gbadge ok">✓ ${esc(t('goal'))}</span>` : `<small class="qnext">${esc(t('goal'))} ${fmtTime(goal)}${r.pb ? ' · ' + esc(t('goalLeft', { gap: fmtTime(r.pb.time - goal) })) : ''}</small>`) : '';
   return `
     <tr class="ev ${r.newPb ? 'pb' : ''} ${open ? 'open' : ''}" data-event="${r.event}" tabindex="0" aria-expanded="${open}">
-      <td><span class="chev" aria-hidden="true">›</span>${esc(eventLabel(r.event, state.lang, r.name))}${r.newPb ? ` <span class="badge">${esc(t('newPb'))}${r.improve ? ' ' + fmtDiff(-r.improve) : ''}</span>` : ''}${qHtml}</td>
+      <td><span class="chev" aria-hidden="true">›</span>${esc(eventLabel(r.event, state.lang, r.name))}${r.newPb ? ` <span class="badge">${esc(t('newPb'))}${r.improve ? ' ' + fmtDiff(-r.improve) : ''}</span>` : ''}${qHtml}${gHtml}</td>
       <td class="num"><b>${r.pb ? fmtTime(r.pb.time) : '–'}</b><small>${esc(r.pb?.date || '')}</small></td>
       <td class="num">${r.period ? `${fmtTime(r.period.time)}<small class="${r.diff > 0 ? '' : 'good'}">${r.diff != null ? fmtDiff(r.diff) : ''}</small>` : '<span class="muted">–</span>'}</td>
       <td class="num hide-sm">${r.pb?.points || ''}</td>
@@ -988,6 +1000,7 @@ async function fillEventDetail(s, code) {
     const n = state.topN === 'all' ? ev.results.length : state.topN;
     const top = ev.results.slice(0, n);
     $('#eventDetail').innerHTML = `
+      ${goalEditor(s, code, ev.results[0]?.time)}
       <div class="detail-tools">
         <span class="muted small">${esc(t('swims', { n: ev.results.length }))}</span>
         <div class="seg small" role="group" aria-label="${esc(t('topN'))}">
@@ -1000,12 +1013,36 @@ async function fillEventDetail(s, code) {
         <span class="small muted num">${r.points || ''}</span></li>`).join('')}</ol>
       <div id="rankBox" class="rank-box"></div>
       ${prognosisLine(s, code, ev.results)}
-      ${ev.results.length > 1 ? `<h4 class="small muted">${esc(t('progression'))}</h4>${chart(ev.results)}` : ''}
+      ${ev.results.length > 1 ? `<h4 class="small muted">${esc(t('progression'))}</h4>${chart(ev.results, s.goals?.[code] || null)}` : ''}
       ${seasonTable(ev.results)}`;
     fillRank(s, code);
   } catch (e) {
     box.innerHTML = `<p class="warn">${esc(t('error', { msg: e.message }))}</p><button class="btn small" data-retry-event="${code}">${esc(t('retry'))}</button>`;
   }
+}
+
+function goalEditor(s, code, pb) {
+  const goal = s.goals?.[code];
+  const status = goal && pb ? (pb <= goal ? `<span class="goal-ok">✓ ${esc(t('goalReached'))}</span>` : `<span class="muted">${esc(t('goalLeft', { gap: fmtTime(pb - goal) }))}</span>`) : '';
+  return `<div class="goal-edit">
+    <label class="small"><span>${esc(t('goal'))}</span>
+      <input id="goalInput" data-code="${code}" inputmode="decimal" autocomplete="off" placeholder="${esc(t('goalPlaceholder'))}" value="${goal ? esc(fmtTime(goal)) : ''}"></label>
+    <button class="btn small" data-action="goalSave" data-code="${code}">${esc(t('goalSave'))}</button>
+    ${goal ? `<button class="link small" data-action="goalClear" data-code="${code}">${esc(t('goalClear'))}</button>` : ''}
+    <span class="small goal-status">${status}</span>
+  </div>`;
+}
+
+function setGoal(code, value) {
+  const s = state.swimmers.find((x) => x.id === state.openId);
+  if (!s) return;
+  const goals = { ...(s.goals || {}) };
+  if (value == null) delete goals[code];
+  else goals[code] = value;
+  s.goals = Object.keys(goals).length ? goals : undefined;
+  save();
+  renderSwimmerDialog();
+  renderMain();
 }
 
 function prognosisLine(s, code, results) {
@@ -1052,12 +1089,12 @@ function seasonTable(results) {
       <td class="num ${x.change < 0 ? 'good' : x.change > 0 ? 'muted' : ''}">${x.change == null ? '' : fmtDiff(x.change)}</td><td class="num hide-sm muted">${x.count}</td></tr>`).join('')}</tbody></table>`;
 }
 
-function chart(results) {
+function chart(results, goal = null) {
   const pts = progression(results);
   const W = 320, H = 130, P = { l: 44, r: 8, t: 8, b: 20 };
   const ts = pts.map((p) => Date.parse(p.date));
   const x0 = Math.min(...ts), x1 = Math.max(...ts) || x0 + 1;
-  const times = pts.map((p) => p.time);
+  const times = pts.map((p) => p.time).concat(goal ? [goal] : []);
   const y0 = Math.min(...times), y1 = Math.max(...times);
   const pad = Math.max(10, (y1 - y0) * 0.08);
   const X = (t) => P.l + ((t - x0) / Math.max(1, x1 - x0)) * (W - P.l - P.r);
@@ -1074,6 +1111,7 @@ function chart(results) {
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(t('progression'))}">
     ${yTicks.map((v) => `<line x1="${P.l}" x2="${W - P.r}" y1="${Y(v)}" y2="${Y(v)}" class="grid"/><text x="${P.l - 4}" y="${Y(v) + 3}" class="axis" text-anchor="end">${fmtTime(v)}</text>`).join('')}
     ${yearTicks.map((yr) => { const x = X(Date.UTC(Number(yr), 0, 1)); return x >= P.l ? `<text x="${x}" y="${H - 5}" class="axis" text-anchor="middle">${yr}</text>` : ''; }).join('')}
+    ${goal ? `<line x1="${P.l}" x2="${W - P.r}" y1="${Y(goal).toFixed(1)}" y2="${Y(goal).toFixed(1)}" class="goal-line"/><text x="${W - P.r - 2}" y="${(Y(goal) - 3).toFixed(1)}" class="axis goal-label" text-anchor="end">${esc(t('goal'))} ${fmtTime(goal)}</text>` : ''}
     <path d="${step}" class="best"/>
     ${pts.map((p, i) => `<circle cx="${X(ts[i]).toFixed(1)}" cy="${Y(p.time).toFixed(1)}" r="${p.time === p.best ? 3 : 2.2}" class="${p.time === p.best ? 'dot pb' : 'dot'}"><title>${fmtTime(p.time)} · ${esc(p.date)}</title></circle>`).join('')}
   </svg>`;
@@ -1410,6 +1448,16 @@ document.addEventListener('click', (e) => {
       renderSyncStatus();
     });
   }
+  if (el.dataset.action === 'goalSave') {
+    const input = $('#goalInput');
+    const v = parseTime(input?.value);
+    if (input?.value.trim() && v == null) {
+      toast(t('goalInvalid'));
+      return input.focus();
+    }
+    return setGoal(Number(el.dataset.code), v);
+  }
+  if (el.dataset.action === 'goalClear') return setGoal(Number(el.dataset.code), null);
   if (el.dataset.action === 'csvRank') return rankCsv();
   if (el.dataset.action === 'h2h') return fillH2h();
   if (el.dataset.action === 'csvCompare') return compareCsv();
@@ -1483,6 +1531,11 @@ document.addEventListener('click', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.id === 'goalInput') {
+    e.preventDefault();
+    e.target.closest('.goal-edit')?.querySelector('[data-action=goalSave]')?.click();
+    return;
+  }
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-open], tr.ev')) {
     e.preventDefault();
     e.target.click();

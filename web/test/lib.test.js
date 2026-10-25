@@ -214,3 +214,22 @@ test('new personal bests since a snapshot', async () => {
   assert.deepEqual(n.map((x) => [x.event, x.prev]), [[41, null], [11, 3000]]);
   assert.deepEqual(newSince(after, null), []);
 });
+
+test('parseTime accepts common ways of writing a time', async () => {
+  const { parseTime } = await import('../lib.js');
+  assert.equal(parseTime('1:05.50'), 6550);
+  assert.equal(parseTime('1.05,50'), 6550);
+  assert.equal(parseTime('65.5'), 6550);
+  assert.equal(parseTime('32,10'), 3210);
+  assert.equal(parseTime('28'), 2800);
+  assert.equal(parseTime('10:31.17'), 63117);
+  assert.equal(parseTime('1:75.00'), null);
+  assert.equal(parseTime('abc'), null);
+  assert.equal(parseTime(''), null);
+});
+
+test('goalStatus compares goals with personal bests', async () => {
+  const { goalStatus } = await import('../lib.js');
+  const g = goalStatus({ 13: 6500, 11: 3000, 44: 7000 }, [r(13, 25, 6450), r(11, 25, 3050)]);
+  assert.deepEqual(g.map((x) => [x.event, x.reached, x.gap]), [[11, false, 50], [13, true, -50], [44, false, null]]);
+});

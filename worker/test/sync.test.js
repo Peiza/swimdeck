@@ -80,3 +80,8 @@ test('worker routes sync with CORS and no caching', async () => {
   const evil = await worker.fetch(new Request('https://api.example/api/sync', { method: 'POST', headers: { Origin: 'https://evil.example' }, body: '{}' }), env, {});
   assert.equal(evil.status, 403);
 });
+
+test('goals are kept when valid and dropped otherwise', () => {
+  const out = cleanList({ swimmers: [{ id: 1, goals: { 13: 6550, 44: '7000', 999: 100, 11: -5, x: 3000 } }] });
+  assert.deepEqual(out.swimmers[0].goals, { 13: 6550, 44: 7000 });
+});
