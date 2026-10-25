@@ -1283,7 +1283,7 @@ function paraSettings(s) {
   const sel = (k) => `<label class="select compact"><span>${k}</span><select data-para="${k}"><option value="">–</option>${Array.from({ length: 14 }, (_, i) => `<option value="${i + 1}" ${Number(p[k]) === i + 1 ? 'selected' : ''}>${k}${i + 1}</option>`).join('')}</select></label>`;
   const set = ['S', 'SB', 'SM'].filter((k) => p[k]).map((k) => k + p[k]).join(' · ');
   const label = set ? `${t('paraClass')}: ${set}` : t('paraAdd');
-  return `<details class="para-set"><summary class="small muted">${esc(label)}</summary>
+  return `<details class="para-set" data-para-set="${s.id}" ${state.paraOpen === s.id ? 'open' : ''}><summary class="small muted">${esc(label)}</summary>
     <p class="small muted">${esc(t('paraHint'))}</p><div class="row">${['S', 'SB', 'SM'].map(sel).join('')}</div></details>`;
 }
 
@@ -2447,6 +2447,9 @@ document.addEventListener('submit', (e) => {
 document.addEventListener('toggle', (e) => {
   const v = e.target?.dataset?.help;
   if (v) state.helpOpen[v] = e.target.open;
+  // keep the para class box open while it is being filled in (the dialog re-renders on every change)
+  const ps = e.target?.dataset?.paraSet;
+  if (ps) state.paraOpen = e.target.open ? Number(ps) : state.paraOpen === Number(ps) ? null : state.paraOpen;
 }, true);
 
 document.addEventListener('change', (e) => {
