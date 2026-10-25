@@ -368,6 +368,8 @@ export function placeRows(rows) {
     const g = byRound.get(k);
     const id = r.swimmerId || r.swimmer;
     const prev = g.get(id);
+    // the same swim is sometimes listed twice (once per championship in a combined meet); count distinct swims
+    if (prev && prev.date === r.date && prev.time === r.time) continue;
     if (!prev || r.time < prev.time) g.set(id, { ...r, swims: (prev?.swims || 0) + 1 });
     else prev.swims += 1;
   }

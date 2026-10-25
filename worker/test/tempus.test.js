@@ -316,6 +316,7 @@ test('fetchMeet finds the meet by name and date, reads every page and sets place
   // overall: finalists 1, 2, 3 by final time, then the heat-only swimmer, even though nobody is slower in the final
   assert.deepEqual(r.overall.map((x) => [x.swimmerId, x.place, x.round]), [[1, 1, 'Final'], [2, 2, 'Final'], [3, 2, 'Final'], [4, 4, 'Heat']]);
   assert.equal(r.ambiguous, false);
+  assert.equal(placeRows([{ swimmerId: 5, time: 3000, round: 'Final', date: 'd' }, { swimmerId: 5, time: 3000, round: 'Final', date: 'd' }])[0].swims, 1);
   const { overallRows } = await import('../src/tempus.js');
   const o = overallRows(placeRows([{ swimmerId: 1, time: 3000, round: 'Final' }, { swimmerId: 1, time: 2900, round: 'Heat' }, { swimmerId: 2, time: 2800, round: 'Heat' }]));
   assert.deepEqual(o.map((x) => [x.swimmerId, x.place, x.time]), [[1, 1, 3000], [2, 2, 2800]]);

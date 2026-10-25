@@ -1140,7 +1140,7 @@ async function loadMeet() {
   const m = state.meet;
   const key = [m.site, m.id || m.name, m.date, m.code, m.sex].join('|');
   try {
-    if (!meetCache.has(key)) meetCache.set(key, api('/api/meet', { v: 2, site: m.site, ...(m.id ? { id: m.id } : { name: m.name, date: m.date }), code: m.code, sex: m.sex }));
+    if (!meetCache.has(key)) meetCache.set(key, api('/api/meet', { v: 3, site: m.site, ...(m.id ? { id: m.id } : { name: m.name, date: m.date }), code: m.code, sex: m.sex }));
     const data = await meetCache.get(key);
     if (state.meet !== m) return;
     m.id = data.meet?.id || m.id;
