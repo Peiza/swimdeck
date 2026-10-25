@@ -495,7 +495,7 @@ button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4
 .rank-both td small { display: block; }
 .rank-both .pos { width: 2em; color: var(--muted); }
 .rank-both tbody tr:first-child .pos { color: var(--accent); }
-.sort-head { all: unset; cursor: pointer; display: grid; justify-items: end; font-weight: 600; }
+.sort-head { all: unset; cursor: pointer; display: inline-grid; justify-items: end; text-align: right; font-weight: 600; }
 .sort-head small { font-weight: 400; color: var(--muted); }
 .sort-head[aria-pressed="true"] { color: var(--accent); }
 .sort-head:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -518,3 +518,11 @@ button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4
 }
 .qd-table thead th { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted); padding: 4px 0 2px; text-transform: uppercase; letter-spacing: 0.04em; }
 .qd-table tbody tr:first-child td { border-top: 0; }
+.rank-both thead th.num { text-align: right; }
+.rank-both th.num, .rank-both td.num { width: 7.5em; }
+.qd-table thead th.num { text-transform: none; letter-spacing: 0; text-align: right; padding-left: 10px; }
+.qd-table td small { display: block; font-size: 11px; }
+.qd-badges { white-space: nowrap; }
+.qd-std { display: block; line-height: 1.7; }
+.qd-std .muted { font-variant-numeric: tabular-nums; font-size: 13px; }
+.qd-table thead th.qd-pool { white-space: nowrap; }

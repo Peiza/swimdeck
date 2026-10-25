@@ -957,10 +957,12 @@ function qualDoneView() {
     ${done.length ? `<div class="qual-done">${done.map(({ s, rows }) => `
       <section class="qd-card">
         <button class="qd-name" data-open="${s.id}"><b>${esc(s.name)}</b> <span class="muted small">${esc([s.born, s.club].filter(Boolean).join(' · '))}</span></button>
-        ${[25, 50].map((p) => { const rs = rows.filter((q) => q.pool === p); return rs.length ? `<table class="qd-table"><thead><tr><th colspan="3">${esc(t(p === 25 ? 'shortCourse' : 'longCourse'))} ${p} m</th></tr></thead><tbody>${rs.map((q) => `<tr>
+        ${[25, 50].map((p) => { const rs = rows.filter((q) => q.pool === p); return rs.length ? `<table class="qd-table">
+          <thead><tr><th class="qd-pool">${esc(t(p === 25 ? 'shortCourse' : 'longCourse'))} ${p} m</th><th class="num">${esc(t('qdSwum'))}</th><th class="num">${esc(t('qdLimit'))}</th></tr></thead>
+          <tbody>${rs.map((q) => `<tr>
           <td>${esc(eventLabel(q.event, state.lang, q.result.name))}</td>
-          <td class="num"><b>${fmtTime(q.result.time)}</b></td>
-          <td class="qd-badges">${qualHighlights(q.reached).map((id) => qBadge(id)).join(' ')}</td></tr>`).join('')}</tbody></table>` : ''; }).join('')}
+          <td class="num"><b>${fmtTime(q.result.time)}</b><small class="muted">${esc(q.result.date || '')}</small></td>
+          <td class="num qd-badges">${qualHighlights(q.reached).map((id) => { const std = q.reached.find((x) => x.id === id); return `<span class="qd-std">${qBadge(id)} <span class="muted">${fmtTime(std.time)}</span></span>`; }).join('')}</td></tr>`).join('')}</tbody></table>` : ''; }).join('')}
       </section>`).join('')}</div>` : state.swimmers.length && !loading ? `<p class="muted">${esc(t('qualNoneYet'))}</p>` : ''}
     ${loading ? `<p class="muted small">${esc(t('loading'))}</p>` : ''}
     ${done.length && none.length ? `<p class="muted small">${esc(t('qualNotReached'))}: ${none.map((p) => esc(p.s.name)).join(', ')}</p>` : ''}

@@ -21,6 +21,8 @@ export const STROKES_SHORT = {
 
 const T = {
   sv: {
+    qdSwum: 'Simmad tid',
+    qdLimit: 'Kvalgräns',
     home: 'Till startsidan',
     bothPools: 'Båda banlängderna',
     shortCourse: 'Kortbana',
@@ -317,6 +319,8 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    qdSwum: 'Time swum',
+    qdLimit: 'Standard',
     home: 'Go to the start page',
     bothPools: 'Both pool lengths',
     shortCourse: 'Short course',
@@ -613,6 +617,8 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    qdSwum: 'Uitu aika',
+    qdLimit: 'Karsinta-aika',
     home: 'Etusivulle',
     bothPools: 'Molemmat allaspituudet',
     shortCourse: 'Lyhyt rata',
