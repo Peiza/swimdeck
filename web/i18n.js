@@ -21,6 +21,8 @@ export const STROKES_SHORT = {
 
 const T = {
   sv: {
+    notifyReset: 'Webbläsaren har glömt att du tillät notiser (Brave gör det ibland, liksom när webbplatsdata rensas). Tryck på Slå på igen och tillåt notiser.',
+    notifyAgain: 'Slå på igen',
     meetImportCta: 'Har simmarna tävlat? Hämta dem från en tävling i Tempus.',
     meetImportOpen: 'Från tävling',
     meetImportTitle: 'Importera från tävling',
@@ -339,6 +341,8 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    notifyReset: 'The browser forgot that you allowed notifications (Brave sometimes does, as does clearing site data). Tap Turn on again and allow notifications.',
+    notifyAgain: 'Turn on again',
     meetImportCta: 'Have the swimmers raced? Get them from a meet in Tempus.',
     meetImportOpen: 'From a meet',
     meetImportTitle: 'Import from a meet',
@@ -657,6 +661,8 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    notifyReset: 'Selain unohti, että sallit ilmoitukset (Brave tekee niin joskus, samoin sivuston tietojen tyhjennys). Napauta Ota uudelleen käyttöön ja salli ilmoitukset.',
+    notifyAgain: 'Ota uudelleen käyttöön',
     meetImportCta: 'Ovatko uimarit jo kilpailleet? Hae heidät kilpailusta Tempuksesta.',
     meetImportOpen: 'Kilpailusta',
     meetImportTitle: 'Tuo kilpailusta',

@@ -570,6 +570,7 @@ async function enableNotify() {
       const raw = atob(key.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((key.length + 3) % 4));
       sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: Uint8Array.from(raw, (c) => c.charCodeAt(0)) });
     }
+    if (state.notify?.endpoint && state.notify.endpoint !== sub.endpoint) await notifyApi('DELETE', '', { endpoint: state.notify.endpoint }).catch(() => {});
     await sendNotifyList(sub);
     renderNotifyDialog();
     toast(t('notifyOnToast'));
@@ -598,10 +599,36 @@ async function disableNotify() {
   renderNotifyDialog();
 }
 
+/**
+ * Browsers sometimes drop a push subscription (Brave does after a while, and when site data or permissions are
+ * reset). If notifications are still allowed, subscribe again quietly and replace the old address on the server.
+ * Returns 'ok', 'reset' (the permission was forgotten, the user must allow again) or 'blocked'.
+ */
+async function healNotify() {
+  if (!state.notify || !pushSupported()) return 'ok';
+  if (Notification.permission === 'denied') return 'blocked';
+  if (Notification.permission !== 'granted') return 'reset';
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if (sub && sub.endpoint === state.notify.endpoint) return 'ok';
+  if (!sub) {
+    const { key } = await notifyApi('GET', '/key');
+    const raw = atob(key.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((key.length + 3) % 4));
+    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: Uint8Array.from(raw, (c) => c.charCodeAt(0)) });
+  }
+  if (state.notify.endpoint && state.notify.endpoint !== sub.endpoint) await notifyApi('DELETE', '', { endpoint: state.notify.endpoint }).catch(() => {});
+  await sendNotifyList(sub);
+  return 'ok';
+}
+
+const notifyProblem = (status) => (status === 'blocked' ? t('notifyDenied') : status === 'reset' ? t('notifyReset') : '');
+
 async function testNotify() {
   try {
+    const status = await healNotify();
+    if (status !== 'ok') return renderNotifyDialog(notifyProblem(status), status);
     const sub = await currentSubscription();
-    if (!sub) return renderNotifyDialog(t('notifyGone'));
+    if (!sub) return renderNotifyDialog(t('notifyGone'), 'reset');
     await notifyApi('POST', '/test', { endpoint: sub.endpoint });
     toast(t('notifyTestSent'));
   } catch (e) {
@@ -617,10 +644,7 @@ function scheduleNotifyUpdate() {
     try {
       const sub = await currentSubscription();
       if (sub) await sendNotifyList(sub);
-      else {
-        state.notify = null;
-        store.set('notify', null);
-      }
+      else await healNotify();
     } catch {}
   }, count === state.notify.count ? 30000 : 1500);
 }
@@ -629,9 +653,10 @@ function openNotify() {
   renderNotifyDialog();
   const dlg = $('#confirmDialog');
   if (!dlg.open) dlg.showModal();
+  healNotify().then((status) => { if (status !== 'ok' && dlg.open) renderNotifyDialog(notifyProblem(status), status); }).catch(() => {});
 }
 
-function renderNotifyDialog(msg = '') {
+function renderNotifyDialog(msg = '', problem = '') {
   const dlg = $('#confirmDialog');
   const on = !!state.notify;
   const ios = /iphone|ipad/i.test(navigator.userAgent) && !window.matchMedia('(display-mode: standalone)').matches;
@@ -640,7 +665,7 @@ function renderNotifyDialog(msg = '') {
     ${msg ? `<p class="warn small">${esc(msg)}</p>` : ''}
     ${!pushSupported() ? `<p class="small">${esc(ios ? t('notifyIos') : t('notifyUnsupported'))}</p>`
       : on ? `<p class="small">${esc(t('notifyOn', { n: state.notify.count }))}</p><p class="small muted">${esc(t('notifyHow'))}</p>
-        <div class="row end wrap"><button type="button" class="link danger" data-action="notifyOff">${esc(t('notifyDisable'))}</button><button type="button" class="btn" data-action="notifyTest">${esc(t('notifyTest'))}</button><button class="btn primary" value="ok">${esc(t('done'))}</button></div>`
+        <div class="row end wrap"><button type="button" class="link danger" data-action="notifyOff">${esc(t('notifyDisable'))}</button>${problem === 'reset' ? `<button type="button" class="btn primary" data-action="notifyOn">${esc(t('notifyAgain'))}</button>` : `<button type="button" class="btn" data-action="notifyTest">${esc(t('notifyTest'))}</button><button class="btn primary" value="ok">${esc(t('done'))}</button>`}</div>`
       : `<p class="small">${esc(t('notifyIntro'))}</p><p class="small muted">${esc(t('notifyHow'))}</p><p class="small muted">${esc(t('notifyPrivacy'))}</p>
         <div class="row end"><button type="button" class="btn primary" data-action="notifyOn" ${state.swimmers.length ? '' : 'disabled'}>${esc(t('notifyEnable'))}</button></div>`}
   </form>`;
@@ -2467,6 +2492,6 @@ pullSync({ force: true });
 document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && pullSync());
 window.addEventListener('focus', () => pullSync());
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
+  navigator.serviceWorker.register('./sw.js').then(() => setTimeout(() => healNotify().catch(() => {}), 3000)).catch(() => {});
 }
 refreshAll({ only: state.swimmers.filter(needsLoad) });
