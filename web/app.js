@@ -948,7 +948,10 @@ function qualDoneView() {
   const people = state.swimmers.map((s) => {
     const all = qualRows(s);
     const rows = all.filter((q) => q.reached.length).sort(byEvent);
-    const near = all.filter((q) => !q.reached.length && q.next && q.next.gap / q.result.time <= NEAR).sort((a, b) => a.next.gap / a.result.time - b.next.gap / b.result.time);
+    const near = all
+      .filter((q) => !q.reached.length && q.next && q.next.gap / q.result.time <= NEAR)
+      .map((q) => ({ ...q, close: q.missing.filter((m) => m.gap / q.result.time <= NEAR) }))
+      .sort((a, b) => a.next.gap / a.result.time - b.next.gap / b.result.time);
     return { s, rows, near };
   });
   const shown = people.filter((p) => p.rows.length || p.near.length);
@@ -974,8 +977,8 @@ function qualDoneView() {
           <tbody>${near.map((q) => `<tr>
           <td>${esc(eventLabel(q.event, state.lang, q.result.name))} <span class="pool">${q.pool} m</span></td>
           ${swum(q)}
-          <td class="num qd-badges">${std(q.next.id, q.next.time)}</td></tr>
-          <tr class="qd-next-row"><td colspan="3"><span class="qd-next">${esc(t('toNext', { gap: fmtTime(q.next.gap), std: stdLabel(q.next.id) }))}</span></td></tr>`).join('')}</tbody></table>` : ''}
+          <td class="num qd-badges">${q.close.map((m) => std(m.id, m.time)).join('')}</td></tr>
+          <tr class="qd-next-row"><td colspan="3"><span class="qd-next">${q.close.map((m) => esc(t('toNext', { gap: fmtTime(m.gap), std: stdLabel(m.id) }))).join(' · ')}</span></td></tr>`).join('')}</tbody></table>` : ''}
       </section>`).join('')}</div>` : state.swimmers.length && !loading ? `<p class="muted">${esc(t('qualNoneYet'))}</p>` : ''}
     ${loading ? `<p class="muted small">${esc(t('loading'))}</p>` : ''}
     ${shown.length && none.length ? `<p class="muted small">${esc(t('qualNotReached'))}: ${none.map((p) => esc(p.s.name)).join(', ')}</p>` : ''}
@@ -1015,7 +1018,15 @@ function qualView() {
     const hit = q?.reached.find((x) => ids.includes(x.id));
     return hit ? [{ s, hit, time: q.result.time }] : [];
   });
-  const lines = codes.map((code) => ({ code, vals: rowsFor(code), who: reached(code) })).filter((l) => l.vals.some(Boolean));
+  // swimmers within 3 % of a standard of this championship that they have not reached yet
+  const nearBy = (code) => swimmers.flatMap((s) => {
+    const q = qualRows(s).find((x) => x.event === code);
+    const m = q?.missing.find((x) => ids.includes(x.id) && x.gap / q.result.time <= NEAR);
+    if (!m) return [];
+    const hit = q.reached.find((x) => ids.includes(x.id));
+    return hit && ORDER.indexOf(hit.id) < ORDER.indexOf(m.id) ? [] : [{ s, m, time: q.result.time }];
+  });
+  const lines = codes.map((code) => ({ code, vals: rowsFor(code), who: reached(code), near: nearBy(code) })).filter((l) => l.vals.some(Boolean));
   const doc = std(ids[0]);
   return `
     <div class="rank-controls qual-controls">
@@ -1028,10 +1039,10 @@ function qualView() {
     ${comp === 'para' ? `<p class="muted small rank-note">${esc(t('paraPools'))}</p>` : ''}
     ${comp === 'usm' ? `<p class="muted small rank-note">${esc(t('usmAges', { year: QUAL.year }))}</p>` : ''}
     <div class="table-scroll"><table class="compare qual-table">
-      <thead><tr><th>${esc(t('event'))}</th>${cols.map(([, label]) => `<th class="num">${esc(label)}</th>`).join('')}<th>${esc(t('reachedBy'))}</th></tr></thead>
+      <thead><tr><th>${esc(t('event'))}</th>${cols.map(([, label]) => `<th class="num">${esc(label)}</th>`).join('')}<th>${esc(t('reachedByNear'))}</th></tr></thead>
       <tbody>${lines.map((l) => `<tr><th scope="row">${esc(eventLabel(l.code, state.lang))}${comp === 'para' ? ` <small class="muted">${prefixFor(l.code)}${cls}</small>` : ''}</th>
         ${l.vals.map((v) => `<td class="num">${v ? fmtTime(v) : '<span class="muted">–</span>'}</td>`).join('')}
-        <td class="who-cell">${l.who.map((w) => `<button class="pick small-pick" data-open="${w.s.id}" title="${esc(w.s.name)} · ${fmtTime(w.time)}">${esc(String(w.s.name).split(' ')[0])} ${qBadge(w.hit.id)}</button>`).join('')}</td></tr>`).join('')}</tbody>
+        <td class="who-cell">${l.who.map((w) => { const n = l.near.find((x) => x.s.id === w.s.id); const gap = n ? esc(t('toNext', { gap: fmtTime(n.m.gap), std: stdLabel(n.m.id) })) : ''; return `<button class="pick small-pick" data-open="${w.s.id}" title="${esc(w.s.name)} · ${fmtTime(w.time)}${gap ? ' · ' + gap : ''}">${esc(String(w.s.name).split(' ')[0])} ${qBadge(w.hit.id)}${gap ? ` <span class="muted near-txt">${gap}</span>` : ''}</button>`; }).join('')}${l.near.filter((w) => !l.who.some((x) => x.s.id === w.s.id)).map((w) => `<button class="pick small-pick near-pick" data-open="${w.s.id}" title="${esc(w.s.name)} · ${fmtTime(w.time)} · ${esc(t('toNext', { gap: fmtTime(w.m.gap), std: stdLabel(w.m.id) }))}">${esc(String(w.s.name).split(' ')[0])} <span class="muted">${esc(t('toNext', { gap: fmtTime(w.m.gap), std: stdLabel(w.m.id) }))}</span></button>`).join('')}</td></tr>`).join('')}</tbody>
     </table></div>
     <div class="qual-source small muted">
       <p>${esc(t('qualWindow', { from: QUAL.windowStart }))}</p>
@@ -1112,7 +1123,6 @@ function renderSwimmerDialog() {
       ${paraSettings(s)}
       <footer class="sheet-foot">
         <a href="${base}/swimmers/${s.id}/swimming" target="_blank" rel="noopener">${esc(t('openTempus'))} ↗</a>
-        <button class="link danger" data-action="remove">${esc(t('remove'))}</button>
       </footer>
     </div>`;
   if (state.openTab === 'meets') fillMeets(s);

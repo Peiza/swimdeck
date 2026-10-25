@@ -62,6 +62,8 @@ export function qualify(swimmer, windowBests, qual = QUAL) {
       reached,
       best: [top(reached, false), top(reached, true)].filter(Boolean),
       next: missing[0] ? { ...missing[0], gap: r.time - missing[0].time } : null,
+      // every standard not yet reached, closest first
+      missing: missing.map((m) => ({ ...m, gap: r.time - m.time })),
     });
   }
   return out;

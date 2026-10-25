@@ -21,9 +21,10 @@ export const STROKES_SHORT = {
 
 const T = {
   sv: {
+    reachedByNear: 'Klarad av / nära',
     qdLeft: '{gap} kvar till',
     qdNear: 'Nära en kvalgräns',
-    qdNearNote: '"Kvar till" visar den närmaste gräns som inte är klarad ännu. "Nära en kvalgräns" är grenar där det saknas högst 3 %.',
+    qdNearNote: '"Kvar till" visar den närmaste gräns som inte är klarad ännu. "Nära en kvalgräns" är grenar där det saknas högst 3 % till en eller flera gränser.',
     qdSwum: 'Simmad tid',
     qdLimit: 'Kvalgräns',
     home: 'Till startsidan',
@@ -322,6 +323,7 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    reachedByNear: 'Reached by / close',
     qdLeft: '{gap} to go for',
     qdNear: 'Close to a standard',
     qdNearNote: '"To go" shows the nearest standard not yet reached. "Close to a standard" lists events within 3 %.',
@@ -623,6 +625,7 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    reachedByNear: 'Saavuttanut / lähellä',
     qdLeft: '{gap} puuttuu:',
     qdNear: 'Lähellä karsinta-aikaa',
     qdNearNote: '"Puuttuu" näyttää lähimmän vielä saavuttamattoman ajan. "Lähellä karsinta-aikaa" listaa lajit, joissa puuttuu enintään 3 %.',
@@ -933,7 +936,10 @@ export function makeT(lang) {
 
 export function detectLang() {
   try {
-    const saved = localStorage.getItem('swimdeck.lang');
+    // stored as JSON ("\"sv\"") by the app; older versions stored the bare code
+    const raw = localStorage.getItem('swimdeck.lang');
+    let saved = raw;
+    try { saved = JSON.parse(raw); } catch {}
     if (saved && T[saved]) return saved;
   } catch {}
   const nav = (navigator.languages || [navigator.language || 'sv']).map((l) => l.slice(0, 2));
