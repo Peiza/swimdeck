@@ -38,6 +38,7 @@ const state = {
   view: 'deck',
   topN: store.get('topN', 5),
   topOrder: store.get('topOrder', 'fast'), // fast | recent
+  cardParts: { stats: true, latest: true, improve: true, qual: true, goals: true, best: true, ...store.get('cardParts', {}) },
   swimmers: store.get('swimmers', []),
   sort: store.get('sort', 'manual'),
   collapsed: store.get('collapsed', []), // ids of minimised cards
@@ -487,12 +488,26 @@ function deckView() {
           <select id="sortMode" aria-label="${esc(t('sortBy'))}">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}" ${k === state.sort ? 'selected' : ''}>${esc(t('sortBy'))}: ${esc(t(v))}</option>`).join('')}</select>
         </label>
         <button class="link" data-action="${allCollapsed ? 'expandAll' : 'collapseAll'}">${esc(t(allCollapsed ? 'expandAll' : 'collapseAll'))}</button>
+        <button class="link" data-action="cardsCustomize">${esc(t('customize'))}</button>
       </div>
       ${trashLink()}
     </div>
     ${(() => { const n = state.swimmers.reduce((a, s) => a + newFor(s).length, 0); const who = state.swimmers.filter((s) => newFor(s).length).length; return n ? `<div class="new-banner"><span>${esc(t('newBanner', { n, who }))}</span><button class="link" data-action="seenAll">${esc(t('markSeen'))}</button></div>` : ''; })()}
     ${state.sort === 'manual' && state.swimmers.length > 1 ? `<p class="muted small drag-hint">${esc(t('dragHint'))}</p>` : ''}
     <ul class="deck" id="deck">${list.map(cardView).join('')}</ul>`;
+}
+
+const CARD_PARTS = ['stats', 'latest', 'improve', 'qual', 'goals', 'best'];
+
+function openCustomize() {
+  const dlg = $('#confirmDialog');
+  dlg.innerHTML = `<form method="dialog" class="sheet small-sheet">
+    <header class="sheet-head"><h2>${esc(t('customizeTitle'))}</h2><button type="button" class="icon" data-action="close" aria-label="${esc(t('close'))}">✕</button></header>
+    <p class="small muted">${esc(t('customizeHint'))}</p>
+    <div class="parts">${CARD_PARTS.map((k) => `<label class="check"><input type="checkbox" data-part="${k}" ${state.cardParts[k] ? 'checked' : ''}> <span>${esc(t('part_' + k))}</span></label>`).join('')}</div>
+    <div class="row end"><button class="btn primary" value="ok">${esc(t('done'))}</button></div></form>`;
+  dlg.onclose = null;
+  dlg.showModal();
 }
 
 function trashLink() {
@@ -530,26 +545,27 @@ function cardView(s) {
   }
   const sum = summarize(d.all, d.period, d.before);
   const latest = sum.latest;
+  const P = state.cardParts;
   return `<li class="card ${newFor(s).length ? 'has-new' : ''}" data-open="${s.id}" tabindex="0">
     ${head}
-    <div class="stats">
+    ${P.stats ? `<div class="stats">
       <div class="stat ${sum.newPbs ? 'good' : ''}"><b>${sum.newPbs}</b><span>${esc(t('newPbsLabel'))}</span></div>
       <div class="stat"><b>${sum.swumInPeriod}</b><span>${esc(t('eventsSwum'))}</span></div>
-    </div>
-    <div class="latest">
+    </div>` : ''}
+    ${P.latest ? `<div class="latest">
       ${latest
         ? `<span class="muted small">${esc(t('latest'))}</span>
            <div><b>${esc(eventLabel(latest.event, state.lang, latest.name))}</b> <span class="pool">${latest.pool} m</span> <span class="time">${fmtTime(latest.time)}</span></div>
            <div class="muted small">${esc(latest.date)} · ${esc(latest.meet)}</div>`
         : `<span class="muted small">${esc(t('noSwims'))}</span>`}
-    </div>
+    </div>` : ''}
     ${newBlock(s)}
-    ${sum.topImprove ? `<div class="improve small"><span class="muted">${esc(t('topImprove'))}</span>
+    ${P.improve && sum.topImprove ? `<div class="improve small"><span class="muted">${esc(t('topImprove'))}</span>
       <span><b>${esc(eventLabel(sum.topImprove.event, state.lang, sum.topImprove.name))}</b> <span class="pool">${sum.topImprove.pool} m</span>
       <b class="good">${fmtDiff(-sum.topImprove.improve)}</b> <span class="muted">(${fmtPct(sum.topImprove.improvePct)})</span></span></div>` : ''}
-    ${qualChips(s)}
-    ${goalChip(s)}
-    ${sum.best.length ? `<div class="best-block"><span class="muted small">${esc(t('bestEventsAqua'))}</span><div class="chips">${sum.best.map((r) => `<span class="chip"><span class="chip-name">${esc(eventLabel(r.event, state.lang, r.name))}</span><span class="chip-meta"><small>${r.pool} m</small><b>${fmtTime(r.pb.time)}</b></span></span>`).join('')}</div></div>` : ''}
+    ${P.qual ? qualChips(s) : ''}
+    ${P.goals ? goalChip(s) : ''}
+    ${P.best && sum.best.length ? `<div class="best-block"><span class="muted small">${esc(t('bestEventsAqua'))}</span><div class="chips">${sum.best.map((r) => `<span class="chip"><span class="chip-name">${esc(eventLabel(r.event, state.lang, r.name))}</span><span class="chip-meta"><small>${r.pool} m</small><b>${fmtTime(r.pb.time)}</b></span></span>`).join('')}</div></div>` : ''}
     ${d.error ? `<p class="warn small">${esc(t('error', { msg: d.error }))}</p>` : ''}
   </li>`;
 }
@@ -1685,6 +1701,7 @@ document.addEventListener('click', (e) => {
     return;
   }
   if (el.dataset.action === 'importOpen') return openImport();
+  if (el.dataset.action === 'cardsCustomize') return openCustomize();
   if (el.dataset.action === 'importParse') {
     const text = $('#importText')?.value || '';
     if (!text.trim()) return $('#importText')?.focus();
@@ -1734,6 +1751,11 @@ document.addEventListener('change', (e) => {
     store.set('period', state.period);
     render();
     refreshAll({ only: state.swimmers.filter(needsLoad) });
+  }
+  if (e.target.dataset?.part) {
+    state.cardParts = { ...state.cardParts, [e.target.dataset.part]: e.target.checked };
+    store.set('cardParts', state.cardParts);
+    return renderMain();
   }
   if (e.target.dataset?.isel) {
     const k = e.target.dataset.isel;

@@ -21,6 +21,12 @@ export const STROKES_SHORT = {
 
 const T = {
   sv: {
+    customize: 'Anpassa kort',
+    customizeTitle: 'Vad ska korten visa?',
+    customizeHint: 'Gäller korten på den här enheten. Allt finns kvar i simmarens detaljvy.',
+    part_stats: 'Nya PB och grenar i perioden', part_latest: 'Senaste säsongsbästa', part_improve: 'Största förbättring',
+    part_qual: 'Kvaltider', part_goals: 'Mål', part_best: 'Bästa grenar',
+    done: 'Klar',
     slogan: 'Bakom varje rekord.',
     importCta: 'Har du en startlista eller resultatlista?',
     importOpen: 'Importera lista',
@@ -257,6 +263,12 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    customize: 'Customise cards',
+    customizeTitle: 'What should the cards show?',
+    customizeHint: 'Applies to the cards on this device. Everything is still in the swimmer view.',
+    part_stats: 'New PBs and events this period', part_latest: 'Latest season best', part_improve: 'Biggest improvement',
+    part_qual: 'Qualifying times', part_goals: 'Goals', part_best: 'Best events',
+    done: 'Done',
     slogan: 'Behind every record.',
     importCta: 'Have a start list or result list?',
     importOpen: 'Import list',
@@ -493,6 +505,12 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    customize: 'Muokkaa kortteja',
+    customizeTitle: 'Mitä korteissa näytetään?',
+    customizeHint: 'Koskee tämän laitteen kortteja. Kaikki löytyy edelleen uimarin näkymästä.',
+    part_stats: 'Uudet ennätykset ja lajit jaksolla', part_latest: 'Viimeisin kauden paras', part_improve: 'Suurin parannus',
+    part_qual: 'Karsinta-ajat', part_goals: 'Tavoitteet', part_best: 'Parhaat lajit',
+    done: 'Valmis',
     slogan: 'Jokaisen ennätyksen takana.',
     importCta: 'Onko sinulla lähtö- tai tuloslista?',
     importOpen: 'Tuo lista',

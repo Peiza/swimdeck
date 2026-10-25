@@ -444,3 +444,7 @@ body:has(.card.dragging) { user-select: none; -webkit-user-select: none; }
 .ipick { max-width: 220px; min-height: 32px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); }
 .import-foot { position: sticky; bottom: 0; background: var(--surface); padding-top: 8px; border-top: 1px solid var(--line); }
 .row.wrap { flex-wrap: wrap; }
+
+.parts { display: grid; gap: 8px; }
+.parts .check { display: flex; gap: 8px; align-items: center; }
+.deck-tools-left { row-gap: 6px; }

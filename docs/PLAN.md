@@ -68,7 +68,7 @@ plattform och fungerar med `site=fi`.
    - Riktiga push-notiser (kräver bevakning på servern och Web Push)
    - ✅ Installera som app (service worker, fungerar offline med senast hämtade data)
    - "Senaste lopp" direkt på korten (kräver grensidor för alla i listan, alltså fler anrop)
-   - Kortanpassning: välja vilka rutor korten visar
+   - ✅ Kortanpassning: välj vilka delar korten visar (per enhet, v0.18.0)
    - ✅ Egna mål per gren: sätts i grenvyn, mållinje i grafen, märken i tabellen, sammanfattning på kortet, synkas
 
 ## Önskemål oktober 2026 (efter test)
