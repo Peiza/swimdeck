@@ -836,7 +836,7 @@ async function fillH2h() {
   box().innerHTML = `
     <div class="h2h-score"><span><b>${first(a.name)}</b> ${h.a}</span><span class="muted">–</span><span>${h.b} <b>${first(b.name)}</b></span>${h.ties ? `<span class="small muted">(${esc(t('h2hTies', { n: h.ties }))})</span>` : ''}</div>
     <ol class="meets">${h.races.slice(0, 30).map((r) => `
-      <li class="h2h-race"><span class="small muted">${esc(r.date)} · ${esc(r.meet)}${r.round ? ' · ' + esc(r.round) : ''}</span>
+      <li class="h2h-race"><span class="small muted">${esc(r.date)} · ${esc(r.meet)}${r.round ? ' · ' + esc(roundLabel(r.round)) : ''}</span>
         <span>${esc(eventLabel(r.event, state.lang, r.name))} <span class="pool">${r.pool} m</span></span>
         <span class="num"><b class="${r.a < r.b ? 'good' : ''}">${fmtTime(r.a)}</b> – <b class="${r.b < r.a ? 'good' : ''}">${fmtTime(r.b)}</b></span></li>`).join('')}</ol>`;
 }
@@ -1108,7 +1108,7 @@ async function fillMeets(s) {
           <span class="muted small">${esc(g.from === g.to ? g.from : `${g.from} – ${g.to}`)} · ${esc(t('swims', { n: g.swims.length }))}${g.pbs ? ` · <span class="good">${esc(t('pbsAtMeet', { n: g.pbs }))}</span>` : ''}</span></div>
         <table class="meet-swims"><tbody>${g.swims.map((w) => `
           <tr class="${w.pb ? 'pb' : ''}">
-            <td>${meetButton(w.meet, w.date, w.event, esc(eventLabel(w.event, state.lang, w.name)), 'plain')} <span class="pool">${w.pool} m</span>${w.round ? ` <span class="muted small">${esc(w.round)}</span>` : ''}</td>
+            <td>${meetButton(w.meet, w.date, w.event, esc(eventLabel(w.event, state.lang, w.name)), 'plain')} <span class="pool">${w.pool} m</span>${w.round ? ` <span class="muted small">${esc(roundLabel(w.round))}</span>` : ''}</td>
             <td class="num"><b>${fmtTime(w.time)}</b></td>
             <td class="num tag-cell">${w.pb ? `<span class="badge">${esc(t('newPb'))} ${fmtDiff(w.time - w.prevBest)}</span>` : w.first ? `<span class="badge neutral">${esc(t('firstSwim'))}</span>` : ''}</td>
           </tr>`).join('')}</tbody></table>
@@ -1118,6 +1118,7 @@ async function fillMeets(s) {
 
 // ---------------------------------------------------------------- meet result lists
 
+const roundLabel = (k) => (!k ? '' : /^heat$|^försök$/i.test(k) ? t('roundHeat') : /^semi/i.test(k) ? t('roundSemi') : /^final$/i.test(k) ? t('roundFinal') : k);
 const sexCode = (x) => (/^(wo|fe|kvin|dam|nai|flick|tyt)/i.test(x || '') ? 'W' : x ? 'M' : '');
 const meetCache = new Map();
 
@@ -1139,13 +1140,11 @@ async function loadMeet() {
   const m = state.meet;
   const key = [m.site, m.id || m.name, m.date, m.code, m.sex].join('|');
   try {
-    if (!meetCache.has(key)) meetCache.set(key, api('/api/meet', { site: m.site, ...(m.id ? { id: m.id } : { name: m.name, date: m.date }), code: m.code, sex: m.sex }));
+    if (!meetCache.has(key)) meetCache.set(key, api('/api/meet', { v: 2, site: m.site, ...(m.id ? { id: m.id } : { name: m.name, date: m.date }), code: m.code, sex: m.sex }));
     const data = await meetCache.get(key);
     if (state.meet !== m) return;
     m.id = data.meet?.id || m.id;
     m.data = data;
-    const mine = data.results.find((r) => r.swimmerId === m.me && r.date === m.date) || data.results.find((r) => r.swimmerId === m.me);
-    m.round = m.round || mine?.round || data.results[0]?.round || null;
   } catch (e) {
     meetCache.delete(key);
     if (state.meet !== m) return;
@@ -1160,7 +1159,9 @@ function renderMeet() {
   if (!m) return;
   const d = m.data;
   const rounds = d ? [...new Set(d.results.map((r) => r.round || ''))] : [];
-  const rows = d ? d.results.filter((r) => (r.round || '') === (m.round ?? rounds[0])) : [];
+  const view = rounds.length > 1 && rounds.includes(m.round) ? m.round : 'all';
+  const overall = d ? d.overall || d.results : [];
+  const rows = !d ? [] : view === 'all' ? overall : d.results.filter((r) => (r.round || '') === view);
   const listed = new Set(state.swimmers.filter((x) => x.site === m.site).map((x) => x.id));
   const me = rows.find((r) => r.swimmerId === m.me);
   const base = m.site === 'fi' ? 'https://www.tempusopen.fi' : 'https://www.tempusopen.se';
@@ -1178,17 +1179,17 @@ function renderMeet() {
         <b>${esc(eventLabel(m.code, state.lang))}</b>
         <div class="seg small" role="group">${[['W', t('women')], ['M', t('men')]].map(([k, v]) => `<button data-msex="${k}" aria-pressed="${m.sex === k}">${esc(v)}</button>`).join('')}</div>
       </div>
-      ${rounds.length > 1 ? `<div class="seg small" role="group">${rounds.map((k) => `<button data-mround="${esc(k)}" aria-pressed="${(m.round ?? rounds[0]) === k}">${esc(k || '–')}</button>`).join('')}</div>` : ''}
+      ${rounds.length > 1 ? `<div class="seg small" role="group">${[['all', t('meetOverall')], ...rounds.map((k) => [k, roundLabel(k) || '–'])].map(([k, v]) => `<button data-mround="${esc(k)}" aria-pressed="${view === k}">${esc(v)}</button>`).join('')}</div>` : ''}
       ${m.error ? `<p class="warn">${esc(m.error)}</p>` : !d ? `<p class="muted">${esc(t('loading'))}</p>` : `
-        ${me ? `<p class="meet-me">${esc(t('placeOf', { place: me.place, of: me.of }))}${me.round && rounds.length > 1 ? ` · ${esc(me.round)}` : ''} · <b>${fmtTime(me.time)}</b>${me.swims > 1 ? ` <span class="muted small">· ${esc(t('meetBestOf', { n: me.swims }))}</span>` : ''}</p>` : ''}
+        ${me ? `<p class="meet-me">${esc(t('placeOf', { place: me.place, of: me.of }))}${me.round && rounds.length > 1 ? ` · ${esc(roundLabel(me.round))}` : ''} · <b>${fmtTime(me.time)}</b></p>` : ''}
         ${rows.length ? `<table class="meet-list"><tbody>${rows.map((r) => `
           <tr class="${r.swimmerId === m.me ? 'me' : listed.has(r.swimmerId) ? 'mine' : ''}">
             <td class="num place">${r.place}</td>
-            <td>${esc(r.swimmer)}${r.born ? ` <span class="muted small">${r.born}</span>` : ''}<small class="muted">${esc(r.club)}</small></td>
+            <td>${esc(r.swimmer)}${r.born ? ` <span class="muted small">${r.born}</span>` : ''}<small class="muted">${esc(r.club)}${view === 'all' && rounds.length > 1 ? ` · ${esc(roundLabel(r.round))}` : ''}</small></td>
             <td class="num"><b>${fmtTime(r.time)}</b><small class="muted">${r.points || ''}</small></td>
           </tr>`).join('')}</tbody></table>` : `<p class="muted">${esc(t('meetEmpty'))}</p>`}
         ${d.complete ? '' : `<p class="muted small">${esc(t('meetPartial', { n: d.results.length, total: d.total }))}</p>`}
-        <p class="muted small">${esc(t('meetNote'))}</p>`}
+        <p class="muted small">${esc(t(d.ambiguous ? 'meetNoteMixed' : 'meetNote'))}</p>`}
       <footer class="sheet-foot">
         ${m.id ? `<a href="${base}/competitions/swimming/${Number(m.id)}" target="_blank" rel="noopener">${esc(t('meetOnTempus'))} ↗</a>` : '<span></span>'}
         <button class="btn primary" data-action="close">${esc(t('done'))}</button>
@@ -1236,7 +1237,7 @@ async function fillEventDetail(s, code) {
       </div>
       <ol class="top ${recent ? 'recent' : ''}">${top.map((r, i) => `
         <li><span class="pos">${recent ? '' : i + 1}</span><span class="time ${r.time === pbTime ? 'is-pb' : ''}">${fmtTime(r.time)}${recent && r.time !== pbTime ? `<small class="muted"> ${fmtDiff(r.time - pbTime)}</small>` : ''}</span>
-        <span class="small"><span>${esc(r.date)}</span> · ${meetButton(r.meet, r.date, code, `${esc(r.meet)}${r.round ? ' · ' + esc(r.round) : ''}`)}</span>
+        <span class="small"><span>${esc(r.date)}</span> · ${meetButton(r.meet, r.date, code, `${esc(r.meet)}${r.round ? ' · ' + esc(roundLabel(r.round)) : ''}`)}</span>
         <span class="small muted num">${r.points || ''}</span></li>`).join('')}</ol>
       <div id="rankBox" class="rank-box"></div>
       ${prognosisLine(s, code, ev.results)}
@@ -1720,7 +1721,7 @@ document.addEventListener('click', (e) => {
   if (el.dataset.action === 'close') return el.closest('dialog').close();
   if (el.dataset.meet) return openMeet(el);
   if (el.dataset.msex) {
-    state.meet = { ...state.meet, sex: el.dataset.msex, data: null, error: null, round: null };
+    state.meet = { ...state.meet, sex: el.dataset.msex, data: null, error: null };
     renderMeet();
     return loadMeet();
   }

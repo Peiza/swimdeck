@@ -372,12 +372,35 @@ export function placeRows(rows) {
     else prev.swims += 1;
   }
   for (const [k, g] of byRound) byRound.set(k, [...g.values()]);
-  const order = (k) => (/^final$/i.test(k) ? 0 : /final/i.test(k) ? 1 : /semi/i.test(k) ? 2 : 3);
+  const order = roundOrder;
   const out = [];
   for (const k of [...byRound.keys()].sort((a, b) => order(a) - order(b) || a.localeCompare(b))) {
     const g = byRound.get(k).sort((a, b) => a.time - b.time);
     g.forEach((r, i) => out.push({ ...r, place: i > 0 && g[i - 1].time === r.time ? out.at(-1).place : i + 1, of: g.length }));
   }
+  return out;
+}
+
+const roundOrder = (k) => (/^final$/i.test(k || '') ? 0 : /final/i.test(k || '') ? 1 : /semi/i.test(k || '') ? 2 : 3);
+
+/**
+ * Overall result: each swimmer once, placed by the furthest round they reached (final before semifinal before
+ * heats), then by their time in that round. Someone who did not reach the final never ranks above a finalist.
+ * Input is the output of placeRows.
+ */
+export function overallRows(placed) {
+  const best = new Map();
+  for (const r of placed) {
+    const id = r.swimmerId || r.swimmer;
+    const prev = best.get(id);
+    if (!prev || roundOrder(r.round) < roundOrder(prev.round) || (roundOrder(r.round) === roundOrder(prev.round) && r.time < prev.time)) best.set(id, r);
+  }
+  const g = [...best.values()].sort((a, b) => roundOrder(a.round) - roundOrder(b.round) || a.time - b.time);
+  const out = [];
+  g.forEach((r, i) => {
+    const tie = i > 0 && g[i - 1].time === r.time && roundOrder(g[i - 1].round) === roundOrder(r.round);
+    out.push({ ...r, roundPlace: r.place, roundOf: r.of, place: tie ? out.at(-1).place : i + 1, of: g.length });
+  });
   return out;
 }
 
@@ -425,6 +448,10 @@ export async function fetchMeet(base, { id, name, date, code, sex }, fetchImpl =
     events: events.map((e) => e.name),
     total,
     complete: rows.length >= total || pages < maxPages,
-    results: placeRows(rows),
+    ...(() => {
+      const results = placeRows(rows);
+      // Some meets label heats and finals alike; then a swimmer shows up twice in one round and the order is a guess.
+      return { results, overall: overallRows(results), ambiguous: results.some((r) => r.swims > 1) };
+    })(),
   };
 }

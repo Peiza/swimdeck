@@ -105,8 +105,12 @@ export const mockApi = {
       const time = Math.round(ref * (0.94 + r() * 0.16));
       rows.push({ swimmerId: 90000 + k, swimmer: `Simmare ${String.fromCharCode(65 + k)}`, born: 2008 + Math.floor(r() * 6), club: CLUBS[k % 3], event: code, time, date, round: rows[0]?.round || 'Final', points: Math.round(800 * (EVENTS[code] / time) ** 3) });
     }
-    const { placeRows } = await import('../worker/src/tempus.js');
-    return { meet: { id: 1, name, location: 'Exempelstaden', date, pool: code % 2 ? 25 : 50 }, code, sex, events: [], total: rows.length, complete: true, results: placeRows(rows) };
+    // a heat for everyone and a final for the eight fastest
+    const heats = rows.map((x) => ({ ...x, round: 'Heat' }));
+    const finals = [...heats].sort((a, b) => a.time - b.time).slice(0, 8).map((x, k) => ({ ...x, round: 'Final', time: Math.round(x.time * (0.985 + ((k * 37) % 30) / 1000)) }));
+    const { placeRows, overallRows } = await import('../worker/src/tempus.js');
+    const placed = placeRows([...finals, ...heats]);
+    return { meet: { id: 1, name, location: 'Exempelstaden', date, pool: code % 2 ? 25 : 50 }, code, sex, events: [], total: rows.length * 2, complete: true, results: placed, overall: overallRows(placed), ambiguous: false };
   },
   async event(_base, id, code) {
     await delay();
