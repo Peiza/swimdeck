@@ -2518,6 +2518,8 @@ document.addEventListener('change', (e) => {
       const p = { ...(s.para || {}) };
       if (e.target.value) p[e.target.dataset.para] = Number(e.target.value);
       else delete p[e.target.dataset.para];
+      // class 14 is the same in every stroke (S14, SB14, SM14), so set all three at once
+      if (Number(e.target.value) === 14) Object.assign(p, { S: 14, SB: 14, SM: 14 });
       s.para = Object.keys(p).length ? p : undefined;
       save();
       renderSwimmerDialog();
