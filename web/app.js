@@ -4,6 +4,7 @@ import { VERSION } from './version.js';
 import { parseList, rankCandidates } from './importer.js';
 import { QUAL } from './qual-data.js';
 import { ORDER, qualify, qualCounts, usmAgeGroup, sexOf } from './qual.js';
+import { hasPara, wpsPoints } from './wps.js';
 import { LANGS, makeT, detectLang } from './i18n.js';
 import {
   eventLabel, eventShort, eventSortKey, eventInfo, fmtTime, fmtDiff, periodRange, seasonLabel, periodOptions,
@@ -76,6 +77,10 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const sexLabel = (x) => (/^(wo|fe|kvin|dam|nai|flick|tyt)/i.test(x || '') ? t('women') : x ? t('men') : '');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
+// Para swimmers get WPS points on 50 m swims (the only published table); everyone else AQUA.
+const usesWps = (s, pool) => hasPara(s) && pool === 50;
+const ptsOf = (s, r) => (!r ? null : usesWps(s, r.pool) ? wpsPoints(s, r) : r.points);
+const ptsLabel = (s, pool) => (usesWps(s, pool) ? 'WPS' : t('points'));
 const periodName = (p = state.period) => seasonLabel(p) || t('periodAllShort');
 const periodOptionLabel = (p) => p === 'season' ? `${t('periodSeason')} · ${seasonLabel(p)}` : p === '12m' ? t('period12') : p === '24m' ? t('period24') : p === 'last' ? `${t('periodLast')} · ${seasonLabel(p)}` : p === 'all' ? t('periodAll') : `${t('periodSeasonOf')} ${seasonLabel(p)}`;
 function oldestSwimYear() {
@@ -705,6 +710,15 @@ function trashLink() {
   return `<button class="link muted-link" data-action="trash">${ICON.trash}<span>${esc(state.trash.length ? t('trashCount', { n: state.trash.length }) : t('trash'))}</span></button>`;
 }
 
+/** Best events for the card: by WPS (50 m) for para swimmers who have them, otherwise by AQUA. */
+function bestFor(s, sum) {
+  if (hasPara(s)) {
+    const wb = sum.rows.filter((r) => r.pb && r.pool === 50).map((r) => ({ r, w: wpsPoints(s, r.pb) })).filter((x) => x.w).sort((a, b) => b.w - a.w).slice(0, 4).map((x) => x.r);
+    if (wb.length) return { list: wb, label: t('bestEventsWps') };
+  }
+  return { list: sum.best, label: t('bestEventsAqua') };
+}
+
 function cardView(s) {
   const d = state.data[s.id];
   const collapsed = state.collapsed.includes(s.id);
@@ -756,7 +770,7 @@ function cardView(s) {
       <b class="good">${fmtDiff(-sum.topImprove.improve)}</b> <span class="muted">(${fmtPct(sum.topImprove.improvePct)})</span></span></div>` : ''}
     ${P.qual ? qualChips(s) : ''}
     ${P.goals ? goalChip(s) : ''}
-    ${P.best && sum.best.length ? `<div class="best-block"><span class="muted small">${esc(t('bestEventsAqua'))}</span><div class="chips">${sum.best.map((r) => `<span class="chip"><span class="chip-name">${esc(eventLabel(r.event, state.lang, r.name))}</span><span class="chip-meta"><small>${r.pool} m</small><b>${fmtTime(r.pb.time)}</b></span></span>`).join('')}</div></div>` : ''}
+    ${P.best && bestFor(s, sum).list.length ? `<div class="best-block"><span class="muted small">${esc(bestFor(s, sum).label)}</span><div class="chips">${bestFor(s, sum).list.map((r) => `<span class="chip"><span class="chip-name">${esc(eventLabel(r.event, state.lang, r.name))}</span><span class="chip-meta"><small>${r.pool} m</small><b>${fmtTime(r.pb.time)}</b></span></span>`).join('')}</div></div>` : ''}
     ${d.error ? `<p class="warn small">${esc(t('error', { msg: d.error }))}</p>` : ''}
   </li>`;
 }
@@ -801,8 +815,11 @@ function rankView() {
   }
   const opts = [...options.values()].sort((a, b) => a.pool - b.pool || eventSortKey(a.event, a.name) - eventSortKey(b.event, b.name));
   const bothOpts = [...both.values()].sort((a, b) => eventSortKey(a.code) - eventSortKey(b.code));
-  if (state.rankEvent !== 'aqua' && !options.has(state.rankEvent) && !both.has(state.rankEvent)) state.rankEvent = bothOpts[0] ? `both:${bothOpts[0].code}` : 'aqua';
-  const aqua = state.rankEvent === 'aqua';
+  const anyPara = state.swimmers.some(hasPara);
+  if (state.rankEvent === 'wps' && !anyPara) state.rankEvent = 'aqua';
+  if (state.rankEvent !== 'aqua' && state.rankEvent !== 'wps' && !options.has(state.rankEvent) && !both.has(state.rankEvent)) state.rankEvent = bothOpts[0] ? `both:${bothOpts[0].code}` : 'aqua';
+  const wpsMode = state.rankEvent === 'wps';
+  const aqua = state.rankEvent === 'aqua' || wpsMode;
   const bothMode = state.rankEvent.startsWith('both:');
   const sexes = [...new Set(state.swimmers.map((s) => s.sex).filter(Boolean))];
   const years = [...new Set(state.swimmers.map((s) => s.born).filter(Boolean))].sort((a, b) => b - a);
@@ -819,6 +836,15 @@ function rankView() {
       const [pool, event] = aqua ? [null, null] : state.rankEvent.split(':').map(Number);
       rows = rankingsByImprovement(swimmers, sums, event, pool);
     }
+  } else if (wpsMode) {
+    rows = swimmers.filter(hasPara).map((sw) => {
+      let best = null;
+      for (const b of overviews[sw.id]?.bests || []) {
+        const w = wpsPoints(sw, b);
+        if (w && (!best || w > best.points)) best = { ...b, points: w };
+      }
+      return best ? { swimmer: sw, result: best } : null;
+    }).filter(Boolean).sort((a, b) => b.result.points - a.result.points);
   } else if (aqua) rows = rankingsByPoints(swimmers, overviews);
   else if (bothMode) rows = rankingsBothPools(swimmers, overviews, c25, c50, state.rankSortPool);
   else {
@@ -840,7 +866,8 @@ function rankView() {
     <div class="rank-controls">
       <label class="select"><span>${esc(t('chooseEvent'))}</span>
         <select id="rankEvent">
-          <option value="aqua" ${aqua ? 'selected' : ''}>${esc(t('allEventsAqua'))}</option>
+          <option value="aqua" ${state.rankEvent === 'aqua' ? 'selected' : ''}>${esc(t('allEventsAqua'))}</option>
+          ${anyPara ? `<option value="wps" ${wpsMode ? 'selected' : ''}>${esc(t('allEventsWps'))}</option>` : ''}
           ${bothOpts.length ? `<optgroup label="${esc(t('bothPools'))}">${bothOpts.map((b) => `<option value="both:${b.code}" ${`both:${b.code}` === state.rankEvent ? 'selected' : ''}>${esc(eventLabel(b.code, state.lang, b.name))}${b.code > 10 ? ' · 25 + 50 m' : ' · 25 m'}</option>`).join('')}</optgroup>` : ''}
           ${[25, 50].map((p) => { const o = opts.filter((b) => b.pool === p); return o.length ? `<optgroup label="${esc(t(p === 25 ? 'shortCourse' : 'longCourse'))}">${o.map((b) => `<option value="${b.pool}:${b.event}" ${`${b.pool}:${b.event}` === state.rankEvent ? 'selected' : ''}>${esc(eventLabel(b.event, state.lang, b.name))} · ${b.pool} m</option>`).join('')}</optgroup>` : ''; }).join('')}
         </select>
@@ -850,6 +877,7 @@ function rankView() {
       ${years.length > 1 ? `<label class="select compact"><span class="sr">${esc(t('birthYear'))}</span><select id="rankYear"><option value="">${esc(t('allYears'))}</option>${years.map((y) => `<option value="${y}" ${String(state.rankYear) === String(y) ? 'selected' : ''}>${y}</option>`).join('')}</select></label>` : ''}
     </div>
     ${improveMode ? `<p class="muted small rank-note">${esc(t('improveNote', { period: periodName() }))}</p>` : ''}
+    ${wpsMode && !improveMode ? `<p class="muted small rank-note">${esc(t('wpsNote'))}</p>` : ''}
     ${!rows.length ? `<p class="muted">${esc(improveMode ? t('noImprove') : basis === 'period' ? t('noneInPeriod') : t('noneInEvent'))}</p>`
       : twoCols ? `<div class="row end"><button class="link small" data-action="csvRank">${esc(t('exportCsv'))}</button></div>
       <div class="table-scroll"><table class="compare rank-both">
@@ -868,7 +896,7 @@ function rankView() {
              <span class="muted small when">${esc(eventLabel(r.row.event, state.lang, r.row.name))} ${r.row.pool} m · <b>${fmtTime(r.row.period.time)}</b> (${fmtDiff(-r.row.improve)})<br>${esc(t('prevPb'))} ${fmtTime(r.row.prev.time)} · ${esc(r.row.period.date)}</span>
              <span class="gap"></span>`
           : aqua
-          ? `<span class="time">${r.result.points} <small class="muted">p</small></span>
+          ? `<span class="time">${r.result.points} <small class="muted">${wpsMode ? 'WPS' : 'p'}</small></span>
              <span class="muted small when">${esc(eventLabel(r.result.event, state.lang, r.result.name))} ${r.result.pool} m · <b>${fmtTime(r.result.time)}</b><br>${esc(r.result.date)} · ${esc(r.result.meet)}</span>
              ${i > 0 ? `<span class="gap small muted">−${lead.points - r.result.points} p</span>` : '<span class="gap"></span>'}`
           : `<span class="time">${fmtTime(r.result.time)}</span>
@@ -1162,7 +1190,7 @@ function renderSwimmerDialog() {
       </div>
       ${!sum ? `<p class="muted">${esc(d?.error ? t('error', { msg: d.error }) : t('loading'))}</p>` : `
       <table class="events">
-        <thead><tr><th>${esc(t('event'))}</th><th class="num">${esc(t('pb'))}</th><th class="num">${esc(t('periodBest'))}</th><th class="num hide-sm">${esc(t('points'))}</th></tr></thead>
+        <thead><tr><th>${esc(t('event'))}</th><th class="num">${esc(t('pb'))}</th><th class="num">${esc(t('periodBest'))}</th><th class="num hide-sm" title="${esc(usesWps(s, state.openPool) ? t('wpsTitle') : '')}">${esc(ptsLabel(s, state.openPool))}</th></tr></thead>
         <tbody>${rows.map((r) => eventRow(s, r)).join('')}</tbody>
       </table>`}`}
       ${paraSettings(s)}
@@ -1414,7 +1442,7 @@ function eventRow(s, r) {
       <td><span class="chev" aria-hidden="true">›</span>${esc(eventLabel(r.event, state.lang, r.name))}${r.newPb ? ` <span class="badge">${esc(t('newPb'))}${r.improve ? ' ' + fmtDiff(-r.improve) : ''}</span>` : ''}${qHtml}${gHtml}</td>
       <td class="num"><b>${r.pb ? fmtTime(r.pb.time) : '–'}</b><small>${esc(r.pb?.date || '')}</small></td>
       <td class="num">${r.period ? `${fmtTime(r.period.time)}<small class="${r.diff > 0 ? '' : 'good'}">${r.diff != null ? fmtDiff(r.diff) : ''}</small>` : '<span class="muted">–</span>'}</td>
-      <td class="num hide-sm">${r.pb?.points || ''}</td>
+      <td class="num hide-sm">${ptsOf(s, r.pb) || ''}</td>
     </tr>
     ${open ? `<tr class="detail"><td colspan="4"><div id="eventDetail" class="event-detail"><p class="muted">${esc(t('loading'))}</p></div></td></tr>` : ''}`;
 }
@@ -1444,7 +1472,7 @@ async function fillEventDetail(s, code) {
       <ol class="top ${recent ? 'recent' : ''}">${top.map((r, i) => `
         <li><span class="pos">${recent ? '' : i + 1}</span><span class="time ${r.time === pbTime ? 'is-pb' : ''}">${fmtTime(r.time)}${recent && r.time !== pbTime ? `<small class="muted"> ${fmtDiff(r.time - pbTime)}</small>` : ''}</span>
         <span class="small"><span>${esc(r.date)}</span> · ${meetButton(r.meet, r.date, code, `${esc(r.meet)}${r.round ? ' · ' + esc(roundLabel(r.round)) : ''}`)}</span>
-        <span class="small muted num">${r.points || ''}</span></li>`).join('')}</ol>
+        <span class="small muted num">${ptsOf(s, r) || ''}${usesWps(s, r.pool) && ptsOf(s, r) ? ' <small>WPS</small>' : ''}</span></li>`).join('')}</ol>
       <div id="rankBox" class="rank-box"></div>
       ${prognosisLine(s, code, ev.results)}
       ${ev.results.length > 1 ? `<h4 class="small muted">${esc(t('progression'))}</h4>${chart(ev.results, s.goals?.[code] || null)}` : ''}

@@ -76,8 +76,10 @@ plattform och fungerar med `site=fi`.
 ## Önskemål oktober 2026 (efter test)
 - ✅ Senaste lopp i grenvyn: växla Snabbast/Senaste, 3/5/7/10/alla (v0.16.0)
 - ✅ Längre perioder: äldre säsonger och "Alla år" i periodmenyn (v0.16.0)
-- (Vilande) WPS-poäng för parasimmare i stället för AQUA: formel och parametrar från World Para Swimmings
-  officiella tabell (Gompertz, a/b/c per gren, klass och kön; långbana 2024). Kräver att tabellen förs in.
+- ✅ WPS-poäng för parasimmare (v0.29.0): World Para Swimming Point Scores 2024, långbana, version 1.
+  q = 1200 · e^(−e^(b − c/p)), parametrar per gren, klass och kön i `tools/wps-source-2024.txt`,
+  byggs med `node tools/build-wps.js 2024`. Bara 50 m (ingen kortbanetabell publicerad). Visas i grentabellen,
+  i loppslistan, som bästa grenar på kortet och som "Alla grenar (WPS-poäng)" i topplistan. Ny tabell → uppdatera källfilen.
 - ✅ Importera simmare från startlista/resultatlista (v0.17.0): klistra in text, namn/år/klubb tolkas i
   webbläsaren, matchas mot Tempus (namn, födelseår, klubb), välj per gren, klubb eller enskild simmare. Max 80 namn.
 - ✅ Slogan "Bakom varje rekord." och © i sidfoten (v0.17.0)
