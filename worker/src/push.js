@@ -127,6 +127,24 @@ export async function handlePush(request, env, path) {
     await kv.put('push:' + (await sha256hex(sub.subscription.endpoint)), JSON.stringify({ ...sub, updatedAt: Date.now() }), { expirationTtl: TTL });
     return { ok: true, swimmers: sub.swimmers.length };
   }
+  if (path === '/api/push/test' && request.method === 'POST') {
+    // Sends a test notification to a subscription that is already stored (never to arbitrary addresses).
+    const body = await readJson(request);
+    if (typeof body?.endpoint !== 'string') throw bad('Missing endpoint');
+    const key = 'push:' + (await sha256hex(body.endpoint));
+    const raw = await kv.get(key);
+    if (!raw) throw bad('Not subscribed', 404);
+    const sub = JSON.parse(raw);
+    if (Date.now() - (sub.testedAt || 0) < 60000) throw bad('Wait a minute between tests', 429);
+    await kv.put(key, JSON.stringify({ ...sub, testedAt: Date.now() }), { expirationTtl: TTL });
+    const T = { sv: ['SwimDeck', 'Testnotis: notiserna fungerar! 🏊'], en: ['SwimDeck', 'Test notification: notifications work! 🏊'], fi: ['SwimDeck', 'Testi-ilmoitus: ilmoitukset toimivat! 🏊'] }[sub.lang] || ['SwimDeck', 'Test'];
+    const res = await (env.__send || sendPush)(sub.subscription, { title: T[0], body: T[1], tag: 'test', url: env.APP_URL || 'https://peiza.github.io/swimdeck/' }, await vapidKeys(kv), env.APP_URL || 'https://peiza.github.io/swimdeck/');
+    if (res.status === 404 || res.status === 410) {
+      await kv.delete(key);
+      throw bad('Subscription expired', 410);
+    }
+    return { sent: res.ok, status: res.status };
+  }
   if (path === '/api/push' && request.method === 'DELETE') {
     const body = await readJson(request);
     if (typeof body?.endpoint !== 'string') throw bad('Missing endpoint');

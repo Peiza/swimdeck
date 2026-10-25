@@ -126,3 +126,17 @@ test('the scheduled check snapshots first, then notifies watchers and drops dead
   r = await runCheck(env, fetchBests, { appUrl: 'https://app.example/', send });
   assert.equal(r.news, 0);
 });
+
+test('test notifications go only to stored subscriptions, at most once a minute', async () => {
+  const kv = memoryKv();
+  const sent = [];
+  const env = { LISTS: kv, __send: async (sub, msg) => (sent.push({ sub, msg }), { ok: true, status: 201 }) };
+  const a = await fakeBrowser();
+  const req = (path, body) => new Request('https://x' + path, { method: 'POST', body: JSON.stringify(body) });
+  await assert.rejects(handlePush(req('/api/push/test', { endpoint: a.subscription.endpoint }), env, '/api/push/test'), (e) => e.status === 404);
+  await handlePush(req('/api/push', { subscription: a.subscription, swimmers: [1], lang: 'sv' }), env, '/api/push');
+  const r = await handlePush(req('/api/push/test', { endpoint: a.subscription.endpoint }), env, '/api/push/test');
+  assert.equal(r.sent, true);
+  assert.match(sent[0].msg.body, /Testnotis/);
+  await assert.rejects(handlePush(req('/api/push/test', { endpoint: a.subscription.endpoint }), env, '/api/push/test'), (e) => e.status === 429);
+});

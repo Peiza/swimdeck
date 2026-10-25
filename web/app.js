@@ -557,6 +557,17 @@ async function disableNotify() {
   renderNotifyDialog();
 }
 
+async function testNotify() {
+  try {
+    const sub = await currentSubscription();
+    if (!sub) return renderNotifyDialog(t('notifyGone'));
+    await notifyApi('POST', '/test', { endpoint: sub.endpoint });
+    toast(t('notifyTestSent'));
+  } catch (e) {
+    toast(/429|minute/i.test(e.message) ? t('notifyWait') : t('error', { msg: e.message }));
+  }
+}
+
 function scheduleNotifyUpdate() {
   if (!state.notify || !pushSupported()) return;
   const count = state.swimmers.filter((s) => s.site === 'se').length;
@@ -588,7 +599,7 @@ function renderNotifyDialog(msg = '') {
     ${msg ? `<p class="warn small">${esc(msg)}</p>` : ''}
     ${!pushSupported() ? `<p class="small">${esc(ios ? t('notifyIos') : t('notifyUnsupported'))}</p>`
       : on ? `<p class="small">${esc(t('notifyOn', { n: state.notify.count }))}</p><p class="small muted">${esc(t('notifyHow'))}</p>
-        <div class="row end wrap"><button type="button" class="link danger" data-action="notifyOff">${esc(t('notifyDisable'))}</button><button class="btn primary" value="ok">${esc(t('done'))}</button></div>`
+        <div class="row end wrap"><button type="button" class="link danger" data-action="notifyOff">${esc(t('notifyDisable'))}</button><button type="button" class="btn" data-action="notifyTest">${esc(t('notifyTest'))}</button><button class="btn primary" value="ok">${esc(t('done'))}</button></div>`
       : `<p class="small">${esc(t('notifyIntro'))}</p><p class="small muted">${esc(t('notifyHow'))}</p><p class="small muted">${esc(t('notifyPrivacy'))}</p>
         <div class="row end"><button type="button" class="btn primary" data-action="notifyOn" ${state.swimmers.length ? '' : 'disabled'}>${esc(t('notifyEnable'))}</button></div>`}
   </form>`;
@@ -1803,6 +1814,7 @@ document.addEventListener('click', (e) => {
   if (el.dataset.action === 'notifyOpen') return openNotify();
   if (el.dataset.action === 'notifyOn') return enableNotify();
   if (el.dataset.action === 'notifyOff') return disableNotify();
+  if (el.dataset.action === 'notifyTest') return testNotify();
   if (el.dataset.action === 'importParse') {
     const text = $('#importText')?.value || '';
     if (!text.trim()) return $('#importText')?.focus();

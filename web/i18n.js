@@ -21,6 +21,10 @@ export const STROKES_SHORT = {
 
 const T = {
   sv: {
+    notifyTest: 'Skicka testnotis',
+    notifyTestSent: 'Testnotis skickad. Den brukar komma inom några sekunder.',
+    notifyWait: 'Vänta en minut mellan testerna.',
+    notifyGone: 'Notiserna har stängts av i webbläsaren. Slå på dem igen.',
     notifyShort: 'Notiser',
     notifyOnShort: '🔔 Notiser på',
     notifyTitle: 'Notiser om nya PB',
@@ -276,6 +280,10 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    notifyTest: 'Send test notification',
+    notifyTestSent: 'Test sent. It usually arrives within seconds.',
+    notifyWait: 'Wait a minute between tests.',
+    notifyGone: 'Notifications were turned off in the browser. Turn them on again.',
     notifyShort: 'Notifications',
     notifyOnShort: '🔔 Notifications on',
     notifyTitle: 'Notifications for new PBs',
@@ -531,6 +539,10 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    notifyTest: 'Lähetä testi-ilmoitus',
+    notifyTestSent: 'Testi lähetetty. Se saapuu yleensä sekunneissa.',
+    notifyWait: 'Odota minuutti testien välillä.',
+    notifyGone: 'Ilmoitukset on poistettu selaimessa. Ota ne uudelleen käyttöön.',
     notifyShort: 'Ilmoitukset',
     notifyOnShort: '🔔 Ilmoitukset päällä',
     notifyTitle: 'Ilmoitukset uusista ennätyksistä',
