@@ -21,6 +21,9 @@ export const STROKES_SHORT = {
 
 const T = {
   sv: {
+    qdLeft: '{gap} kvar till',
+    qdNear: 'Nära en kvalgräns',
+    qdNearNote: '"Kvar till" visar den närmaste gräns som inte är klarad ännu. "Nära en kvalgräns" är grenar där det saknas högst 3 %.',
     qdSwum: 'Simmad tid',
     qdLimit: 'Kvalgräns',
     home: 'Till startsidan',
@@ -29,7 +32,7 @@ const T = {
     longCourse: 'Långbana',
     qualDone: 'Klarade',
     qualNoneYet: 'Ingen i listan har klarat någon kvaltid ännu under kvalperioden.',
-    qualNotReached: 'Inga klarade kvaltider än',
+    qualNotReached: 'Inga klarade eller nära kvaltider än',
     helpSummary: 'Vad visas här?',
     aboutMore: 'Mer om SwimDeck och begreppen',
     aboutLink: 'Om SwimDeck',
@@ -319,6 +322,9 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    qdLeft: '{gap} to go for',
+    qdNear: 'Close to a standard',
+    qdNearNote: '"To go" shows the nearest standard not yet reached. "Close to a standard" lists events within 3 %.',
     qdSwum: 'Time swum',
     qdLimit: 'Standard',
     home: 'Go to the start page',
@@ -327,7 +333,7 @@ const T = {
     longCourse: 'Long course',
     qualDone: 'Reached',
     qualNoneYet: 'Nobody in the list has reached a qualifying time in the qualifying period yet.',
-    qualNotReached: 'No qualifying times reached yet',
+    qualNotReached: 'No qualifying times reached or close yet',
     helpSummary: 'What is shown here?',
     aboutMore: 'More about SwimDeck and the terms',
     aboutLink: 'About SwimDeck',
@@ -617,6 +623,9 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    qdLeft: '{gap} puuttuu:',
+    qdNear: 'Lähellä karsinta-aikaa',
+    qdNearNote: '"Puuttuu" näyttää lähimmän vielä saavuttamattoman ajan. "Lähellä karsinta-aikaa" listaa lajit, joissa puuttuu enintään 3 %.',
     qdSwum: 'Uitu aika',
     qdLimit: 'Karsinta-aika',
     home: 'Etusivulle',
@@ -625,7 +634,7 @@ const T = {
     longCourse: 'Pitkä rata',
     qualDone: 'Saavutetut',
     qualNoneYet: 'Kukaan listalla ei ole vielä saavuttanut karsinta-aikaa karsintajaksolla.',
-    qualNotReached: 'Ei vielä karsinta-aikoja',
+    qualNotReached: 'Ei vielä saavutettuja tai lähellä olevia karsinta-aikoja',
     helpSummary: 'Mitä tässä näytetään?',
     aboutMore: 'Lisää SwimDeckistä ja käsitteistä',
     aboutLink: 'Tietoa SwimDeckistä',

@@ -940,33 +940,47 @@ const qualHighlights = (reached) => {
 };
 
 /** Overview: every qualifying time the swimmers in the list have reached, all championships and pools. */
+const NEAR = 0.03; // "close to a standard": within 3 %
+
 function qualDoneView() {
   const doc = QUAL.standards[0];
+  const byEvent = (a, b) => a.pool - b.pool || eventSortKey(a.event) - eventSortKey(b.event);
   const people = state.swimmers.map((s) => {
-    const rows = qualRows(s)
-      .filter((q) => q.reached.length)
-      .sort((a, b) => a.pool - b.pool || eventSortKey(a.event) - eventSortKey(b.event));
-    return { s, rows };
+    const all = qualRows(s);
+    const rows = all.filter((q) => q.reached.length).sort(byEvent);
+    const near = all.filter((q) => !q.reached.length && q.next && q.next.gap / q.result.time <= NEAR).sort((a, b) => a.next.gap / a.result.time - b.next.gap / b.result.time);
+    return { s, rows, near };
   });
-  const done = people.filter((p) => p.rows.length);
-  const none = people.filter((p) => !p.rows.length);
+  const shown = people.filter((p) => p.rows.length || p.near.length);
+  const none = people.filter((p) => !p.rows.length && !p.near.length);
   const loading = state.swimmers.some((s) => !state.data[s.id]?.qual);
+  const std = (id, time) => `<span class="qd-std">${qBadge(id)}<span class="qd-lim">${fmtTime(time)}</span></span>`;
+  const next = (q) => (q.next ? `<span class="qd-next">${esc(t('qdLeft', { gap: fmtTime(q.next.gap) }))} ${qBadge(q.next.id)} <span class="qd-lim">${fmtTime(q.next.time)}</span></span>` : '');
+  const swum = (q) => `<td class="num"><b>${fmtTime(q.result.time)}</b><small class="muted">${esc(q.result.date || '')}</small></td>`;
+  const head = (label) => `<thead><tr><th class="qd-pool">${label}</th><th class="num">${esc(t('qdSwum'))}</th><th class="num">${esc(t('qdLimit'))}</th></tr></thead>`;
   return `
     <div class="rank-controls qual-controls">${qualTabs()}</div>
     ${!state.swimmers.length ? `<p class="muted">${esc(t('emptyBody'))}</p>` : ''}
-    ${done.length ? `<div class="qual-done">${done.map(({ s, rows }) => `
+    ${shown.length ? `<div class="qual-done">${shown.map(({ s, rows, near }) => `
       <section class="qd-card">
         <button class="qd-name" data-open="${s.id}"><b>${esc(s.name)}</b> <span class="muted small">${esc([s.born, s.club].filter(Boolean).join(' · '))}</span></button>
-        ${[25, 50].map((p) => { const rs = rows.filter((q) => q.pool === p); return rs.length ? `<table class="qd-table">
-          <thead><tr><th class="qd-pool">${esc(t(p === 25 ? 'shortCourse' : 'longCourse'))} ${p} m</th><th class="num">${esc(t('qdSwum'))}</th><th class="num">${esc(t('qdLimit'))}</th></tr></thead>
+        ${[25, 50].map((p) => { const rs = rows.filter((q) => q.pool === p); return rs.length ? `<table class="qd-table">${head(`${esc(t(p === 25 ? 'shortCourse' : 'longCourse'))} ${p} m`)}
           <tbody>${rs.map((q) => `<tr>
           <td>${esc(eventLabel(q.event, state.lang, q.result.name))}</td>
-          <td class="num"><b>${fmtTime(q.result.time)}</b><small class="muted">${esc(q.result.date || '')}</small></td>
-          <td class="num qd-badges">${qualHighlights(q.reached).map((id) => { const std = q.reached.find((x) => x.id === id); return `<span class="qd-std">${qBadge(id)} <span class="muted">${fmtTime(std.time)}</span></span>`; }).join('')}</td></tr>`).join('')}</tbody></table>` : ''; }).join('')}
+          ${swum(q)}
+          <td class="num qd-badges">${qualHighlights(q.reached).map((id) => std(id, q.reached.find((x) => x.id === id).time)).join('')}</td></tr>
+          ${q.next ? `<tr class="qd-next-row"><td colspan="3">${next(q)}</td></tr>` : ''}`).join('')}</tbody></table>` : ''; }).join('')}
+        ${near.length ? `<table class="qd-table qd-near">${head(esc(t('qdNear')))}
+          <tbody>${near.map((q) => `<tr>
+          <td>${esc(eventLabel(q.event, state.lang, q.result.name))} <span class="pool">${q.pool} m</span></td>
+          ${swum(q)}
+          <td class="num qd-badges">${std(q.next.id, q.next.time)}</td></tr>
+          <tr class="qd-next-row"><td colspan="3"><span class="qd-next">${esc(t('qdLeft', { gap: fmtTime(q.next.gap) }))} ${qBadge(q.next.id)}</span></td></tr>`).join('')}</tbody></table>` : ''}
       </section>`).join('')}</div>` : state.swimmers.length && !loading ? `<p class="muted">${esc(t('qualNoneYet'))}</p>` : ''}
     ${loading ? `<p class="muted small">${esc(t('loading'))}</p>` : ''}
-    ${done.length && none.length ? `<p class="muted small">${esc(t('qualNotReached'))}: ${none.map((p) => esc(p.s.name)).join(', ')}</p>` : ''}
+    ${shown.length && none.length ? `<p class="muted small">${esc(t('qualNotReached'))}: ${none.map((p) => esc(p.s.name)).join(', ')}</p>` : ''}
     <div class="qual-source small muted">
+      <p>${esc(t('qdNearNote'))}</p>
       <p>${esc(t('qualWindow', { from: QUAL.windowStart }))}</p>
       <p>${esc(t('qualSource', { version: doc.version, checked: QUAL.checked }))} <a href="${QUAL.page}" target="_blank" rel="noopener">svensksimidrott.se ↗</a></p>
     </div>`;
