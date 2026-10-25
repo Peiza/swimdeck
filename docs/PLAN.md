@@ -89,5 +89,6 @@ plattform och fungerar med `site=fi`.
   tävlingens resultatlista (`/competitions/swimming/<id>`, filter gren + klass), alla åldrar.
   v0.21.0: "Totalt" placerar efter längsta omgång (final före semifinal före försök), sedan tid i den omgången;
   flikar per omgång. Större tävlingar (SM, USM, Swim Open) har Heat/Final i Tempus. Mindre tävlingar märker ibland
-  allt som "Final"; då räknas bästa tid och appen säger att placeringen kan avvika.
+  allt som "Final"; då räknas bästa tid och appen säger att placeringen kan avvika. A/B-finaler och åldersfinaler
+  (USM) heter också "Final" i Tempus, därför finns filtret "Födda <år>" (v0.22.0).
   Tävlingen hittas via namn och datum. Cachas 6 timmar.

@@ -1119,6 +1119,14 @@ async function fillMeets(s) {
 // ---------------------------------------------------------------- meet result lists
 
 const roundLabel = (k) => (!k ? '' : /^heat$|^försök$/i.test(k) ? t('roundHeat') : /^semi/i.test(k) ? t('roundSemi') : /^final$/i.test(k) ? t('roundFinal') : k);
+const roundRank = (k) => (/^final$/i.test(k || '') ? 0 : /final/i.test(k || '') ? 1 : /semi/i.test(k || '') ? 2 : 3);
+/** Places again within a filtered list (already ordered by round, then time); ties share a place. */
+function reRank(rows) {
+  return rows.map((r, i, a) => ({ ...r, place: 0, of: a.length })).map((r, i, a) => {
+    r.place = i > 0 && a[i - 1].time === r.time && roundRank(a[i - 1].round) === roundRank(r.round) ? a[i - 1].place : i + 1;
+    return r;
+  });
+}
 const sexCode = (x) => (/^(wo|fe|kvin|dam|nai|flick|tyt)/i.test(x || '') ? 'W' : x ? 'M' : '');
 const meetCache = new Map();
 
@@ -1129,7 +1137,7 @@ function meetButton(name, date, code, html, kind = '') {
 
 function openMeet(el) {
   const s = state.swimmers.find((x) => x.id === state.openId);
-  state.meet = { name: el.dataset.meet, date: el.dataset.mdate, code: Number(el.dataset.mcode), sex: sexCode(s?.sex), site: s?.site || 'se', me: s?.id ?? null, round: null };
+  state.meet = { name: el.dataset.meet, date: el.dataset.mdate, code: Number(el.dataset.mcode), sex: sexCode(s?.sex), site: s?.site || 'se', me: s?.id ?? null, born: s?.born || null, cohort: false, round: null };
   const dlg = $('#meetDialog');
   renderMeet();
   if (!dlg.open) dlg.showModal();
@@ -1161,7 +1169,8 @@ function renderMeet() {
   const rounds = d ? [...new Set(d.results.map((r) => r.round || ''))] : [];
   const view = rounds.length > 1 && rounds.includes(m.round) ? m.round : 'all';
   const overall = d ? d.overall || d.results : [];
-  const rows = !d ? [] : view === 'all' ? overall : d.results.filter((r) => (r.round || '') === view);
+  const cohort = m.cohort && m.born ? m.born : null;
+  const rows = !d ? [] : reRank((view === 'all' ? overall : d.results.filter((r) => (r.round || '') === view)).filter((r) => !cohort || r.born === cohort));
   const listed = new Set(state.swimmers.filter((x) => x.site === m.site).map((x) => x.id));
   const me = rows.find((r) => r.swimmerId === m.me);
   const base = m.site === 'fi' ? 'https://www.tempusopen.fi' : 'https://www.tempusopen.se';
@@ -1179,6 +1188,7 @@ function renderMeet() {
         <b>${esc(eventLabel(m.code, state.lang))}</b>
         <div class="seg small" role="group">${[['W', t('women')], ['M', t('men')]].map(([k, v]) => `<button data-msex="${k}" aria-pressed="${m.sex === k}">${esc(v)}</button>`).join('')}</div>
       </div>
+      ${m.born ? `<div class="seg small" role="group">${[[0, t('meetAllAges')], [1, t('meetCohort', { year: m.born })]].map(([k, v]) => `<button data-mcohort="${k}" aria-pressed="${!!m.cohort === !!k}">${esc(v)}</button>`).join('')}</div>` : ''}
       ${rounds.length > 1 ? `<div class="seg small" role="group">${[['all', t('meetOverall')], ...rounds.map((k) => [k, roundLabel(k) || '–'])].map(([k, v]) => `<button data-mround="${esc(k)}" aria-pressed="${view === k}">${esc(v)}</button>`).join('')}</div>` : ''}
       ${m.error ? `<p class="warn">${esc(m.error)}</p>` : !d ? `<p class="muted">${esc(t('loading'))}</p>` : `
         ${me ? `<p class="meet-me">${esc(t('placeOf', { place: me.place, of: me.of }))}${me.round && rounds.length > 1 ? ` · ${esc(roundLabel(me.round))}` : ''} · <b>${fmtTime(me.time)}</b></p>` : ''}
@@ -1724,6 +1734,10 @@ document.addEventListener('click', (e) => {
     state.meet = { ...state.meet, sex: el.dataset.msex, data: null, error: null };
     renderMeet();
     return loadMeet();
+  }
+  if (el.dataset.mcohort != null && state.meet) {
+    state.meet.cohort = el.dataset.mcohort === '1';
+    return renderMeet();
   }
   if (el.dataset.mround != null && state.meet) {
     state.meet.round = el.dataset.mround;
