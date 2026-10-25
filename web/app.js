@@ -38,7 +38,7 @@ const state = {
   view: 'deck',
   topN: store.get('topN', 5),
   topOrder: store.get('topOrder', 'fast'), // fast | recent
-  cardParts: { stats: true, latest: true, improve: true, qual: true, goals: true, best: true, ...store.get('cardParts', {}) },
+  cardParts: { stats: true, latest: true, improve: true, qual: true, goals: true, best: true, para: false, ...store.get('cardParts', {}) },
   swimmers: store.get('swimmers', []),
   sort: store.get('sort', 'manual'),
   collapsed: store.get('collapsed', []), // ids of minimised cards
@@ -606,7 +606,7 @@ function renderNotifyDialog(msg = '') {
   dlg.onclose = null;
 }
 
-const CARD_PARTS = ['stats', 'latest', 'improve', 'qual', 'goals', 'best'];
+const CARD_PARTS = ['stats', 'latest', 'improve', 'qual', 'goals', 'best', 'para'];
 
 function openCustomize() {
   const dlg = $('#confirmDialog');
@@ -1058,6 +1058,7 @@ async function fillForm(s) {
 }
 
 function paraSettings(s) {
+  if (!s.para && !state.cardParts.para) return '';
   const p = s.para || {};
   const sel = (k) => `<label class="select compact"><span>${k}</span><select data-para="${k}"><option value="">–</option>${Array.from({ length: 14 }, (_, i) => `<option value="${i + 1}" ${Number(p[k]) === i + 1 ? 'selected' : ''}>${k}${i + 1}</option>`).join('')}</select></label>`;
   const set = ['S', 'SB', 'SM'].filter((k) => p[k]).map((k) => k + p[k]).join(' · ');
