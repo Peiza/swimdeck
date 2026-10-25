@@ -88,19 +88,32 @@ export function periodRange(kind, today = new Date()) {
     const d = new Date(Date.UTC(today.getUTCFullYear() - 1, today.getUTCMonth(), today.getUTCDate() + 1));
     return { from: iso(d), to: iso(today) };
   }
-  if (kind === 'last') {
-    const from = new Date(Date.UTC(start.getUTCFullYear() - 1, 8, 1));
-    const to = new Date(Date.UTC(start.getUTCFullYear(), 7, 31));
-    return { from: iso(from), to: iso(to) };
+  if (kind === 'all') return { from: '1990-01-01', to: iso(today) };
+  let m = /^s(\d{4})$/.exec(kind || '');
+  if (kind === 'last') m = [null, String(start.getUTCFullYear() - 1)];
+  if (m) {
+    const y = Number(m[1]);
+    return { from: `${y}-09-01`, to: `${y + 1}-08-31` };
   }
   return { from: iso(start), to: iso(today) };
 }
 
+/** "2025/26" for seasons, a date range for 12 months, null for all time. */
 export function seasonLabel(kind, today = new Date()) {
+  if (kind === 'all') return null;
   const { from, to } = periodRange(kind, today);
   if (kind === '12m') return `${from} – ${to}`;
   const y = Number(from.slice(0, 4));
   return `${y}/${String((y + 1) % 100).padStart(2, '0')}`;
+}
+
+/** Period choices: this season, 12 months, last season, older seasons back to `oldest`, all time. */
+export function periodOptions(oldestYear, today = new Date()) {
+  const start = seasonStart(today).getUTCFullYear();
+  const out = ['season', '12m', 'last'];
+  for (let y = start - 2; y >= Math.max(oldestYear || start - 2, start - 25); y--) out.push(`s${y}`);
+  out.push('all');
+  return out;
 }
 
 // ---------------------------------------------------------------- stats

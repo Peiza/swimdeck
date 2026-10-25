@@ -233,3 +233,14 @@ test('goalStatus compares goals with personal bests', async () => {
   const g = goalStatus({ 13: 6500, 11: 3000, 44: 7000 }, [r(13, 25, 6450), r(11, 25, 3050)]);
   assert.deepEqual(g.map((x) => [x.event, x.reached, x.gap]), [[11, false, 50], [13, true, -50], [44, false, null]]);
 });
+
+test('older seasons and all time', async () => {
+  const { periodRange, seasonLabel, periodOptions } = await import('../lib.js');
+  const today = new Date('2026-10-25');
+  assert.deepEqual(periodRange('s2022', today), { from: '2022-09-01', to: '2023-08-31' });
+  assert.deepEqual(periodRange('all', today), { from: '1990-01-01', to: '2026-10-25' });
+  assert.equal(seasonLabel('s2022', today), '2022/23');
+  assert.equal(seasonLabel('all', today), null);
+  assert.deepEqual(periodOptions(2022, today), ['season', '12m', 'last', 's2024', 's2023', 's2022', 'all']);
+  assert.deepEqual(periodOptions(2026, today), ['season', '12m', 'last', 'all']);
+});

@@ -5,7 +5,7 @@ import { QUAL } from './qual-data.js';
 import { ORDER, qualify, qualCounts, usmAgeGroup, sexOf } from './qual.js';
 import { LANGS, makeT, detectLang } from './i18n.js';
 import {
-  eventLabel, eventShort, eventSortKey, eventInfo, fmtTime, fmtDiff, periodRange, seasonLabel,
+  eventLabel, eventShort, eventSortKey, eventInfo, fmtTime, fmtDiff, periodRange, seasonLabel, periodOptions,
   summarize, progression, parseTempusRef, parseTime, goalStatus, rankings, rankingsByPoints, sortSwimmers,
   seasonBests, meets, compareTable, rankingsByImprovement, toCsv, profile, form, prognosis, headToHead,
   bestsSnapshot, newSince,
@@ -36,6 +36,7 @@ const state = {
   period: store.get('period', 'season'),
   view: 'deck',
   topN: store.get('topN', 5),
+  topOrder: store.get('topOrder', 'fast'), // fast | recent
   swimmers: store.get('swimmers', []),
   sort: store.get('sort', 'manual'),
   collapsed: store.get('collapsed', []), // ids of minimised cards
@@ -70,6 +71,17 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const sexLabel = (x) => (/^(wo|fe|kvin|dam|nai|flick|tyt)/i.test(x || '') ? t('women') : x ? t('men') : '');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
+const periodName = (p = state.period) => seasonLabel(p) || t('periodAllShort');
+const periodOptionLabel = (p) => p === 'season' ? `${t('periodSeason')} · ${seasonLabel(p)}` : p === '12m' ? t('period12') : p === 'last' ? `${t('periodLast')} · ${seasonLabel(p)}` : p === 'all' ? t('periodAll') : `${t('periodSeasonOf')} ${seasonLabel(p)}`;
+function oldestSwimYear() {
+  let y = Infinity;
+  for (const s of state.swimmers) {
+    // Competitive swimming usually starts around age 8; PB dates alone would hide earlier seasons.
+    if (s.born) y = Math.min(y, s.born + 8);
+    for (const b of state.data[s.id]?.all?.bests || []) if (b.date) y = Math.min(y, Number(b.date.slice(0, 4)));
+  }
+  return Number.isFinite(y) ? y : null;
+}
 const shortDate = (iso) => {
   const d = new Date(iso + 'T12:00:00Z');
   const sameYear = d.getUTCFullYear() === new Date().getUTCFullYear();
@@ -409,7 +421,7 @@ function renderHeader() {
     <div class="toolbar">
       <label class="select"><span class="sr">${esc(t('period'))}</span>
         <select id="period">
-          ${['season', '12m', 'last'].map((p) => `<option value="${p}" ${p === state.period ? 'selected' : ''}>${esc(t(p === 'season' ? 'periodSeason' : p === '12m' ? 'period12' : 'periodLast'))} · ${esc(seasonLabel(p))}</option>`).join('')}
+          ${[...new Set([...periodOptions(oldestSwimYear()), state.period])].map((p) => `<option value="${p}" ${p === state.period ? 'selected' : ''}>${esc(periodOptionLabel(p))}</option>`).join('')}
         </select>
       </label>
       <button id="refresh" class="btn" ${busy || !state.swimmers.length ? 'disabled' : ''}>
@@ -601,11 +613,11 @@ function rankView() {
           ${opts.map((b) => `<option value="${b.pool}:${b.event}" ${`${b.pool}:${b.event}` === state.rankEvent ? 'selected' : ''}>${esc(eventLabel(b.event, state.lang, b.name))} · ${b.pool} m</option>`).join('')}
         </select>
       </label>
-      <div class="seg" role="group">${['pb', 'period', 'improve'].map((x) => `<button data-basis="${x}" aria-pressed="${basis === x}">${esc(x === 'pb' ? t('basisPb') : x === 'period' ? t('basisPeriod', { period: seasonLabel(state.period) }) : t('basisImprove'))}</button>`).join('')}</div>
+      <div class="seg" role="group">${['pb', 'period', 'improve'].map((x) => `<button data-basis="${x}" aria-pressed="${basis === x}">${esc(x === 'pb' ? t('basisPb') : x === 'period' ? t('basisPeriod', { period: periodName() }) : t('basisImprove'))}</button>`).join('')}</div>
       ${sexes.length > 1 ? `<div class="seg" role="group">${['', ...sexes].map((x) => `<button data-sex="${esc(x)}" aria-pressed="${state.rankSex === x}">${esc(x ? sexLabel(x) : t('allSexes'))}</button>`).join('')}</div>` : ''}
       ${years.length > 1 ? `<label class="select compact"><span class="sr">${esc(t('birthYear'))}</span><select id="rankYear"><option value="">${esc(t('allYears'))}</option>${years.map((y) => `<option value="${y}" ${String(state.rankYear) === String(y) ? 'selected' : ''}>${y}</option>`).join('')}</select></label>` : ''}
     </div>
-    ${improveMode ? `<p class="muted small rank-note">${esc(t('improveNote', { period: seasonLabel(state.period) }))}</p>` : ''}
+    ${improveMode ? `<p class="muted small rank-note">${esc(t('improveNote', { period: periodName() }))}</p>` : ''}
     ${rows.length ? `<div class="row end"><button class="link small" data-action="csvRank">${esc(t('exportCsv'))}</button></div><ol class="ranking">${rows.map((r, i) => `
       <li data-open="${r.swimmer.id}" tabindex="0" role="button">
         <span class="pos">${i + 1}</span>
@@ -827,7 +839,7 @@ function renderSwimmerDialog() {
       ${state.openTab === 'profile' ? profileView(s) : state.openTab === 'meets' ? `<div id="meetsBox"><p class="muted">${esc(t('loading'))}</p></div>` : `
       <div class="sheet-tools">
         <div class="seg" role="tablist">${pools.sort().map((p) => `<button data-pool="${p}" aria-pressed="${p === state.openPool}">${esc(t(p === 25 ? 'pool25' : 'pool50'))}</button>`).join('')}</div>
-        <span class="muted small">${esc(t('periodBest'))}: ${esc(seasonLabel(state.period))}</span>
+        <span class="muted small">${esc(t('periodBest'))}: ${esc(periodName())}</span>
       </div>
       ${!sum ? `<p class="muted">${esc(d?.error ? t('error', { msg: d.error }) : t('loading'))}</p>` : `
       <table class="events">
@@ -998,17 +1010,23 @@ async function fillEventDetail(s, code) {
     const ev = await loadEvent(s, code);
     if (state.openEvent !== code || !$('#eventDetail')) return;
     const n = state.topN === 'all' ? ev.results.length : state.topN;
-    const top = ev.results.slice(0, n);
+    const recent = state.topOrder === 'recent';
+    const pbTime = ev.results[0]?.time;
+    const ordered = recent ? [...ev.results].sort((a, b) => String(b.date).localeCompare(String(a.date)) || (b.round === 'Final') - (a.round === 'Final')) : ev.results;
+    const top = ordered.slice(0, n);
     $('#eventDetail').innerHTML = `
       ${goalEditor(s, code, ev.results[0]?.time)}
       <div class="detail-tools">
         <span class="muted small">${esc(t('swims', { n: ev.results.length }))}</span>
+        <div class="seg small" role="group" aria-label="${esc(t('order'))}">
+          ${['fast', 'recent'].map((k) => `<button data-toporder="${k}" aria-pressed="${state.topOrder === k}">${esc(t(k === 'fast' ? 'orderFast' : 'orderRecent'))}</button>`).join('')}
+        </div>
         <div class="seg small" role="group" aria-label="${esc(t('topN'))}">
-          ${[3, 5, 10, 'all'].map((k) => `<button data-topn="${k}" aria-pressed="${state.topN === k}">${k === 'all' ? esc(t('all')) : `${esc(t('topN'))} ${k}`}</button>`).join('')}
+          ${[3, 5, 7, 10, 'all'].map((k) => `<button data-topn="${k}" aria-pressed="${state.topN === k}">${k === 'all' ? esc(t('all')) : k}</button>`).join('')}
         </div>
       </div>
-      <ol class="top">${top.map((r, i) => `
-        <li><span class="pos">${i + 1}</span><span class="time">${fmtTime(r.time)}</span>
+      <ol class="top ${recent ? 'recent' : ''}">${top.map((r, i) => `
+        <li><span class="pos">${recent ? '' : i + 1}</span><span class="time ${r.time === pbTime ? 'is-pb' : ''}">${fmtTime(r.time)}${recent && r.time !== pbTime ? `<small class="muted"> ${fmtDiff(r.time - pbTime)}</small>` : ''}</span>
         <span class="small"><span>${esc(r.date)}</span> · <span class="muted">${esc(r.meet)}${r.round ? ' · ' + esc(r.round) : ''}</span></span>
         <span class="small muted num">${r.points || ''}</span></li>`).join('')}</ol>
       <div id="rankBox" class="rank-box"></div>
@@ -1074,7 +1092,7 @@ async function fillRank(s, code) {
     }
     const head = r.complete ? t('rankPlace', { place: r.rank }) : t('rankBeyond', { n: r.rank - 1 });
     box().innerHTML = `<div class="rank-line"><span class="rank-num">${esc(head)}</span>
-      <span class="small muted">${esc(t('rankDetail', { year: s.born, period: seasonLabel(state.period), time: fmtTime(row.time) }))}${r.leader && r.rank > 1 ? ' · ' + esc(t('rankLeader', { time: fmtTime(r.leader) })) : ''}</span></div>`;
+      <span class="small muted">${esc(t('rankDetail', { year: s.born, period: periodName(), time: fmtTime(row.time) }))}${r.leader && r.rank > 1 ? ' · ' + esc(t('rankLeader', { time: fmtTime(r.leader) })) : ''}</span></div>`;
   } catch (e) {
     if (box()) box().innerHTML = `<span class="muted small">${esc(t('error', { msg: e.message }))}</span>`;
   }
@@ -1487,6 +1505,12 @@ document.addEventListener('click', (e) => {
     const code = Number(el.dataset.event);
     state.openEvent = state.openEvent === code ? null : code;
     return renderSwimmerDialog();
+  }
+  if (el.dataset.toporder) {
+    state.topOrder = el.dataset.toporder;
+    store.set('topOrder', state.topOrder);
+    const s = state.swimmers.find((x) => x.id === state.openId);
+    return fillEventDetail(s, state.openEvent);
   }
   if (el.dataset.topn) {
     state.topN = el.dataset.topn === 'all' ? 'all' : Number(el.dataset.topn);

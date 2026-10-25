@@ -423,3 +423,8 @@ body:has(.card.dragging) { user-select: none; -webkit-user-select: none; }
 .goal-card .gbadge { font-size: 12px; padding: 3px 9px; }
 .chart .goal-line { stroke: var(--good); stroke-width: 1.5; stroke-dasharray: 4 3; }
 .chart .goal-label { fill: var(--good); font-weight: 700; }
+
+.detail-tools { gap: 8px; }
+.top.recent li { grid-template-columns: 4px 96px 1fr auto; }
+.top .time.is-pb { color: var(--accent); }
+.top .time small { font-weight: 500; font-size: 11px; }

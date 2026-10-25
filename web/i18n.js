@@ -21,6 +21,12 @@ export const STROKES_SHORT = {
 
 const T = {
   sv: {
+    periodAll: 'Alla år',
+    periodAllShort: 'alla år',
+    periodSeasonOf: 'Säsong',
+    order: 'Ordning',
+    orderFast: 'Snabbast',
+    orderRecent: 'Senaste',
     goal: 'Mål',
     goalPlaceholder: 't.ex. 1:05.50',
     goalSave: 'Spara mål',
@@ -232,6 +238,12 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    periodAll: 'All years',
+    periodAllShort: 'all years',
+    periodSeasonOf: 'Season',
+    order: 'Order',
+    orderFast: 'Fastest',
+    orderRecent: 'Latest',
     goal: 'Goal',
     goalPlaceholder: 'e.g. 1:05.50',
     goalSave: 'Save goal',
@@ -443,6 +455,12 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    periodAll: 'Kaikki vuodet',
+    periodAllShort: 'kaikki vuodet',
+    periodSeasonOf: 'Kausi',
+    order: 'Järjestys',
+    orderFast: 'Nopeimmat',
+    orderRecent: 'Viimeisimmät',
     goal: 'Tavoite',
     goalPlaceholder: 'esim. 1:05.50',
     goalSave: 'Tallenna tavoite',
