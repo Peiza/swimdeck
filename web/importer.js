@@ -73,6 +73,45 @@ function parseLine(line, thisYear) {
   return { ...name, born, club };
 }
 
+const JUNK = /^flag\b|\blogo$|^(image|bild)\b/i;
+const ONLY_YEAR = /^(?:19|20)\d{2}$/;
+const ONLY_NUM_OR_TIME = /^(\d{1,3}\.?|\d{1,2}[:.]\d{2}[.,]\d{2}|\d{2}[.,]\d{2}|NT|DNS|DSQ|DQ|DNF)$/i;
+// "SelmaWalterdahl" – first and last name run together where the page used separate elements
+const RUN_TOGETHER = /^(\p{Lu}[\p{Ll}'’-]+)(\p{Lu}.*)$/u;
+
+/**
+ * Some pages (Swimify among them) copy as one value per line:
+ *   7 / SelmaWalterdahl / 2011 / Örebro Simallians / 2:45.59
+ * Rebuild one line per swimmer: "Walterdahl, Selma 2011 Örebro Simallians".
+ */
+export function joinVertical(lines) {
+  const clean = lines.map((l) => l.trim()).filter((l) => l && !JUNK.test(l));
+  const years = clean.filter((l) => ONLY_YEAR.test(l)).length;
+  if (years < 2 || years < clean.length / 8) return clean;
+  const out = [];
+  const used = new Set();
+  clean.forEach((l, i) => {
+    if (!ONLY_YEAR.test(l)) return;
+    const name = clean[i - 1];
+    if (!name || ONLY_NUM_OR_TIME.test(name) || ONLY_YEAR.test(name) || HEADING.test(name)) return;
+    const next = clean[i + 1];
+    const club = next && !ONLY_NUM_OR_TIME.test(next) && !ONLY_YEAR.test(next) && !HEADING.test(next) ? next : '';
+    const m = name.match(RUN_TOGETHER);
+    const who = m && !/\s/.test(m[1]) ? `${m[2].trim()}, ${m[1]}` : name;
+    out.push(`${who} ${l} ${club}`.trim());
+    used.add(i - 1).add(i);
+    if (club) used.add(i + 1);
+  });
+  // keep event headings in place for grouping
+  const merged = [];
+  let k = 0;
+  clean.forEach((l, i) => {
+    if (ONLY_YEAR.test(l) && used.has(i)) merged.push(out[k++]);
+    else if (!used.has(i) && HEADING.test(l)) merged.push(l); // other leftovers (club banners etc.) are dropped
+  });
+  return merged;
+}
+
 /**
  * Parse pasted text. Returns { entries, groups } where each entry is
  * { key, first, last, born, club, groups: [heading…] } and duplicates are merged.
@@ -81,9 +120,9 @@ export function parseList(text, thisYear = new Date().getFullYear()) {
   const byKey = new Map();
   const groups = [];
   let group = '';
-  for (const raw of String(text || '').split(/\r?\n/)) {
+  for (const raw of joinVertical(String(text || '').split(/\r?\n/))) {
     const line = raw.trim();
-    if (!line) continue;
+    if (!line || JUNK.test(line)) continue;
     if (NOISE.test(line) && !YEAR.test(` ${line} `)) continue;
     if (HEADING.test(line) && !YEAR.test(` ${line} `.replace(TIME, ' '))) {
       group = line.replace(/\s+/g, ' ').slice(0, 80);

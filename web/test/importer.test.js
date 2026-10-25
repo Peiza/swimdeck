@@ -51,3 +51,30 @@ test('matching prefers same name, birth year and club', () => {
   assert.equal(r.sure, true);
   assert.equal(rankCandidates({ first: 'Anna', last: 'Andersson', born: null, club: '' }, [a, b]).sure, false);
 });
+
+test('one value per line (Swimify copy) with names run together', () => {
+  const text = `flag Swe
+Örebro Simallians logo
+Örebro Simallians
+7
+SelmaWalterdahl
+2011
+Örebro Simallians
+2:45.59
+9
+TyraSjöstrand
+2011
+Örebro Simallians
+2:55.81
+16
+AmyGidlöf Järvinen
+2013
+Örebro Simallians
+3:19.49`;
+  const { entries } = parseList(text, 2026);
+  assert.deepEqual(entries.map((e) => [e.first, e.last, e.born, e.club]), [
+    ['Selma', 'Walterdahl', 2011, 'Örebro Simallians'],
+    ['Tyra', 'Sjöstrand', 2011, 'Örebro Simallians'],
+    ['Amy', 'Gidlöf Järvinen', 2013, 'Örebro Simallians'],
+  ]);
+});
