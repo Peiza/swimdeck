@@ -528,7 +528,8 @@ button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4
 .qd-lim { min-width: 3.9em; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
 .qd-next-row td { border-top: 0 !important; padding: 0 0 6px !important; text-align: right; }
 .qd-next { font-size: 12px; color: var(--muted); }
-.qd-next .q { opacity: 0.8; }
 .qd-table tr:has(+ .qd-next-row) td { padding-bottom: 1px; }
 .qd-near thead th.qd-pool { color: var(--accent); }
 .qd-table thead th.qd-pool { white-space: nowrap; }
+.card-head .remove-btn, .remove-btn { margin-right: 10px; opacity: 0.7; }
+.remove-btn:hover { opacity: 1; color: var(--warn); }

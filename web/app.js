@@ -674,10 +674,10 @@ function cardView(s) {
         <p class="muted small">${[s.born ? t('born', { year: s.born }) : '', s.club].filter(Boolean).map(esc).join(' · ')}</p>
       </div>
       <div class="card-actions">
+        <button class="icon-btn remove-btn" data-remove="${s.id}" aria-label="${esc(t('remove'))}" title="${esc(t('remove'))}">${ICON.trash}</button>
         ${state.sort === 'manual' && state.swimmers.length > 1 ? `<button class="icon-btn drag-handle" data-drag="${s.id}" aria-label="${esc(t('dragHint'))}" title="${esc(t('dragHint'))}">${ICON.grip}</button>` : ''}
         ${s.site !== 'se' ? `<span class="tag">${esc(s.site.toUpperCase())}</span>` : ''}
         <button class="icon-btn" data-collapse="${s.id}" aria-expanded="${!collapsed}" aria-label="${esc(t(collapsed ? 'expand' : 'collapse'))}" title="${esc(t(collapsed ? 'expand' : 'collapse'))}">${ICON.chevron}</button>
-        <button class="icon-btn" data-remove="${s.id}" aria-label="${esc(t('remove'))}" title="${esc(t('remove'))}">${ICON.trash}</button>
       </div>
     </div>`;
   if (collapsed) {
@@ -955,7 +955,7 @@ function qualDoneView() {
   const none = people.filter((p) => !p.rows.length && !p.near.length);
   const loading = state.swimmers.some((s) => !state.data[s.id]?.qual);
   const std = (id, time) => `<span class="qd-std">${qBadge(id)}<span class="qd-lim">${fmtTime(time)}</span></span>`;
-  const next = (q) => (q.next ? `<span class="qd-next">${esc(t('qdLeft', { gap: fmtTime(q.next.gap) }))} ${qBadge(q.next.id)} <span class="qd-lim">${fmtTime(q.next.time)}</span></span>` : '');
+  const next = (q) => (q.next ? `<span class="qd-next">${esc(t('toNext', { gap: fmtTime(q.next.gap), std: stdLabel(q.next.id) }))} (${fmtTime(q.next.time)})</span>` : '');
   const swum = (q) => `<td class="num"><b>${fmtTime(q.result.time)}</b><small class="muted">${esc(q.result.date || '')}</small></td>`;
   const head = (label) => `<thead><tr><th class="qd-pool">${label}</th><th class="num">${esc(t('qdSwum'))}</th><th class="num">${esc(t('qdLimit'))}</th></tr></thead>`;
   return `
@@ -975,7 +975,7 @@ function qualDoneView() {
           <td>${esc(eventLabel(q.event, state.lang, q.result.name))} <span class="pool">${q.pool} m</span></td>
           ${swum(q)}
           <td class="num qd-badges">${std(q.next.id, q.next.time)}</td></tr>
-          <tr class="qd-next-row"><td colspan="3"><span class="qd-next">${esc(t('qdLeft', { gap: fmtTime(q.next.gap) }))} ${qBadge(q.next.id)}</span></td></tr>`).join('')}</tbody></table>` : ''}
+          <tr class="qd-next-row"><td colspan="3"><span class="qd-next">${esc(t('toNext', { gap: fmtTime(q.next.gap), std: stdLabel(q.next.id) }))}</span></td></tr>`).join('')}</tbody></table>` : ''}
       </section>`).join('')}</div>` : state.swimmers.length && !loading ? `<p class="muted">${esc(t('qualNoneYet'))}</p>` : ''}
     ${loading ? `<p class="muted small">${esc(t('loading'))}</p>` : ''}
     ${shown.length && none.length ? `<p class="muted small">${esc(t('qualNotReached'))}: ${none.map((p) => esc(p.s.name)).join(', ')}</p>` : ''}
