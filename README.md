@@ -41,7 +41,7 @@ reads the JSON that Tempus Open embeds in them and returns a compact shape:
 | `GET /api/swimmer/:id?from=YYYY-MM-DD&to=YYYY-MM-DD` | best time per event (all time, or within dates) |
 | `GET /api/swimmer/:id/event/:code` | every swim in one event, fastest first |
 | `GET /api/rank?event=&sex=&born=&from=&to=&time=` | place in Sweden among swimmers born the same year |
-| `GET /api/push/key`, `POST`/`DELETE /api/push` | push notification subscriptions (checked by a cron trigger) |
+| `GET /api/push/key`, `POST`/`DELETE /api/push`, `POST /api/push/test` | push notification subscriptions (checked by a cron trigger) |
 | `POST /api/sync`, `GET/PUT/DELETE /api/sync/:token` | synced list (Cloudflare KV, created by the deploy workflow) |
 
 All routes take `site=se` (default) or `site=fi`. Times are in hundredths of a second.
