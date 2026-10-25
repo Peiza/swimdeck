@@ -5,3 +5,7 @@ compatibility_date = "2026-10-01"
 [vars]
 # Comma-separated list of web origins allowed to use the API.
 ALLOWED_ORIGINS = "https://peiza.github.io,http://localhost:8080,http://127.0.0.1:8080"
+
+# Check watched swimmers for new personal bests every 6 hours (push notifications).
+[triggers]
+crons = ["23 */6 * * *"]

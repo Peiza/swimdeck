@@ -114,6 +114,7 @@ function save() {
   for (const k of ['qComp', 'qSex', 'qPool', 'qClass']) store.set(k, state[k]);
   store.set('seen', state.seen);
   schedulePush();
+  scheduleNotifyUpdate();
 }
 
 // ---------------------------------------------------------------- sync between devices
@@ -489,12 +490,109 @@ function deckView() {
         </label>
         <button class="link" data-action="${allCollapsed ? 'expandAll' : 'collapseAll'}">${esc(t(allCollapsed ? 'expandAll' : 'collapseAll'))}</button>
         <button class="link" data-action="cardsCustomize">${esc(t('customize'))}</button>
+        <button class="link" data-action="notifyOpen">${esc(state.notify ? t('notifyOnShort') : t('notifyShort'))}</button>
       </div>
       ${trashLink()}
     </div>
     ${(() => { const n = state.swimmers.reduce((a, s) => a + newFor(s).length, 0); const who = state.swimmers.filter((s) => newFor(s).length).length; return n ? `<div class="new-banner"><span>${esc(t('newBanner', { n, who }))}</span><button class="link" data-action="seenAll">${esc(t('markSeen'))}</button></div>` : ''; })()}
     ${state.sort === 'manual' && state.swimmers.length > 1 ? `<p class="muted small drag-hint">${esc(t('dragHint'))}</p>` : ''}
     <ul class="deck" id="deck">${list.map(cardView).join('')}</ul>`;
+}
+
+// ---------------------------------------------------------------- push notifications
+
+state.notify = store.get('notify', null); // { endpoint, count }
+let notifyTimer = null;
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+
+async function notifyApi(method, path, body) {
+  const res = await fetch(`${API}/api/push${path}`, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+  return data;
+}
+
+async function currentSubscription() {
+  const reg = await navigator.serviceWorker.ready;
+  return reg.pushManager.getSubscription();
+}
+
+async function enableNotify() {
+  if (!pushSupported()) return toast(t('notifyUnsupported'));
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') return renderNotifyDialog(t('notifyDenied'));
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      const { key } = await notifyApi('GET', '/key');
+      const raw = atob(key.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((key.length + 3) % 4));
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: Uint8Array.from(raw, (c) => c.charCodeAt(0)) });
+    }
+    await sendNotifyList(sub);
+    renderNotifyDialog();
+    toast(t('notifyOnToast'));
+  } catch (e) {
+    renderNotifyDialog(t('error', { msg: e.message }));
+  }
+}
+
+async function sendNotifyList(sub) {
+  const swimmers = state.swimmers.filter((s) => s.site === 'se').map((s) => s.id);
+  await notifyApi('POST', '', { subscription: sub.toJSON(), swimmers, lang: state.lang });
+  state.notify = { endpoint: sub.endpoint, count: swimmers.length };
+  store.set('notify', state.notify);
+}
+
+async function disableNotify() {
+  try {
+    const sub = await currentSubscription();
+    if (sub) {
+      await notifyApi('DELETE', '', { endpoint: sub.endpoint }).catch(() => {});
+      await sub.unsubscribe();
+    }
+  } catch {}
+  state.notify = null;
+  store.set('notify', null);
+  renderNotifyDialog();
+}
+
+function scheduleNotifyUpdate() {
+  if (!state.notify || !pushSupported()) return;
+  const count = state.swimmers.filter((s) => s.site === 'se').length;
+  clearTimeout(notifyTimer);
+  notifyTimer = setTimeout(async () => {
+    try {
+      const sub = await currentSubscription();
+      if (sub) await sendNotifyList(sub);
+      else {
+        state.notify = null;
+        store.set('notify', null);
+      }
+    } catch {}
+  }, count === state.notify.count ? 30000 : 1500);
+}
+
+function openNotify() {
+  renderNotifyDialog();
+  const dlg = $('#confirmDialog');
+  if (!dlg.open) dlg.showModal();
+}
+
+function renderNotifyDialog(msg = '') {
+  const dlg = $('#confirmDialog');
+  const on = !!state.notify;
+  const ios = /iphone|ipad/i.test(navigator.userAgent) && !window.matchMedia('(display-mode: standalone)').matches;
+  dlg.innerHTML = `<form method="dialog" class="sheet small-sheet">
+    <header class="sheet-head"><h2>${esc(t('notifyTitle'))}</h2><button type="button" class="icon" data-action="close" aria-label="${esc(t('close'))}">✕</button></header>
+    ${msg ? `<p class="warn small">${esc(msg)}</p>` : ''}
+    ${!pushSupported() ? `<p class="small">${esc(ios ? t('notifyIos') : t('notifyUnsupported'))}</p>`
+      : on ? `<p class="small">${esc(t('notifyOn', { n: state.notify.count }))}</p><p class="small muted">${esc(t('notifyHow'))}</p>
+        <div class="row end wrap"><button type="button" class="link danger" data-action="notifyOff">${esc(t('notifyDisable'))}</button><button class="btn primary" value="ok">${esc(t('done'))}</button></div>`
+      : `<p class="small">${esc(t('notifyIntro'))}</p><p class="small muted">${esc(t('notifyHow'))}</p><p class="small muted">${esc(t('notifyPrivacy'))}</p>
+        <div class="row end"><button type="button" class="btn primary" data-action="notifyOn" ${state.swimmers.length ? '' : 'disabled'}>${esc(t('notifyEnable'))}</button></div>`}
+  </form>`;
+  dlg.onclose = null;
 }
 
 const CARD_PARTS = ['stats', 'latest', 'improve', 'qual', 'goals', 'best'];
@@ -1702,6 +1800,9 @@ document.addEventListener('click', (e) => {
   }
   if (el.dataset.action === 'importOpen') return openImport();
   if (el.dataset.action === 'cardsCustomize') return openCustomize();
+  if (el.dataset.action === 'notifyOpen') return openNotify();
+  if (el.dataset.action === 'notifyOn') return enableNotify();
+  if (el.dataset.action === 'notifyOff') return disableNotify();
   if (el.dataset.action === 'importParse') {
     const text = $('#importText')?.value || '';
     if (!text.trim()) return $('#importText')?.focus();

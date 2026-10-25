@@ -5,12 +5,17 @@
 //   GET /api/swimmer/:id/event/:code          every swim in one event
 //   GET /api/rank?event=&sex=&born=&from=&to=&time=   place in Sweden by birth year
 //   POST /api/sync, GET|PUT|DELETE /api/sync/:token  sync a list between devices
+//   GET /api/push/key, POST|DELETE /api/push          notifications for new personal bests
+//   scheduled (cron): checks watched swimmers and sends push notifications
 //
 // Every route accepts ?site=se (default) or ?site=fi.
 // Responses are cached at the edge so Tempus sees as few requests as possible.
 
 import { SITES, fetchOverview, fetchEvent, searchSwimmers, nationalRank } from './tempus.js';
 import { handleSync } from './sync.js';
+import { handlePush, runCheck } from './push.js';
+
+const APP_URL = 'https://peiza.github.io/swimdeck/';
 
 const TTL = {
   search: 60 * 60, // 1 h
@@ -20,6 +25,16 @@ const TTL = {
 };
 
 export default {
+  async scheduled(event, env, ctx) {
+    if (!env.LISTS) return;
+    ctx.waitUntil(
+      runCheck(env, async (id) => {
+        const o = await fetchOverview(SITES.se, id);
+        return { swimmer: o.swimmer, bests: o.bests };
+      }, { appUrl: env.APP_URL || APP_URL }).then((r) => console.log('push check', JSON.stringify(r))),
+    );
+  },
+
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const cors = corsHeaders(request, env);
@@ -27,6 +42,14 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     if (!cors['Access-Control-Allow-Origin']) return json({ error: 'Origin not allowed' }, 403, {});
 
+    if (url.pathname === '/api/push' || url.pathname.startsWith('/api/push/')) {
+      try {
+        const data = await handlePush(request, env, url.pathname);
+        return json(data, 200, { ...cors, 'Cache-Control': 'no-store' });
+      } catch (err) {
+        return json({ error: err.message || 'Error' }, err.status || 500, cors);
+      }
+    }
     if (url.pathname === '/api/sync' || url.pathname.startsWith('/api/sync/')) {
       try {
         const data = await handleSync(request, env, url.pathname);

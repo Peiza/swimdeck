@@ -65,7 +65,9 @@ plattform och fungerar med `site=fi`.
    - ✅ Synk mellan enheter: hemlig synklänk/QR-kod, Cloudflare KV, bara Tempus-ID, ordning och paraklass lagras
      (KV-nyckeln är en hash av länken). Senaste ändring vinner; listor som inte rörts på ~13 månader försvinner.
    - ✅ "Nytt sedan sist": nya PB sedan förra besöket markeras på korten, sammanfattning och sortering
-   - Riktiga push-notiser (kräver bevakning på servern och Web Push)
+   - ✅ Push-notiser om nya PB (v0.19.0): Web Push (RFC 8291/8292) från Workern, VAPID-nycklar skapas i KV vid
+     första användning, cron var 6:e timme jämför simmarnas PB mot senaste ögonblicksbild. Lagras: hash av
+     notisadressen, notisnycklar, Tempus-ID och språk. Kryptering verifierad mot http_ece.
    - ✅ Installera som app (service worker, fungerar offline med senast hämtade data)
    - "Senaste lopp" direkt på korten (kräver grensidor för alla i listan, alltså fler anrop)
    - ✅ Kortanpassning: välj vilka delar korten visar (per enhet, v0.18.0)
