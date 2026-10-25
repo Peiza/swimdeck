@@ -423,7 +423,7 @@ function renderHeader() {
   $('#header').innerHTML = `
     <button class="brand" data-action="home" aria-label="${esc(t('home'))}">
       <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="6" width="28" height="20" rx="5" fill="var(--accent)"/><path d="M6 19c3-3 5-3 8 0s5 3 8 0 5-3 6-1" stroke="var(--on-accent)" stroke-width="2.4" fill="none" stroke-linecap="round"/><circle cx="11" cy="12" r="2.2" fill="var(--on-accent)"/></svg>
-      <div><h1>SwimDeck</h1><p class="tagline">${esc(t('tagline'))}</p></div>
+      <div><h1>SwimDeck</h1><p class="tagline">${esc(t('slogan'))}</p></div>
     </button>
     <div class="toolbar">
       <label class="select"><span class="sr">${esc(t('period'))}</span>
@@ -547,6 +547,7 @@ function deckView() {
         <button class="link" data-action="${allCollapsed ? 'expandAll' : 'collapseAll'}">${esc(t(allCollapsed ? 'expandAll' : 'collapseAll'))}</button>
         <button class="link" data-action="cardsCustomize">${esc(t('customize'))}</button>
         <button class="link" data-action="notifyOpen">${esc(state.notify ? t('notifyOnShort') : t('notifyShort'))}</button>
+        ${state.swimmers.length > 1 ? `<button class="link" data-action="bulkRemove">${esc(t('bulkRemove'))}</button>` : ''}
       </div>
       ${trashLink()}
     </div>
@@ -2034,6 +2035,60 @@ async function askRemove(id) {
   toast(t('removed', { name: s.name || '#' + s.id }), { label: t('undo'), run: () => restore(s.id) });
 }
 
+// ---------------------------------------------------------------- remove several at once
+
+let bulkSel = new Set();
+
+function openBulkRemove() {
+  bulkSel = new Set();
+  renderBulkRemove();
+  const dlg = $('#trashDialog');
+  if (!dlg.open) dlg.showModal();
+}
+
+function renderBulkRemove() {
+  const dlg = $('#trashDialog');
+  const all = state.swimmers.length && bulkSel.size === state.swimmers.length;
+  const box = $('.bulk-list', dlg);
+  const top = box ? box.scrollTop : 0;
+  dlg.innerHTML = `<div class="sheet">
+    <header class="sheet-head"><div><h2>${esc(t('bulkTitle'))}</h2><p class="muted small">${esc(t('bulkHint', { days: TRASH_DAYS }))}</p></div>
+      <button class="icon" data-action="close" aria-label="${esc(t('close'))}">✕</button></header>
+    <label class="igroup-head bulk-all"><input type="checkbox" data-bulk-all ${all ? 'checked' : ''}> <b>${esc(t('bulkAll'))}</b> <span class="muted small">${state.swimmers.length}</span></label>
+    <div class="import-list bulk-list">${state.swimmers.map((s) => `<label class="irow">
+      <input type="checkbox" data-bulk="${s.id}" ${bulkSel.has(s.id) ? 'checked' : ''}>
+      <span class="iname"><b>${esc(s.name || '#' + s.id)}</b><span class="muted small">${esc([s.born, s.club].filter(Boolean).join(' · '))}</span></span></label>`).join('')}</div>
+    <div class="row end wrap"><button class="btn" data-action="close">${esc(t('cancel'))}</button>
+      <button class="btn danger" data-action="bulkDo" ${bulkSel.size ? '' : 'disabled'}>${esc(t('bulkDo', { n: bulkSel.size }))}</button></div>
+  </div>`;
+  const nb = $('.bulk-list', dlg);
+  if (nb) nb.scrollTop = top;
+}
+
+async function doBulkRemove() {
+  const ids = [...bulkSel];
+  if (!ids.length) return;
+  $('#trashDialog').close();
+  const ok = await ask({ title: t('bulkConfirmTitle', { n: ids.length }), body: t('bulkConfirmBody', { n: ids.length, days: TRASH_DAYS }), yes: t('bulkDo', { n: ids.length }), danger: true });
+  if (!ok) return;
+  const now = Date.now();
+  const gone = [];
+  for (const id of ids) {
+    const s = state.swimmers.find((x) => x.id === id);
+    if (!s) continue;
+    const index = state.swimmers.indexOf(s);
+    state.swimmers.splice(index, 1);
+    gone.push({ swimmer: s, removedAt: now, index });
+    delete state.data[s.id];
+  }
+  state.collapsed = state.collapsed.filter((x) => !ids.includes(x));
+  state.trash = [...gone, ...state.trash.filter((x) => !ids.includes(x.swimmer.id))];
+  if ($('#swimmerDialog').open && ids.includes(state.openId)) $('#swimmerDialog').close();
+  save();
+  render();
+  toast(t('bulkDone', { n: gone.length }), { label: t('undo'), run: () => [...gone].reverse().forEach((g) => restore(g.swimmer.id)) });
+}
+
 function restore(id) {
   const item = state.trash.find((x) => x.swimmer.id === Number(id));
   if (!item) return;
@@ -2091,6 +2146,8 @@ document.addEventListener('click', (e) => {
   if (el.id === 'refresh') return refreshAll({ fresh: true });
   if (el.id === 'share') return share();
   if (el.dataset.action === 'close') return el.closest('dialog').close();
+  if (el.dataset.action === 'bulkRemove') return openBulkRemove();
+  if (el.dataset.action === 'bulkDo') return doBulkRemove();
   if (el.dataset.sortpool) {
     state.rankSortPool = Number(el.dataset.sortpool);
     store.set('rankSortPool', state.rankSortPool);
@@ -2375,6 +2432,16 @@ document.addEventListener('change', (e) => {
     state.cardParts = { ...state.cardParts, [e.target.dataset.part]: e.target.checked };
     store.set('cardParts', state.cardParts);
     return renderMain();
+  }
+  if (e.target.dataset?.bulk) {
+    const id = Number(e.target.dataset.bulk);
+    if (e.target.checked) bulkSel.add(id);
+    else bulkSel.delete(id);
+    return renderBulkRemove();
+  }
+  if (e.target.dataset?.bulkAll !== undefined) {
+    bulkSel = e.target.checked ? new Set(state.swimmers.map((s) => s.id)) : new Set();
+    return renderBulkRemove();
   }
   if (e.target.id === 'miClub') return loadMeetClub(e.target.value);
   if (e.target.id === 'miBorn') {

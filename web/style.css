@@ -584,3 +584,5 @@ button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4
 .period-sheet select { max-width: 100%; width: auto; padding-right: 32px; }
 
 .theme { display: inline-flex; gap: 2px; }
+.bulk-all { padding: 4px 2px; }
+.bulk-list { max-height: 55dvh; overflow: auto; }

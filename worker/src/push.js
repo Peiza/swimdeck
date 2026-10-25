@@ -114,7 +114,7 @@ export function cleanSubscription(input) {
   const auth = String(s.keys?.auth || '');
   if (!/^[A-Za-z0-9_-]{80,100}$/.test(p256dh) || !/^[A-Za-z0-9_-]{16,32}$/.test(auth)) throw bad('Bad subscription keys');
   const ids = [...new Set((input.swimmers || []).map(Number).filter((n) => Number.isInteger(n) && n > 0 && n < 1e9))].slice(0, MAX_SWIMMERS);
-  const lang = ['sv', 'en', 'fi'].includes(input.lang) ? input.lang : 'sv';
+  const lang = ['sv', 'en', 'fi', 'nb'].includes(input.lang) ? input.lang : 'sv';
   return { subscription: { endpoint: s.endpoint, keys: { p256dh, auth } }, swimmers: ids, lang };
 }
 
@@ -137,7 +137,7 @@ export async function handlePush(request, env, path) {
     const sub = JSON.parse(raw);
     if (Date.now() - (sub.testedAt || 0) < 60000) throw bad('Wait a minute between tests', 429);
     await kv.put(key, JSON.stringify({ ...sub, testedAt: Date.now() }), { expirationTtl: TTL });
-    const T = { sv: ['SwimDeck', 'Testnotis: notiserna fungerar! 🏊'], en: ['SwimDeck', 'Test notification: notifications work! 🏊'], fi: ['SwimDeck', 'Testi-ilmoitus: ilmoitukset toimivat! 🏊'] }[sub.lang] || ['SwimDeck', 'Test'];
+    const T = { sv: ['SwimDeck', 'Testnotis: notiserna fungerar! 🏊'], en: ['SwimDeck', 'Test notification: notifications work! 🏊'], fi: ['SwimDeck', 'Testi-ilmoitus: ilmoitukset toimivat! 🏊'], nb: ['SwimDeck', 'Testvarsel: varslene fungerer! 🏊'] }[sub.lang] || ['SwimDeck', 'Test'];
     const res = await (env.__send || sendPush)(sub.subscription, { title: T[0], body: T[1], tag: 'test', url: env.APP_URL || 'https://peiza.github.io/swimdeck/' }, await vapidKeys(kv), env.APP_URL || 'https://peiza.github.io/swimdeck/');
     if (res.status === 404 || res.status === 410) {
       await kv.delete(key);
@@ -170,6 +170,7 @@ const TEXT = {
   sv: { title: 'Nytt PB: {name}', body: '{event} {pool} m: {time}', more: '{n} nya PB', bodyMore: '{list}' },
   en: { title: 'New PB: {name}', body: '{event} {pool} m: {time}', more: '{n} new PBs', bodyMore: '{list}' },
   fi: { title: 'Uusi SE: {name}', body: '{event} {pool} m: {time}', more: '{n} uutta ennätystä', bodyMore: '{list}' },
+  nb: { title: 'Ny pers: {name}', body: '{event} {pool} m: {time}', more: '{n} nye pers', bodyMore: '{list}' },
 };
 const fill = (s, v) => s.replace(/\{(\w+)\}/g, (_, k) => v[k] ?? '');
 

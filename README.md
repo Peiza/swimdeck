@@ -1,7 +1,7 @@
 # SwimDeck
 
 Follow your swimmers: personal bests, top times, season bests and progression from
-[Tempus Open](https://www.tempusopen.se). Works on phones and desktops, in Swedish, English and Finnish.
+[Tempus Open](https://www.tempusopen.se). Works on phones and desktops, in Swedish, English, Finnish and Norwegian.
 
 - Search Tempus Open and build your own list of swimmers (or paste a Tempus link)
 - Each swimmer card shows new PBs this season, the latest season best and best events
