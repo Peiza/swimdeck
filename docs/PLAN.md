@@ -70,3 +70,14 @@ plattform och fungerar med `site=fi`.
    - "Senaste lopp" direkt på korten (kräver grensidor för alla i listan, alltså fler anrop)
    - Kortanpassning: välja vilka rutor korten visar
    - ✅ Egna mål per gren: sätts i grenvyn, mållinje i grafen, märken i tabellen, sammanfattning på kortet, synkas
+
+## Önskemål oktober 2026 (efter test)
+- ✅ Senaste lopp i grenvyn: växla Snabbast/Senaste, 3/5/7/10/alla (v0.16.0)
+- ✅ Längre perioder: äldre säsonger och "Alla år" i periodmenyn (v0.16.0)
+- WPS-poäng för parasimmare i stället för AQUA: formel och parametrar från World Para Swimmings
+  officiella tabell (Gompertz, a/b/c per gren, klass och kön; långbana 2024). Kräver att tabellen förs in.
+- Importera simmare från startlista: klistra in text (från Swimify, PDF eller e-post), matcha namn och klubb
+  mot Tempus, bocka i vilka som ska läggas till. Fungerar för alla källor utan att röra andras API:er.
+- Livetider från Swimify: Swimifys data kräver deras egen klientnyckel, så den används inte utan tillstånd.
+  Alternativ: länk till tävlingen på live.swimify.com, och fråga Swimify/IC Control om ett API.
+- Namn och slogan: behåll SwimDeck tills vidare, välj slogan.
