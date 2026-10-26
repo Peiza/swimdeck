@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { wpsFor, wpsPoints, hasPara } from '../wps.js';
+import { wpsFor, wpsPoints, hasPara, suggestPara, wpsEstimate } from '../wps.js';
 import { WPS } from '../wps-data.js';
 
 test('the table has every published event', () => {
@@ -28,4 +28,24 @@ test('wpsPoints uses the class for the stroke', () => {
   assert.equal(wpsPoints(s, { event: 34, pool: 50, time: 8000 }), wpsFor(34, 'SB8', 'W', 8000)); // 100 m breaststroke
   assert.equal(wpsPoints(s, { event: 64, pool: 50, time: 16000 }), null); // no SM class given
   assert.equal(wpsPoints({ sex: 'Woman' }, { event: 14, pool: 50, time: 6000 }), null);
+});
+
+test('para class suggestions fill only what is missing', () => {
+  assert.deepEqual(suggestPara({ S: 9 }), { SB: 8, SM: 9 });
+  assert.deepEqual(suggestPara({ S: 1 }), { SB: 1, SM: 1 });
+  assert.deepEqual(suggestPara({ S: 10 }), { SB: 9, SM: 10 });
+  assert.deepEqual(suggestPara({ SB: 5 }), { S: 6, SM: 6 });
+  assert.deepEqual(suggestPara({ S: 7, SB: 5 }), { SM: 7 });
+  assert.equal(suggestPara({ S: 9, SB: 8, SM: 9 }), null);
+  assert.equal(suggestPara({ S: 12 }), null);
+  assert.equal(suggestPara({}), null);
+});
+
+test('short course WPS is an estimate scaled by the world record ratio', () => {
+  const s = { sex: 'Man', para: { S: 10 } };
+  const est = wpsEstimate(s, { event: 13, pool: 25, time: 5500 }); // 100 m free 25 m
+  // 55.00 * (46.40 / 44.84) = 56.91 in a 50 m pool
+  assert.equal(est, wpsFor(14, 'S10', 'M', Math.round(5500 * 4640 / 4484)));
+  assert.equal(wpsEstimate(s, { event: 14, pool: 50, time: 5500 }), null);
+  assert.equal(wpsEstimate({ sex: 'Man' }, { event: 13, pool: 25, time: 5500 }), null);
 });

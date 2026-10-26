@@ -109,3 +109,6 @@ plattform och fungerar med `site=fi`.
   (cron, eller vid första anropet) och lagrar i KV; appen använder dem och faller tillbaka på den inbyggda listan.
   Mastersrekordens "as of"-datum läses från World Aquatics mastersida; finns en nyare lista än den appen har säger appen
   till (Om-sidan, mastersjämförelser). Ny masterslista: hämta PDF:erna, uppdatera `tools/masters-source-<år>.txt`.
+- ✅ v0.38.0: förslag på paraklass för klass 1–10 (SB = S−1, högst SB9; SM = S), bekräftas med en knapp; "Rensa paraklasserna".
+  WPS på kortbana som ≈-uppskattning: 25 m-tiden skalas med förhållandet mellan lång- och kortbanans världsrekord och
+  poängsätts med långbanetabellen. Märkt ≈ och förklarat som inofficiellt; topplistan och korten använder bara officiella WPS.

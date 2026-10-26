@@ -4,7 +4,7 @@ import { VERSION } from './version.js';
 import { parseList, rankCandidates } from './importer.js';
 import { QUAL } from './qual-data.js';
 import { ORDER, qualify, qualCounts, usmAgeGroup, sexOf } from './qual.js';
-import { hasPara, wpsPoints } from './wps.js';
+import { hasPara, wpsPoints, wpsEstimate, suggestPara } from './wps.js';
 import { isMasters, mastersPct, wrPct, useWorldRecords, worldRecords } from './masters.js';
 import { MASTERS } from './masters-data.js';
 import { LANGS, makeT, detectLang } from './i18n.js';
@@ -93,7 +93,7 @@ const metricFor = (s) => (metricsFor(s).includes(state.metric) ? state.metric : 
 const metricName = (m) => t({ aqua: 'metricAqua', wr: 'metricWr', masters: 'metricMasters', wps: 'metricWps' }[m]);
 const ptsOf = (s, r, m = metricFor(s)) => {
   if (!r) return '';
-  if (m === 'wps') return usesWps(s, r.pool) ? wpsPoints(s, r) || '' : '';
+  if (m === 'wps') { if (usesWps(s, r.pool)) return wpsPoints(s, r) || ''; const e = wpsEstimate(s, r); return e ? `≈ ${e}` : ''; }
   if (m === 'masters') { const x = mastersPct(s, r); return x ? fmtPctPlain(x.pct) : ''; }
   if (m === 'wr') { const x = wrPct(s, r); return x ? fmtPctPlain(x.pct) : ''; }
   return r.points || '';
@@ -101,7 +101,7 @@ const ptsOf = (s, r, m = metricFor(s)) => {
 const ptsTitle = (s, r, m = metricFor(s)) => {
   if (m === 'masters') { const x = mastersPct(s, r); return x ? t('mastersSwimTitle', { group: x.group, record: fmtTime(x.record) }) : t('metricMastersNone'); }
   if (m === 'wr') { const x = wrPct(s, r); return x ? t('wrSwimTitle', { record: fmtTime(x.record) }) : ''; }
-  if (m === 'wps' && r.pool !== 50) return t('wpsLongOnly');
+  if (m === 'wps' && r.pool !== 50) return wpsEstimate(s, r) ? t('wpsEstimateTitle') : t('wpsLongOnly');
   return '';
 };
 const ptsLabel = (s) => metricName(metricFor(s));
@@ -1457,11 +1457,16 @@ async function fillForm(s) {
 function paraSettings(s) {
   if (!s.para && !state.cardParts.para) return '';
   const p = s.para || {};
-  const sel = (k) => `<label class="select compact"><span>${k}</span><select data-para="${k}"><option value="">–</option>${Array.from({ length: 14 }, (_, i) => `<option value="${i + 1}" ${Number(p[k]) === i + 1 ? 'selected' : ''}>${k}${i + 1}</option>`).join('')}</select></label>`;
+  const sel = (k) => `<label class="select compact"><span>${k}</span><select data-para="${k}"><option value="">–</option>${Array.from({ length: 14 }, (_, i) => i + 1).filter((n) => !(k === 'SB' && n === 10)).map((n) => `<option value="${n}" ${Number(p[k]) === n ? 'selected' : ''}>${k}${n}</option>`).join('')}</select></label>`;
+  const sug = suggestPara(p);
   const set = ['S', 'SB', 'SM'].filter((k) => p[k]).map((k) => k + p[k]).join(' · ');
   const label = set ? `${t('paraClass')}: ${set}` : t('paraAdd');
   return `<details class="para-set" data-para-set="${s.id}" ${state.paraOpen === s.id ? 'open' : ''}><summary class="small muted">${esc(label)}</summary>
-    <p class="small muted">${esc(t('paraHint'))}</p><div class="row">${['S', 'SB', 'SM'].map(sel).join('')}</div></details>`;
+    <p class="small muted">${esc(t('paraHint'))}</p><div class="row">${['S', 'SB', 'SM'].map(sel).join('')}</div>
+    ${sug ? `<div class="para-suggest"><span class="small">${esc(t('paraSuggest', { classes: Object.entries(sug).map(([k, v]) => k + v).join(' · ') }))}</span>
+      <button type="button" class="btn small" data-action="paraSuggest">${esc(t('paraSuggestUse'))}</button>
+      <p class="small muted">${esc(t('paraSuggestNote'))}</p></div>` : ''}
+    ${set ? `<div class="row end"><button type="button" class="link danger small" data-action="paraClear">${esc(t('paraClear'))}</button></div>` : ''}</details>`;
 }
 
 /** Load every event page for a swimmer (cached per session), reporting progress. */
@@ -2573,6 +2578,15 @@ document.addEventListener('click', (e) => {
     if ($('#swimmerDialog').open) renderSwimmerDialog();
     $(`[data-menu="${el.dataset.menu}"]`)?.focus();
     return;
+  }
+  if (el.dataset.action === 'paraSuggest' || el.dataset.action === 'paraClear') {
+    const sw = state.swimmers.find((x) => x.id === state.openId);
+    if (!sw) return;
+    if (el.dataset.action === 'paraClear') sw.para = undefined;
+    else sw.para = { ...(sw.para || {}), ...suggestPara(sw.para) };
+    save();
+    renderSwimmerDialog();
+    return renderMain();
   }
   if (el.dataset.pick === 'metric') {
     state.metric = el.dataset.value;
