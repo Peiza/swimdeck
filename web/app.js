@@ -9,7 +9,7 @@ import { LANGS, makeT, detectLang } from './i18n.js';
 import {
   eventLabel, eventShort, eventSortKey, eventInfo, fmtTime, fmtDiff, periodRange, seasonLabel, periodOptions,
   summarize, progression, parseTempusRef, parseTime, goalStatus, rankings, rankingsByPoints, rankingsBothPools, sortSwimmers,
-  seasonBests, meets, compareTable, rankingsByImprovement, toCsv, profile, form, prognosis, headToHead,
+  seasonBests, meets, compareTable, shortNames, rankingsByImprovement, toCsv, profile, form, prognosis, headToHead,
   bestsSnapshot, newSince,
 } from './lib.js';
 
@@ -937,7 +937,8 @@ function compareView() {
   const chosen = ids.map((id) => state.swimmers.find((s) => s.id === id));
   const overviews = Object.fromEntries(state.swimmers.map((s) => [s.id, state.data[s.id]?.all]));
   const table = compareTable(chosen, overviews, state.comparePool);
-  const first = (n) => esc(String(n || '').split(' ')[0]);
+  const labels = shortNames(chosen.map((s) => s.name));
+  const first = (i) => esc(labels[i]);
   return `
     <div class="compare-pick">
       <p class="muted small">${esc(t('compareHint'))}</p>
@@ -949,12 +950,12 @@ function compareView() {
       ${table.length ? `<button class="link small" data-action="csvCompare">${esc(t('exportCsv'))}</button>` : ''}
     </div>
     ${table.length ? `<div class="table-scroll"><table class="compare">
-      <thead><tr><th>${esc(t('event'))}</th>${chosen.map((s) => `<th class="num" title="${esc(s.name)}">${first(s.name)}</th>`).join('')}</tr></thead>
+      <thead><tr><th>${esc(t('event'))}</th>${chosen.map((s, i) => `<th class="num" title="${esc(s.name)}">${first(i)}</th>`).join('')}</tr></thead>
       <tbody>${table.map((row) => `<tr><th scope="row">${esc(eventLabel(row.event, state.lang, row.name))}</th>${row.cells.map((c) => c
         ? `<td class="num ${c.time === row.fastest && chosen.length > 1 ? 'fastest' : ''}"><b>${fmtTime(c.time)}</b>${c.time !== row.fastest ? `<small>${fmtDiff(c.time - row.fastest)}</small>` : `<small>${esc(c.date.slice(0, 4))}</small>`}</td>`
         : '<td class="num muted">–</td>').join('')}</tr>`).join('')}</tbody>
     </table></div>` : `<p class="muted">${esc(t('noneInEvent'))}</p>`}
-    ${chosen.length === 2 ? `<div class="h2h"><h3 class="small">${esc(t('h2hTitle', { a: first(chosen[0].name), b: first(chosen[1].name) }))}</h3>
+    ${chosen.length === 2 ? `<div class="h2h"><h3 class="small">${esc(t('h2hTitle', { a: labels[0], b: labels[1] }))}</h3>
       <div id="h2hBox"><button class="btn small" data-action="h2h">${esc(t('h2hShow'))}</button><p class="muted small">${esc(t('h2hHint'))}</p></div></div>` : `<p class="muted small h2h-hint">${esc(t('h2hPickTwo'))}</p>`}`;
 }
 
@@ -977,13 +978,13 @@ async function fillH2h() {
   ]);
   if (!box()) return;
   const h = headToHead(ra.results, rb.results);
-  const first = (n) => esc(String(n || '').split(' ')[0]);
+  const [la, lb] = shortNames([a.name, b.name]).map(esc);
   if (!h.races.length) {
     box().innerHTML = `<p class="muted small">${esc(t('h2hNone'))}</p>`;
     return;
   }
   box().innerHTML = `
-    <div class="h2h-score"><span><b>${first(a.name)}</b> ${h.a}</span><span class="muted">–</span><span>${h.b} <b>${first(b.name)}</b></span>${h.ties ? `<span class="small muted">(${esc(t('h2hTies', { n: h.ties }))})</span>` : ''}</div>
+    <div class="h2h-score"><span><b>${la}</b> ${h.a}</span><span class="muted">–</span><span>${h.b} <b>${lb}</b></span>${h.ties ? `<span class="small muted">(${esc(t('h2hTies', { n: h.ties }))})</span>` : ''}</div>
     <ol class="meets">${h.races.slice(0, 30).map((r) => `
       <li class="h2h-race"><span class="small muted">${esc(r.date)} · ${esc(r.meet)}${r.round ? ' · ' + esc(roundLabel(r.round)) : ''}</span>
         <span>${esc(eventLabel(r.event, state.lang, r.name))} <span class="pool">${r.pool} m</span></span>
@@ -1082,6 +1083,7 @@ function qualView() {
     .filter((c) => c % 2 === (pool === 25 ? 1 : 0))
     .sort((a, b) => eventSortKey(a) - eventSortKey(b));
   const swimmers = state.swimmers.filter((s) => sexOf(s.sex) === sex);
+  const short = Object.fromEntries(shortNames(swimmers.map((s) => s.name)).map((n, i) => [swimmers[i].id, n]));
   const reached = (code) => swimmers.flatMap((s) => {
     const q = qualRows(s).find((x) => x.event === code);
     const hit = q?.reached.find((x) => ids.includes(x.id));
@@ -1111,7 +1113,7 @@ function qualView() {
       <thead><tr><th>${esc(t('event'))}</th>${cols.map(([, label]) => `<th class="num">${esc(label)}</th>`).join('')}<th>${esc(t('reachedByNear'))}</th></tr></thead>
       <tbody>${lines.map((l) => `<tr><th scope="row">${esc(eventLabel(l.code, state.lang))}${comp === 'para' ? ` <small class="muted">${prefixFor(l.code)}${cls}</small>` : ''}</th>
         ${l.vals.map((v) => `<td class="num">${v ? fmtTime(v) : '<span class="muted">–</span>'}</td>`).join('')}
-        <td class="who-cell">${l.who.map((w) => { const n = l.near.find((x) => x.s.id === w.s.id); const gap = n ? esc(t('toNext', { gap: fmtTime(n.m.gap), std: stdLabel(n.m.id) })) : ''; return `<button class="pick small-pick" data-open="${w.s.id}" title="${esc(w.s.name)} · ${fmtTime(w.time)}${gap ? ' · ' + gap : ''}">${esc(String(w.s.name).split(' ')[0])} ${qBadge(w.hit.id)}${gap ? ` <span class="muted near-txt">${gap}</span>` : ''}</button>`; }).join('')}${l.near.filter((w) => !l.who.some((x) => x.s.id === w.s.id)).map((w) => `<button class="pick small-pick near-pick" data-open="${w.s.id}" title="${esc(w.s.name)} · ${fmtTime(w.time)} · ${esc(t('toNext', { gap: fmtTime(w.m.gap), std: stdLabel(w.m.id) }))}">${esc(String(w.s.name).split(' ')[0])} <span class="muted">${esc(t('toNext', { gap: fmtTime(w.m.gap), std: stdLabel(w.m.id) }))}</span></button>`).join('')}</td></tr>`).join('')}</tbody>
+        <td class="who-cell">${l.who.map((w) => { const n = l.near.find((x) => x.s.id === w.s.id); const gap = n ? esc(t('toNext', { gap: fmtTime(n.m.gap), std: stdLabel(n.m.id) })) : ''; return `<button class="pick small-pick" data-open="${w.s.id}" title="${esc(w.s.name)} · ${fmtTime(w.time)}${gap ? ' · ' + gap : ''}">${esc(short[w.s.id])} ${qBadge(w.hit.id)}${gap ? ` <span class="muted near-txt">${gap}</span>` : ''}</button>`; }).join('')}${l.near.filter((w) => !l.who.some((x) => x.s.id === w.s.id)).map((w) => `<button class="pick small-pick near-pick" data-open="${w.s.id}" title="${esc(w.s.name)} · ${fmtTime(w.time)} · ${esc(t('toNext', { gap: fmtTime(w.m.gap), std: stdLabel(w.m.id) }))}">${esc(short[w.s.id])} <span class="muted">${esc(t('toNext', { gap: fmtTime(w.m.gap), std: stdLabel(w.m.id) }))}</span></button>`).join('')}</td></tr>`).join('')}</tbody>
     </table></div>
     <div class="qual-source small muted">
       <p>${esc(t('qualWindow', { from: QUAL.windowStart }))}</p>

@@ -491,3 +491,34 @@ export function goalStatus(goals, bests) {
   }
   return out.sort((a, b) => a.pool - b.pool || eventSortKey(a.event) - eventSortKey(b.event));
 }
+
+// Short display names: first name only, unless two of the given swimmers share it.
+// Then add as much of the surname as tells them apart ("Anna S." / "Anna L.", "Anna Sv." / "Anna Sa."),
+// then the full name, and finally a running number if even the full names are equal.
+export function shortNames(names) {
+  const parts = names.map((n) => String(n || '').trim().split(/\s+/).filter(Boolean));
+  const first = parts.map((p) => p[0] || '');
+  const last = parts.map((p) => p.slice(1).join(' '));
+  const out = first.slice();
+  const clash = (i) => out.some((x, j) => j !== i && x.toLocaleLowerCase() === out[i].toLocaleLowerCase());
+  for (let i = 0; i < out.length; i++) {
+    if (!clash(i) || !last[i]) continue;
+    const group = out.map((x, j) => (x.toLocaleLowerCase() === out[i].toLocaleLowerCase() ? j : -1)).filter((j) => j >= 0);
+    for (const j of group) {
+      const others = group.filter((k) => k !== j).map((k) => last[k].toLocaleLowerCase());
+      const ln = last[j];
+      if (!ln) continue;
+      let len = 1;
+      while (len < ln.length && others.some((o) => o.startsWith(ln.slice(0, len).toLocaleLowerCase()))) len++;
+      out[j] = len >= ln.length ? `${first[j]} ${ln}` : `${first[j]} ${ln.slice(0, len)}.`;
+    }
+  }
+  const seen = new Map();
+  return out.map((x, i) => {
+    const label = x || String(names[i] || '');
+    const key = label.toLocaleLowerCase();
+    const n = (seen.get(key) || 0) + 1;
+    seen.set(key, n);
+    return out.filter((y) => y.toLocaleLowerCase() === key).length > 1 ? `${label} (${n})` : label;
+  });
+}

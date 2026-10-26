@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  eventInfo, eventLabel, fmtTime, fmtDiff, seasonStart, periodRange, summarize, progression, parseTempusRef, rankings,
+  eventInfo, eventLabel, fmtTime, fmtDiff, seasonStart, periodRange, summarize, progression, parseTempusRef, rankings, shortNames,
 } from '../lib.js';
 
 test('event codes: odd 25 m, even 50 m', () => {
@@ -256,4 +256,13 @@ test('rankingsBothPools puts 25 m and 50 m side by side and sorts by the chosen 
   };
   assert.deepEqual(rankingsBothPools(sw, ov, 13, 14, 25).map((r) => r.swimmer.id), [3, 1, 2]);
   assert.deepEqual(rankingsBothPools(sw, ov, 13, 14, 50).map((r) => r.swimmer.id), [2, 1, 3]);
+});
+
+test('shortNames uses first names and tells apart swimmers who share one', () => {
+  assert.deepEqual(shortNames(['Anna Svensson', 'Erik Berg']), ['Anna', 'Erik']);
+  assert.deepEqual(shortNames(['Anna Svensson', 'Anna Larsson', 'Erik Berg']), ['Anna S.', 'Anna L.', 'Erik']);
+  assert.deepEqual(shortNames(['Anna Svensson', 'Anna Sandberg', 'Anna Lind']), ['Anna Sv.', 'Anna Sa.', 'Anna L.']);
+  assert.deepEqual(shortNames(['Anna Ek', 'Anna Ekberg']), ['Anna Ek', 'Anna Ekb.']);
+  assert.deepEqual(shortNames(['Anna Svensson', 'Anna Svensson']), ['Anna Svensson (1)', 'Anna Svensson (2)']);
+  assert.deepEqual(shortNames(['Anna', 'Anna Berg']), ['Anna', 'Anna B.']);
 });
