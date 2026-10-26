@@ -102,6 +102,17 @@ const ptsTitle = (s, r, m = metricFor(s)) => {
   return '';
 };
 const ptsLabel = (s) => metricName(metricFor(s));
+
+/** The points column heading: a small pill that opens a menu of what to compare with. */
+function metricPill(s, where) {
+  const cur = metricFor(s);
+  const open = state.metricMenu === where;
+  return `<span class="metric-wrap">
+    <button type="button" class="metric-pill" data-metric-menu="${where}" aria-haspopup="menu" aria-expanded="${open}" title="${esc(t('metricCompare'))}">${esc(metricName(cur))}<span aria-hidden="true"> ▾</span></button>
+    ${open ? `<span class="metric-menu" role="menu">${metricsFor(s).map((k) => `<button type="button" role="menuitemradio" aria-checked="${k === cur}" data-metric="${k}">
+      <span class="mm-check" aria-hidden="true">${k === cur ? '✓' : ''}</span><b>${esc(metricName(k))}</b><span class="muted small">${esc(t('metricDesc_' + k))}</span></button>`).join('')}</span>` : ''}
+  </span>`;
+}
 const periodName = (p = state.period) => seasonLabel(p) || t('periodAllShort');
 const periodOptionLabel = (p) => p === 'season' ? `${t('periodSeason')} · ${seasonLabel(p)}` : p === '12m' ? t('period12') : p === '24m' ? t('period24') : p === 'last' ? `${t('periodLast')} · ${seasonLabel(p)}` : p === 'all' ? t('periodAll') : `${t('periodSeasonOf')} ${seasonLabel(p)}`;
 function oldestSwimYear() {
@@ -1290,7 +1301,7 @@ function renderSwimmerDialog() {
       </div>
       ${!sum ? `<p class="muted">${esc(d?.error ? t('error', { msg: d.error }) : t('loading'))}</p>` : `
       <table class="events">
-        <thead><tr><th>${esc(t('event'))}</th><th class="num">${esc(t('pb'))}</th><th class="num">${esc(t('periodBest'))}</th><th class="num hide-sm">${esc(ptsLabel(s))}</th></tr></thead>
+        <thead><tr><th>${esc(t('event'))}</th><th class="num">${esc(t('pb'))}</th><th class="num">${esc(t('periodBest'))}</th><th class="num metric-th">${metricPill(s, 'table')}</th></tr></thead>
         <tbody>${rows.map((r) => eventRow(s, r)).join('')}</tbody>
       </table>`}`}
       ${paraSettings(s)}
@@ -1543,7 +1554,7 @@ function eventRow(s, r) {
       <td><span class="chev" aria-hidden="true">›</span>${esc(eventLabel(r.event, state.lang, r.name))}${r.newPb ? ` <span class="badge">${esc(t('newPb'))}${r.improve ? ' ' + fmtDiff(-r.improve) : ''}</span>` : ''}${qHtml}${gHtml}</td>
       <td class="num"><b>${r.pb ? fmtTime(r.pb.time) : '–'}</b><small>${esc(r.pb?.date || '')}</small></td>
       <td class="num">${r.period ? `${fmtTime(r.period.time)}<small class="${r.diff > 0 ? '' : 'good'}">${r.diff != null ? fmtDiff(r.diff) : ''}</small>` : '<span class="muted">–</span>'}</td>
-      <td class="num hide-sm">${ptsOf(s, r.pb) || ''}</td>
+      <td class="num metric-td" title="${esc(r.pb ? ptsTitle(s, r.pb) : '')}">${ptsOf(s, r.pb) || '<span class="muted">–</span>'}</td>
     </tr>
     ${open ? `<tr class="detail"><td colspan="4"><div id="eventDetail" class="event-detail"><p class="muted">${esc(t('loading'))}</p></div></td></tr>` : ''}`;
 }
@@ -1570,13 +1581,7 @@ async function fillEventDetail(s, code) {
           ${[3, 5, 7, 10, 'all'].map((k) => `<button data-topn="${k}" aria-pressed="${state.topN === k}">${k === 'all' ? esc(t('all')) : k}</button>`).join('')}
         </div>
       </div>
-      <div class="detail-tools metric-tools">
-        <span class="muted small">${esc(t('metricCompare'))}</span>
-        <div class="seg small" role="group" aria-label="${esc(t('metricCompare'))}">
-          ${metricsFor(s).map((k) => `<button data-metric="${k}" aria-pressed="${metricFor(s) === k}">${esc(metricName(k))}</button>`).join('')}
-        </div>
-      </div>
-      <p class="muted small metric-hint">${esc(t('metricHint_' + metricFor(s)))}</p>
+      <div class="metric-row"><span class="muted small">${esc(t('metricCompare'))}</span> ${metricPill(s, 'detail')}</div>
       <ol class="top ${recent ? 'recent' : ''}">${top.map((r, i) => `
         <li><span class="pos">${recent ? '' : i + 1}</span><span class="time ${r.time === pbTime ? 'is-pb' : ''}">${fmtTime(r.time)}${recent && r.time !== pbTime ? `<small class="muted"> ${fmtDiff(r.time - pbTime)}</small>` : ''}</span>
         <span class="small"><span>${esc(r.date)}</span> · ${meetButton(r.meet, r.date, code, `${esc(r.meet)}${r.round ? ' · ' + esc(roundLabel(r.round)) : ''}`)}</span>
@@ -2320,6 +2325,11 @@ async function purge(ids) {
 // ---------------------------------------------------------------- events
 
 document.addEventListener('click', (e) => {
+  if (state.metricMenu && !e.target.closest('.metric-wrap')) {
+    state.metricMenu = null;
+    renderSwimmerDialog();
+    if (!e.target.closest('button, [data-open], tr.ev, a')) return;
+  }
   const el = e.target.closest('button, [data-open], tr.ev, a');
   if (!el) {
     // click on the dialog backdrop closes it
@@ -2493,9 +2503,14 @@ document.addEventListener('click', (e) => {
     state.openEvent = state.openEvent === code ? null : code;
     return renderSwimmerDialog();
   }
+  if (el.dataset.metricMenu) {
+    state.metricMenu = state.metricMenu === el.dataset.metricMenu ? null : el.dataset.metricMenu;
+    return renderSwimmerDialog();
+  }
   if (el.dataset.metric) {
     state.metric = el.dataset.metric;
     store.set('metric', state.metric);
+    state.metricMenu = null;
     return renderSwimmerDialog();
   }
   if (el.dataset.toporder) {
@@ -2582,6 +2597,13 @@ document.addEventListener('click', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && state.metricMenu) {
+    e.preventDefault();
+    state.metricMenu = null;
+    renderSwimmerDialog();
+    $('.metric-pill')?.focus();
+    return;
+  }
   if (e.key === 'Enter' && e.target.id === 'goalInput') {
     e.preventDefault();
     e.target.closest('.goal-edit')?.querySelector('[data-action=goalSave]')?.click();
@@ -2716,6 +2738,7 @@ $('#swimmerDialog').addEventListener('close', () => {
   }
   state.openId = null;
   state.openEvent = null;
+  state.metricMenu = null;
   saveNav();
 });
 

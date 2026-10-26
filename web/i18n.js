@@ -21,6 +21,10 @@ export const STROKES_SHORT = {
 
 const T = {
   sv: {
+    metricDesc_aqua: 'poäng, 1000 ≈ världsrekord',
+    metricDesc_wr: 'procent av världsrekordet',
+    metricDesc_masters: 'procent av mastersrekordet (från 25 år)',
+    metricDesc_wps: 'parapoäng, bara 50 m',
     metricCompare: 'Jämför med',
     metricAqua: 'AQUA',
     metricWr: '% av VR',
@@ -396,6 +400,10 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    metricDesc_aqua: 'points, 1000 ≈ world record',
+    metricDesc_wr: 'percentage of the world record',
+    metricDesc_masters: 'percentage of the masters record (from 25)',
+    metricDesc_wps: 'para points, 50 m only',
     metricCompare: 'Compare with',
     metricAqua: 'AQUA',
     metricWr: '% of WR',
@@ -771,6 +779,10 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    metricDesc_aqua: 'pisteet, 1000 ≈ maailmanennätys',
+    metricDesc_wr: 'prosenttia maailmanennätyksestä',
+    metricDesc_masters: 'prosenttia mastersennätyksestä (25-vuotiaasta)',
+    metricDesc_wps: 'parapisteet, vain 50 m',
     metricCompare: 'Vertaa',
     metricAqua: 'AQUA',
     metricWr: '% ME',
@@ -1146,6 +1158,10 @@ const T = {
     apiMissing: 'Sovellukselta puuttuu API-osoite. Katso README.',
   },
   nb: {
+    metricDesc_aqua: 'poeng, 1000 ≈ verdensrekord',
+    metricDesc_wr: 'prosent av verdensrekorden',
+    metricDesc_masters: 'prosent av mastersrekorden (fra 25 år)',
+    metricDesc_wps: 'parapoeng, bare 50 m',
     metricCompare: 'Sammenlign med',
     metricAqua: 'AQUA',
     metricWr: '% av VR',
