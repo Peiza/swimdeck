@@ -594,7 +594,9 @@ button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4
 .compare:not(.rank-both) tbody th { z-index: 1; }
 /* while a dialog is open the page behind it stays still (no scroll chaining on phones) */
 html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
-.dialog, .import-list, .meet-pick, .bulk-list, .table-scroll { overscroll-behavior: contain; }
+.dialog, .import-list, .meet-pick, .bulk-list { overscroll-behavior: contain; }
+/* wide tables scroll sideways only: keep that sideways, but let up/down scrolling reach the page */
+.table-scroll { overscroll-behavior-x: contain; overscroll-behavior-y: auto; }
 
 /* "compare with" pill and its menu */
 .metric-wrap { position: relative; display: inline-block; }
