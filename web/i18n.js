@@ -21,6 +21,9 @@ export const STROKES_SHORT = {
 
 const T = {
   sv: {
+    importParaUse: 'Spara paraklasserna från listan (fyller bara i det som saknas)',
+    importParaUpdate: 'Uppdatera paraklass ({n} i din lista)',
+    importParaUpdated: 'Paraklass uppdaterad för {n} simmare.',
     paraLookup: 'Sök klass i Tempus',
     paraLookupHint: 'Letar i svenska pararekord, där klassen står.',
     paraLookupNone: 'Hittades inte. Tempus visar bara klass för simmare som har ett svenskt pararekord, så de flesta får anges för hand.',
@@ -188,7 +191,7 @@ const T = {
     importCta: 'Har du en startlista eller resultatlista?',
     importOpen: 'Importera lista',
     importTitle2: 'Importera från lista',
-    importHint: 'Klistra in en startlista eller resultatlista, till exempel kopierad från Swimify, en PDF eller ett mejl.',
+    importHint: 'Klistra in en startlista, heatlista eller resultatlista, till exempel kopierad från Swimify, en PDF eller ett mejl. Paraklasser (S14, SB9 …) vid namnen följer med.',
     importPlaceholder: 'Gren 3 – 100m frisim flickor 13–14 år\n1  ANDERSSON Anna   2012  Örebro Simallians   1:05.23\n2  Lind, Saga (2013) Simklubben Vågen',
     importFind: 'Hitta simmare',
     importPrivacy: 'Texten tolkas i din webbläsare. Bara namnen används för att söka i Tempus Open.',
@@ -422,6 +425,9 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    importParaUse: 'Save the para classes from the list (only fills in what is missing)',
+    importParaUpdate: 'Update para class ({n} in your list)',
+    importParaUpdated: 'Para class updated for {n} swimmers.',
     paraLookup: 'Look up class in Tempus',
     paraLookupHint: 'Searches the Swedish para records, which carry the class.',
     paraLookupNone: 'Not found. Tempus only shows a class for swimmers who hold a Swedish para record, so most have to be set by hand.',
@@ -823,6 +829,9 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    importParaUse: 'Tallenna listan paraluokat (täyttää vain puuttuvat)',
+    importParaUpdate: 'Päivitä paraluokka ({n} listallasi)',
+    importParaUpdated: 'Paraluokka päivitetty {n} uimarille.',
     paraLookup: 'Hae luokka Tempuksesta',
     paraLookupHint: 'Etsii Ruotsin paraennätyksistä, joissa luokka on mainittu.',
     paraLookupNone: 'Ei löytynyt. Tempus näyttää luokan vain uimareille, joilla on Ruotsin paraennätys, joten useimmille se annetaan käsin.',
@@ -1224,6 +1233,9 @@ const T = {
     apiMissing: 'Sovellukselta puuttuu API-osoite. Katso README.',
   },
   nb: {
+    importParaUse: 'Lagre paraklassene fra listen (fyller bare inn det som mangler)',
+    importParaUpdate: 'Oppdater paraklasse ({n} i listen din)',
+    importParaUpdated: 'Paraklasse oppdatert for {n} svømmere.',
     paraLookup: 'Søk klasse i Tempus',
     paraLookupHint: 'Leter i svenske pararekorder, der klassen står.',
     paraLookupNone: 'Ikke funnet. Tempus viser bare klasse for svømmere som har en svensk pararekord, så de fleste må angis for hånd.',

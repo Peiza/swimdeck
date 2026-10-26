@@ -629,3 +629,5 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
 .para-suggest { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); }
 .para-suggest p { grid-column: 1 / -1; margin: 0; }
 .para-lookup { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 8px; }
+.import-para { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
+.iname .q { margin-left: 4px; vertical-align: 1px; }

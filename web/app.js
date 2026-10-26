@@ -1907,8 +1907,10 @@ function renderImport() {
               <b>${esc(label || t('importNoGroup'))}</b> <span class="muted small">${list.length}</span></label>
             ${list.map(importRow).join('')}
           </section>`).join('')}</div>
+        ${st.entries.some((e) => e.para) ? `<label class="check small import-para"><input type="checkbox" data-iparaopt ${st.usePara !== false ? 'checked' : ''}> <span>${esc(t('importParaUse'))}</span></label>` : ''}
         <div class="row end wrap import-foot">
           <button type="button" class="link" data-action="importReset">${esc(t('importAgain'))}</button>
+          ${st.usePara !== false && paraUpdates().length ? `<button type="button" class="btn" data-action="importParaUpdate">${esc(t('importParaUpdate', { n: paraUpdates().length }))}</button>` : ''}
           <button type="button" class="btn primary" data-action="importAdd" ${st.selected.size ? '' : 'disabled'}>${esc(t('importAdd', { n: st.selected.size }))}</button>
         </div>`}
     </div>`;
@@ -1948,7 +1950,7 @@ function importRow(e) {
   else right = `<span class="small ok-match">✓ ${esc([pick.born, pick.club].filter(Boolean).join(' · '))}</span>`;
   return `<label class="irow ${selectable(e) ? '' : 'off'}">
     <input type="checkbox" data-isel="${esc(e.key)}" ${importState.selected.has(e.key) ? 'checked' : ''} ${selectable(e) ? '' : 'disabled'}>
-    <span class="iname"><b>${esc(e.first)} ${esc(e.last)}</b><span class="muted small">${esc(meta)}</span></span>
+    <span class="iname"><b>${esc(e.first)} ${esc(e.last)}</b>${e.para ? ` <span class="q q-paraB">${esc(Object.entries(e.para).map(([k, v]) => k + v).join(' · '))}</span>` : ''}<span class="muted small">${esc(meta)}</span></span>
     <span class="iright">${right}</span></label>`;
 }
 
@@ -1994,13 +1996,39 @@ function renderImportKeepScroll() {
   if (nb) nb.scrollTop = top;
 }
 
+/** Para classes from a heat list, merged into a swimmer (11–14 are the same in every stroke). Only fills what is missing. */
+function mergePara(current, found) {
+  const v = Object.values(found).find((n) => n >= 11);
+  const add = v ? { S: v, SB: v, SM: v } : found;
+  const out = { ...(current || {}) };
+  for (const [k, n] of Object.entries(add)) if (!out[k]) out[k] = n;
+  return out;
+}
+
+/** Swimmers already in the list whose class the pasted list would fill in. */
+function paraUpdates() {
+  if (!importState) return [];
+  return importState.entries.flatMap((e) => {
+    const pick = importState.status.get(e.key)?.pick;
+    const sw = e.para && pick && state.swimmers.find((x) => x.id === pick.id);
+    if (!sw) return [];
+    const merged = mergePara(sw.para, e.para);
+    return JSON.stringify(merged) !== JSON.stringify(sw.para || {}) ? [{ sw, merged }] : [];
+  });
+}
+
 function addImported() {
   const picks = importState.entries.filter((e) => importState.selected.has(e.key)).map((e) => importState.status.get(e.key)?.pick).filter(Boolean);
   const added = [];
+  const usePara = importState.usePara !== false;
+  const paraOf = new Map(importState.entries.filter((e) => e.para).map((e) => [importState.status.get(e.key)?.pick?.id, e.para]));
   for (const p of picks) {
     const sw = addSwimmer({ ...p, site: 'se' }, { load: false });
+    if (sw && usePara && paraOf.get(sw.id)) sw.para = mergePara(sw.para, paraOf.get(sw.id));
     if (sw) added.push(sw);
   }
+  if (usePara) for (const { sw, merged } of paraUpdates()) sw.para = merged;
+  save();
   importState = null;
   $('#addDialog').close();
   render();
@@ -2708,6 +2736,14 @@ document.addEventListener('click', (e) => {
     return renderImport();
   }
   if (el.dataset.action === 'importAdd') return addImported();
+  if (el.dataset.action === 'importParaUpdate') {
+    const list = paraUpdates();
+    for (const { sw, merged } of list) sw.para = merged;
+    save();
+    render();
+    toast(t('importParaUpdated', { n: list.length }));
+    return renderImportKeepScroll();
+  }
   if (el.dataset.igroup) {
     importState.groupBy = el.dataset.igroup;
     return renderImportKeepScroll();
@@ -2799,6 +2835,10 @@ document.addEventListener('change', (e) => {
     const list = meetImportGroups().find(([k]) => k === e.target.dataset.migroupAll)?.[2] || [];
     for (const sw of list) if (!inList(sw.id)) e.target.checked ? meetImport.selected.add(sw.id) : meetImport.selected.delete(sw.id);
     return renderMeetImport();
+  }
+  if (e.target.dataset?.iparaopt !== undefined) {
+    importState.usePara = e.target.checked;
+    return renderImportKeepScroll();
   }
   if (e.target.dataset?.isel) {
     const k = e.target.dataset.isel;

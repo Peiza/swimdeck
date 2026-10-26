@@ -40,7 +40,24 @@ export function splitName(raw) {
   return { first: words.slice(0, -1).join(' '), last: words[words.length - 1] };
 }
 
+// Para sport classes printed next to the name in para heat and result lists: "S14", "SB9", "SM10", "S9/SB8/SM9"
+const PARA = /(?:^|[\s,/(])(S|SB|SM)(\d{1,2})(?=$|[\s,/)])/g;
+// Record lines at the top of each event in heat lists: "SWE 4:27.80 Name 1994 Club (SWE) 2021-12-03"
+const RECORD_LINE = /^[A-Z]{3}\s+(\d{1,2}:)?\d{2}[.,]\d{2}\b/;
+
+/** { S: 9, SB: 8 } from the class tokens in a line, or null. */
+export function paraFrom(text) {
+  const out = {};
+  for (const m of String(text).matchAll(PARA)) {
+    const n = Number(m[2]);
+    if (n >= 1 && n <= 14 && !(m[1] === 'SB' && n === 10)) out[m[1]] = n;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 function parseLine(line, thisYear) {
+  const para = paraFrom(line);
+  if (para) line = line.replace(PARA, ' ');
   let rest = ` ${line.replace(TIME, ' ')} `;
   let born = null;
   let m = rest.match(YEAR);
@@ -70,7 +87,7 @@ function parseLine(line, thisYear) {
   const name = splitName(before);
   if (!name) return null;
   const club = after.replace(/[()]/g, ' ').replace(/\s+/g, ' ').replace(/^[\s,;–-]+|[\s,;–-]+$/g, '').replace(/\s\d+$/, '').trim();
-  return { ...name, born, club };
+  return { ...name, born, club, ...(para ? { para } : {}) };
 }
 
 const JUNK = /^flag\b|\blogo$|^(image|bild)\b/i;
@@ -124,6 +141,7 @@ export function parseList(text, thisYear = new Date().getFullYear()) {
     const line = raw.trim();
     if (!line || JUNK.test(line)) continue;
     if (NOISE.test(line) && !YEAR.test(` ${line} `)) continue;
+    if (RECORD_LINE.test(line)) continue;
     if (HEADING.test(line) && !YEAR.test(` ${line} `.replace(TIME, ' '))) {
       group = line.replace(/\s+/g, ' ').slice(0, 80);
       if (!groups.includes(group)) groups.push(group);
@@ -136,6 +154,7 @@ export function parseList(text, thisYear = new Date().getFullYear()) {
     if (prev) {
       if (group && !prev.groups.includes(group)) prev.groups.push(group);
       if (!prev.club && e.club) prev.club = e.club;
+      if (e.para) prev.para = { ...(prev.para || {}), ...e.para };
     } else {
       byKey.set(key, { key, ...e, groups: group ? [group] : [] });
     }

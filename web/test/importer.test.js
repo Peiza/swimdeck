@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { splitName, parseList, matchScore, rankCandidates } from '../importer.js';
+import { splitName, parseList, matchScore, rankCandidates, paraFrom } from '../importer.js';
 
 test('splitName handles the usual layouts', () => {
   assert.deepEqual(splitName('ANDERSSON Anna'), { first: 'Anna', last: 'Andersson' });
@@ -77,4 +77,20 @@ AmyGidlöf Järvinen
     ['Tyra', 'Sjöstrand', 2011, 'Örebro Simallians'],
     ['Amy', 'Gidlöf Järvinen', 2013, 'Örebro Simallians'],
   ]);
+});
+
+test('para heat lists: class next to the name is kept, record lines are skipped', () => {
+  const text = `Gren 3, 400m Frisim S14
+SWE 4:27.80 Rekord Hållare 1994 Klubben SS (SWE) 2021-12-03
+2 Anna Exempel S14 2002 Exempelstadens SK
+3 Bo Prov SB9 2004 Annan SS 6:24.74
+4 Cia Test S9/SB8/SM9 2001 Tredje SK 4:30.12`;
+  const { entries, groups } = parseList(text, 2026);
+  assert.deepEqual(groups, ['Gren 3, 400m Frisim S14']);
+  assert.deepEqual(entries.map((e) => [e.first, e.last, e.born, e.para]), [
+    ['Anna', 'Exempel', 2002, { S: 14 }],
+    ['Bo', 'Prov', 2004, { SB: 9 }],
+    ['Cia', 'Test', 2001, { S: 9, SB: 8, SM: 9 }],
+  ]);
+  assert.equal(paraFrom('SB10'), null); // there is no SB10
 });
