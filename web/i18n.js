@@ -21,6 +21,12 @@ export const STROKES_SHORT = {
 
 const T = {
   sv: {
+    paraLookup: 'Sök klass i Tempus',
+    paraLookupHint: 'Letar i svenska pararekord, där klassen står.',
+    paraLookupNone: 'Hittades inte. Tempus visar bara klass för simmare som har ett svenskt pararekord, så de flesta får anges för hand.',
+    paraLookupFound: 'I svenska pararekord: {cls} (senast {date})',
+    paraLookupEarlier: 'tidigare {list}',
+    paraLookupNote: 'Klassen kommer från simmarens senaste svenska pararekord i Tempus. Den kan ha ändrats sedan dess.',
     paraSuggest: 'Förslag: {classes}',
     paraSuggestUse: 'Använd förslaget',
     paraSuggestNote: 'En gissning utifrån det vanliga mönstret (bröstsim ofta en klass lägre, medley samma som S). Klassningen kan skilja sig, kontrollera mot simmarens klassbesked.',
@@ -416,6 +422,12 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    paraLookup: 'Look up class in Tempus',
+    paraLookupHint: 'Searches the Swedish para records, which carry the class.',
+    paraLookupNone: 'Not found. Tempus only shows a class for swimmers who hold a Swedish para record, so most have to be set by hand.',
+    paraLookupFound: 'In Swedish para records: {cls} (latest {date})',
+    paraLookupEarlier: 'earlier {list}',
+    paraLookupNote: 'The class comes from the swimmer\'s latest Swedish para record in Tempus. It may have changed since.',
     paraSuggest: 'Suggestion: {classes}',
     paraSuggestUse: 'Use the suggestion',
     paraSuggestNote: 'A guess from the usual pattern (breaststroke often one class lower, medley the same as S). Classifications can differ; check the swimmer\'s classification.',
@@ -811,6 +823,12 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    paraLookup: 'Hae luokka Tempuksesta',
+    paraLookupHint: 'Etsii Ruotsin paraennätyksistä, joissa luokka on mainittu.',
+    paraLookupNone: 'Ei löytynyt. Tempus näyttää luokan vain uimareille, joilla on Ruotsin paraennätys, joten useimmille se annetaan käsin.',
+    paraLookupFound: 'Ruotsin paraennätyksissä: {cls} (viimeksi {date})',
+    paraLookupEarlier: 'aiemmin {list}',
+    paraLookupNote: 'Luokka on uimarin viimeisimmästä Ruotsin paraennätyksestä Tempuksessa. Se on voinut muuttua.',
     paraSuggest: 'Ehdotus: {classes}',
     paraSuggestUse: 'Käytä ehdotusta',
     paraSuggestNote: 'Arvaus tavallisen kaavan mukaan (rintauinti usein luokkaa alempana, sekauinti sama kuin S). Luokitus voi poiketa; tarkista uimarin luokituspäätös.',
@@ -1206,6 +1224,12 @@ const T = {
     apiMissing: 'Sovellukselta puuttuu API-osoite. Katso README.',
   },
   nb: {
+    paraLookup: 'Søk klasse i Tempus',
+    paraLookupHint: 'Leter i svenske pararekorder, der klassen står.',
+    paraLookupNone: 'Ikke funnet. Tempus viser bare klasse for svømmere som har en svensk pararekord, så de fleste må angis for hånd.',
+    paraLookupFound: 'I svenske pararekorder: {cls} (sist {date})',
+    paraLookupEarlier: 'tidligere {list}',
+    paraLookupNote: 'Klassen kommer fra svømmerens siste svenske pararekord i Tempus. Den kan ha endret seg siden.',
     paraSuggest: 'Forslag: {classes}',
     paraSuggestUse: 'Bruk forslaget',
     paraSuggestNote: 'En gjetning ut fra det vanlige mønsteret (bryst ofte én klasse lavere, medley lik S). Klassifiseringen kan avvike; sjekk svømmerens klassifisering.',

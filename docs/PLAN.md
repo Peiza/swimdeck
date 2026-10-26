@@ -112,3 +112,6 @@ plattform och fungerar med `site=fi`.
 - ✅ v0.38.0: förslag på paraklass för klass 1–10 (SB = S−1, högst SB9; SM = S), bekräftas med en knapp; "Rensa paraklasserna".
   WPS på kortbana som ≈-uppskattning: 25 m-tiden skalas med förhållandet mellan lång- och kortbanans världsrekord och
   poängsätts med långbanetabellen. Märkt ≈ och förklarat som inofficiellt; topplistan och korten använder bara officiella WPS.
+- ✅ v0.39.0: placering i Sverige hämtas med en enda statistikfråga (limit 1000) i stället för upp till fem sidor; hela
+  årskullen cachas separat från tiden (6 h), så andra simmare och tider återanvänder den. Paraklass kan sökas i Tempus
+  svenska pararekord (`/records/para`, Nationsrekord) – enda stället där klass syns; träff på namn + födelseår eller klubb.

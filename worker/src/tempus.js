@@ -235,12 +235,12 @@ export function statEvent(code) {
 }
 
 /**
- * Rank among Swedish swimmers born the same year, by each swimmer's best time in [from, to].
+ * Everyone born in `born` with a time in the event and period, fastest first: [{ id, time }].
  * Tempus filters on age = calendar year of the swim minus birth year, so we ask for the ages the
- * birth year can have in that period and keep only that birth year. Pages are read until the
- * given time is passed, at most `maxPages` pages of 100.
+ * birth year can have in that period and keep only that birth year. One request of up to 1000 rows
+ * covers almost every cohort; very large ones read a second page.
  */
-export async function nationalRank(base, { code, sex, born, from, to, time }, fetchImpl = fetch, maxPages = 5) {
+export async function nationalCohort(base, { code, sex, born, from, to }, fetchImpl = fetch, maxPages = 3) {
   const ev = statEvent(code);
   if (!ev || !born || !DATE.test(from) || !DATE.test(to)) throw httpError(400, 'Bad ranking request');
   const minAge = Number(from.slice(0, 4)) - born;
@@ -263,12 +263,12 @@ export async function nationalRank(base, { code, sex, born, from, to, time }, fe
     district: '',
     club: '',
     filter: { age_filter: true, best_time_only: true },
-    limit: 100,
+    limit: 1000,
   };
   const seen = new Set();
   const cohort = [];
-  let pages = 0;
   let total = 0;
+  let complete = true;
   for (let p = 1; p <= maxPages; p++) {
     const post = await fetchImpl(`${base}/statistics/swimming${p > 1 ? `?page=${p}` : ''}`, {
       method: 'POST',
@@ -288,26 +288,37 @@ export async function nationalRank(base, { code, sex, born, from, to, time }, fe
     const json = await post.json();
     const results = json.props?.results || {};
     const rows = Array.isArray(results.data) ? results.data : [];
-    pages = p;
     total = results.meta?.total ?? rows.length;
     for (const r of rows) {
       if (Number(r.swimmer_birth_year) !== born || seen.has(r.swimmer_id)) continue;
       seen.add(r.swimmer_id);
       cohort.push({ id: r.swimmer_id, time: Number(r.result_time) });
     }
-    const last = rows.at(-1);
-    if (!rows.length || !results.meta || p >= (results.meta.last_page || 1) || (last && Number(last.result_time) > time)) break;
+    const last = results.meta?.last_page || 1;
+    if (!rows.length || p >= last) break;
+    if (p === maxPages) complete = false;
   }
-  const faster = cohort.filter((c) => c.time < time).length;
-  const complete = pages < maxPages || cohort.some((c) => c.time > time);
+  cohort.sort((a, b) => a.time - b.time);
+  return { available: true, cohort, complete, totalAllAges: total };
+}
+
+/** Place of a time within a cohort from nationalCohort. */
+export function rankIn(c, time) {
+  if (!c.available) return c;
+  const faster = c.cohort.filter((x) => x.time < time).length;
   return {
     available: true,
     rank: faster + 1,
-    complete,
-    leader: cohort[0]?.time ?? null,
-    scanned: cohort.length,
-    totalAllAges: total,
+    complete: c.complete || c.cohort.some((x) => x.time > time),
+    leader: c.cohort[0]?.time ?? null,
+    scanned: c.cohort.length,
+    totalAllAges: c.totalAllAges,
   };
+}
+
+/** Rank among Swedish swimmers born the same year, by each swimmer's best time in [from, to]. */
+export async function nationalRank(base, params, fetchImpl = fetch) {
+  return rankIn(await nationalCohort(base, params, fetchImpl), params.time);
 }
 
 // ---------------------------------------------------------------- meet results
@@ -513,4 +524,45 @@ export async function meetSwimmers(base, id, { club = '' } = {}, fetchImpl = fet
     }
   }
   return { ...out, club: clubId || 'all', complete, swimmers: [...swimmers.values()].sort((a, b) => (b.born || 0) - (a.born || 0) || a.name.localeCompare(b.name, 'sv')) };
+}
+
+// ---------------------------------------------------------------- para classes from the national para records
+
+/**
+ * Every Swedish national para record (Tempus "Nationsrekord" under para), as [{ name, born, club, cls, date }].
+ * Tempus has no para class on swimmers or results, but each record carries the holder's sport class, so the
+ * records are the one public place a class can be read from (for swimmers who hold a record).
+ */
+export async function paraRecords(base, fetchImpl = fetch, maxPages = 60) {
+  const sess = await session(base, '/records/para', fetchImpl);
+  const out = [];
+  for (let p = 1; p <= maxPages; p++) {
+    const props = await inertiaPost(sess, '/records/para', { record_category_id: 3, record_type: 4, class: '', pool_type: '', age_group: '', swim_event: '', para_class: '', page: p }, fetchImpl);
+    const rec = props.records || {};
+    for (const r of list(rec.data ?? rec)) {
+      const cls = String(r.para_class_name || '').trim();
+      if (!/^(S|SB|SM)\d{1,2}$/.test(cls) || !r.name) continue;
+      out.push({ name: String(r.name).trim(), born: Number(r.swimmer_birth_year) || null, club: r.club_name ?? '', cls, date: r.record_date ?? '' });
+    }
+    if (p >= (rec.meta?.last_page || 1)) break;
+  }
+  return out;
+}
+
+const fold = (s) => String(s || '').toLocaleLowerCase('sv').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+
+/** The classes a swimmer holds national para records in, newest first. Name must match; club or birth year too. */
+export function paraClassFrom(records, { name, born, club }) {
+  const n = fold(name);
+  if (!n) return { found: false, classes: [] };
+  const hits = records.filter((r) => fold(r.name) === n && ((born && r.born && r.born === Number(born)) || (club && fold(r.club) === fold(club)) || (!r.born && !club)));
+  const by = new Map();
+  for (const r of hits) {
+    const x = by.get(r.cls) || { cls: r.cls, latest: '', records: 0 };
+    x.records++;
+    if (r.date > x.latest) x.latest = r.date;
+    by.set(r.cls, x);
+  }
+  const classes = [...by.values()].sort((a, b) => b.latest.localeCompare(a.latest));
+  return { found: classes.length > 0, classes };
 }

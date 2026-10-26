@@ -628,3 +628,4 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
 .rm-swim .badge { font-size: 10px; }
 .para-suggest { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); }
 .para-suggest p { grid-column: 1 / -1; margin: 0; }
+.para-lookup { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 8px; }

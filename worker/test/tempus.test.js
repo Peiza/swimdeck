@@ -206,15 +206,12 @@ test('worker: CORS, routing, caching', async () => {
   });
 });
 
-test('nationalRank keeps one birth year, pages until past the time', async () => {
-  const { nationalRank, statEvent } = await import('../src/tempus.js');
+test('nationalRank reads the whole cohort in one request and keeps one birth year', async () => {
+  const { nationalRank, nationalCohort, rankIn, statEvent } = await import('../src/tempus.js');
   assert.deepEqual(statEvent(13), { id: 6, pool: 1 });
   assert.deepEqual(statEvent(44), { id: 21, pool: 2 });
-  const rowsFor = (page) => {
-    // page 1: 100 rows from 5500 upward, alternating birth years 2011/2010; page 2 continues
-    const start = (page - 1) * 100;
-    return Array.from({ length: 100 }, (_, i) => ({ swimmer_id: start + i, swimmer_birth_year: (start + i) % 2 ? '2010' : '2011', result_time: 5500 + start + i }));
-  };
+  // 400 rows from 5500 upward, alternating birth years 2011/2010
+  const rows = Array.from({ length: 400 }, (_, i) => ({ swimmer_id: i, swimmer_birth_year: i % 2 ? '2010' : '2011', result_time: 5500 + i }));
   const bodies = [];
   const f = async (url, init = {}) => {
     if (!init.method) {
@@ -223,19 +220,25 @@ test('nationalRank keeps one birth year, pages until past the time', async () =>
       return new Response(html({ component: 'Statistics/Swimming', version: 'v1', props: {} }), { headers: h });
     }
     bodies.push(JSON.parse(init.body));
-    const page = Number(new URL(url).searchParams.get('page') || 1);
-    return Response.json({ props: { results: { data: rowsFor(page), meta: { total: 1000, last_page: 10 } } } });
+    return Response.json({ props: { results: { data: rows, meta: { total: 400, last_page: 1 } } } });
   };
-  const r = await nationalRank('https://t.example', { code: 13, sex: 'W', born: 2011, from: '2026-09-01', to: '2027-08-31', time: 5650 }, f);
+  const params = { code: 13, sex: 'W', born: 2011, from: '2026-09-01', to: '2027-08-31' };
+  const r = await nationalRank('https://t.example', { ...params, time: 5650 }, f);
   // birth year 2011 = even offsets; times below 5650 among them: 5500,5502,…,5648 → 75 faster
   assert.equal(r.rank, 76);
   assert.equal(r.complete, true);
   assert.equal(r.leader, 5500);
-  assert.equal(bodies.length, 2);
+  assert.equal(r.scanned, 200);
+  assert.equal(bodies.length, 1);
+  assert.equal(bodies[0].limit, 1000);
   assert.equal(bodies[0].from_age, 15);
   assert.equal(bodies[0].to_age, 16);
   assert.equal(bodies[0].class, '2');
   assert.equal(bodies[0].swim_event, 6);
+  // the same cohort answers any time without asking Tempus again
+  const c = await nationalCohort('https://t.example', params, f);
+  assert.equal(rankIn(c, 5499).rank, 1);
+  assert.equal(rankIn(c, 9999).rank, 201);
   const young = await nationalRank('https://t.example', { code: 13, sex: 'M', born: 2016, from: '2026-09-01', to: '2027-08-31', time: 5650 }, f);
   assert.equal(young.available, false);
 });
@@ -351,4 +354,29 @@ test('meetSwimmers lists clubs, then folds a club\'s results into swimmers per s
   assert.equal(r.complete, true);
   const m = await searchMeets('https://t.example', { name: 'Höst' }, f);
   assert.equal(m.meets[0].id, 7);
+});
+
+test('para classes come from the national para records, matched on name plus birth year or club', async () => {
+  const { paraRecords, paraClassFrom } = await import('../src/tempus.js');
+  const pages = {
+    1: [{ name: 'Anna Exempel', swimmer_birth_year: 2005, club_name: 'Klubben SK', para_class_name: 'S9', record_date: '2024-05-01' },
+        { name: 'Bo Prov', swimmer_birth_year: 0, club_name: 'Annan SS', para_class_name: 'S14', record_date: '2019-03-01' }],
+    2: [{ name: 'Anna Exempel', swimmer_birth_year: 2005, club_name: 'Klubben SK', para_class_name: 'S8', record_date: '2022-05-01' },
+        { name: 'Anna Exempel', swimmer_birth_year: 1960, club_name: 'Gamla SK', para_class_name: 'S3', record_date: '1990-05-01' }],
+  };
+  const f = async (url, init = {}) => {
+    if (!init.method) {
+      const h = new Headers();
+      h.append('Set-Cookie', 'XSRF-TOKEN=t; path=/');
+      return new Response(html({ component: 'Record/Swimming', version: 'v1', props: {} }), { headers: h });
+    }
+    const b = JSON.parse(init.body);
+    return Response.json({ props: { records: { data: pages[b.page], meta: { last_page: 2 } } } });
+  };
+  const recs = await paraRecords('https://t.example', f);
+  assert.equal(recs.length, 4);
+  const anna = paraClassFrom(recs, { name: 'anna exempel', born: 2005, club: '' });
+  assert.deepEqual(anna.classes.map((c) => c.cls), ['S9', 'S8']); // newest first; the other Anna (1960) is not her
+  assert.equal(paraClassFrom(recs, { name: 'Bo Prov', born: 2001, club: 'Annan SS' }).classes[0].cls, 'S14');
+  assert.equal(paraClassFrom(recs, { name: 'Ingen Alls', born: 2001, club: '' }).found, false);
 });

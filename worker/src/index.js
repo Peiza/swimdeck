@@ -5,6 +5,7 @@
 //   GET /api/swimmer/:id/event/:code          every swim in one event
 //   GET /api/rank?event=&sex=&born=&from=&to=&time=   place in Sweden by birth year
 //   GET /api/meet?id=|name=&date=, code=, sex=    result list for one event at a meet, with places
+//   GET /api/para-class?name=&born=&club=           para classes from the national para records
 //   GET /api/meets?name=&from=&to=                 competitions to import from
 //   GET /api/meet/:id/swimmers?club=               swimmers at a meet (per club, or all on small meets)
 //   POST /api/sync, GET|PUT|DELETE /api/sync/:token  sync a list between devices
@@ -15,7 +16,7 @@
 // Every route accepts ?site=se (default) or ?site=fi.
 // Responses are cached at the edge so Tempus sees as few requests as possible.
 
-import { SITES, fetchOverview, fetchEvent, searchSwimmers, nationalRank, fetchMeet, searchMeets, meetSwimmers } from './tempus.js';
+import { SITES, fetchOverview, fetchEvent, searchSwimmers, nationalCohort, rankIn, fetchMeet, searchMeets, meetSwimmers, paraRecords, paraClassFrom } from './tempus.js';
 import { handleSync } from './sync.js';
 import { handlePush, runCheck } from './push.js';
 import { refreshRecords, getRecords } from './records.js';
@@ -30,6 +31,7 @@ const TTL = {
   meet: 6 * 60 * 60,
   meets: 60 * 60,
   meetSwimmers: 6 * 60 * 60,
+  paraClass: 24 * 60 * 60,
 };
 
 export default {
@@ -125,15 +127,16 @@ function matchRoute(path) {
   if (path === '/api/rank') {
     return {
       kind: 'rank',
-      run: (base, q) =>
-        nationalRank(base, {
-          code: Number(q.get('event')),
-          sex: q.get('sex') === 'W' ? 'W' : 'M',
-          born: Number(q.get('born')),
-          from: q.get('from') || '',
-          to: q.get('to') || '',
-          time: Number(q.get('time')),
-        }),
+      run: async (base, q) => {
+        const params = { code: Number(q.get('event')), sex: q.get('sex') === 'W' ? 'W' : 'M', born: Number(q.get('born')), from: q.get('from') || '', to: q.get('to') || '' };
+        return rankIn(await cachedCohort(base, params), Number(q.get('time')));
+      },
+    };
+  }
+  if (path === '/api/para-class') {
+    return {
+      kind: 'paraClass',
+      run: async (base, q) => paraClassFrom(await cachedParaRecords(base), { name: clean(q.get('name')), born: Number(q.get('born')) || null, club: clean(q.get('club')) }),
     };
   }
   if (path === '/api/meets') {
@@ -161,6 +164,28 @@ function matchRoute(path) {
 }
 
 const clean = (s) => (s || '').trim().slice(0, 60);
+
+/** The national para records change rarely; read them once a week and share them between all lookups. */
+async function cachedParaRecords(base) {
+  const key = new Request(`https://cache.swimdeck.invalid/para-records?base=${encodeURIComponent(base)}`);
+  const cache = typeof caches !== 'undefined' ? caches.default : null;
+  const hit = cache && (await cache.match(key));
+  if (hit) return hit.json();
+  const data = await paraRecords(base);
+  if (cache) await cache.put(key, new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=604800' } }));
+  return data;
+}
+
+/** The national cohort (one birth year, event, period) is cached on its own, so every swimmer and time shares it. */
+async function cachedCohort(base, params) {
+  const key = new Request(`https://cache.swimdeck.invalid/cohort?${new URLSearchParams({ base, ...params })}`);
+  const cache = typeof caches !== 'undefined' ? caches.default : null;
+  const hit = cache && (await cache.match(key));
+  if (hit) return hit.json();
+  const data = await nationalCohort(base, params);
+  if (cache) await cache.put(key, new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `public, max-age=${TTL.rank}` } }));
+  return data;
+}
 
 function cacheUrl(url) {
   const u = new URL(url);

@@ -50,6 +50,7 @@ reads the JSON that Tempus Open embeds in them and returns a compact shape:
 | `GET /api/meets?name=` | competitions in the last year (to import from) |
 | `GET /api/meet/:id/swimmers?club=` | swimmers at a meet: clubs first, then one club's swimmers (or all on small meets) |
 | `GET /api/records` | current world records (refreshed daily from World Aquatics) and the latest masters list date |
+| `GET /api/para-class?name=&born=&club=` | para class from the Swedish national para records (the only public source in Tempus) |
 | `GET /api/rank?event=&sex=&born=&from=&to=&time=` | place in Sweden among swimmers born the same year |
 | `GET /api/push/key`, `POST`/`DELETE /api/push`, `POST /api/push/test` | push notification subscriptions (checked by a cron trigger) |
 | `POST /api/sync`, `GET/PUT/DELETE /api/sync/:token` | synced list (Cloudflare KV, created by the deploy workflow) |

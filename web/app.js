@@ -57,6 +57,7 @@ const state = {
   near: store.get('near', 3),
   menu: null,
   eventData: {},
+  paraLookup: {},
   rankSex: store.get('rankSex', ''),
   rankBasis: store.get('rankBasis', 'pb'),
   rankYear: store.get('rankYear', ''),
@@ -1454,6 +1455,31 @@ async function fillForm(s) {
       <span class="time">${fmtTime(w.time)}</span><span class="small num ${w.pct < 0 ? 'good' : 'muted'}">${w.pct < 0 ? esc(t('newPb')) : pct(w.pct)}</span></li>`).join('')}</ol>`;
 }
 
+/** Look a swimmer up in the national para records (the only public source of classes in Tempus). */
+function paraLookupHtml(s) {
+  const r = state.paraLookup[s.id];
+  if (!r) return `<div class="para-lookup"><button type="button" class="btn small" data-action="paraLookup">${esc(t('paraLookup'))}</button> <span class="muted small">${esc(t('paraLookupHint'))}</span></div>`;
+  if (r.busy) return `<p class="muted small">${esc(t('loading'))}</p>`;
+  if (r.error) return `<p class="warn small">${esc(t('error', { msg: r.error }))}</p>`;
+  if (!r.found) return `<p class="muted small">${esc(t('paraLookupNone'))}</p>`;
+  const top = r.classes[0];
+  return `<div class="para-suggest"><span class="small">${esc(t('paraLookupFound', { cls: top.cls, date: top.latest }))}${r.classes.length > 1 ? ` <span class="muted">(${esc(t('paraLookupEarlier', { list: r.classes.slice(1).map((c) => c.cls).join(', ') }))})</span>` : ''}</span>
+    <button type="button" class="btn small" data-action="paraLookupUse" data-cls="${esc(top.cls)}">${esc(t('paraSuggestUse'))}</button>
+    <p class="small muted">${esc(t('paraLookupNote'))}</p></div>`;
+}
+
+async function paraLookup(s) {
+  state.paraLookup[s.id] = { busy: true };
+  renderSwimmerDialog();
+  try {
+    const r = await api('/api/para-class', { site: s.site, name: s.name, born: s.born || '', club: s.club || '' });
+    state.paraLookup[s.id] = r;
+  } catch (e) {
+    state.paraLookup[s.id] = { error: e.message };
+  }
+  if (state.openId === s.id) renderSwimmerDialog();
+}
+
 function paraSettings(s) {
   if (!s.para && !state.cardParts.para) return '';
   const p = s.para || {};
@@ -1466,6 +1492,7 @@ function paraSettings(s) {
     ${sug ? `<div class="para-suggest"><span class="small">${esc(t('paraSuggest', { classes: Object.entries(sug).map(([k, v]) => k + v).join(' · ') }))}</span>
       <button type="button" class="btn small" data-action="paraSuggest">${esc(t('paraSuggestUse'))}</button>
       <p class="small muted">${esc(t('paraSuggestNote'))}</p></div>` : ''}
+    ${paraLookupHtml(s)}
     ${set ? `<div class="row end"><button type="button" class="link danger small" data-action="paraClear">${esc(t('paraClear'))}</button></div>` : ''}</details>`;
 }
 
@@ -2588,6 +2615,20 @@ document.addEventListener('click', (e) => {
     if ($('#swimmerDialog').open) renderSwimmerDialog();
     $(`[data-menu="${el.dataset.menu}"]`)?.focus();
     return;
+  }
+  if (el.dataset.action === 'paraLookup') {
+    const sw = state.swimmers.find((x) => x.id === state.openId);
+    return sw && paraLookup(sw);
+  }
+  if (el.dataset.action === 'paraLookupUse') {
+    const sw = state.swimmers.find((x) => x.id === state.openId);
+    const m = String(el.dataset.cls).match(/^(S|SB|SM)(\d+)$/);
+    if (!sw || !m) return;
+    const n = Number(m[2]);
+    sw.para = n >= 11 ? { S: n, SB: n, SM: n } : { ...(sw.para || {}), [m[1]]: n };
+    save();
+    renderSwimmerDialog();
+    return renderMain();
   }
   if (el.dataset.action === 'paraSuggest' || el.dataset.action === 'paraClear') {
     const sw = state.swimmers.find((x) => x.id === state.openId);
