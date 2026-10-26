@@ -56,7 +56,9 @@ plattform och fungerar med `site=fi`.
    - ✅ Placering i Sverige bland födda samma år, per gren och period (Tempus statistik, från 13 år),
      hämtas först när grenen öppnas och cachas 6 timmar
    - ✅ Klubbsök: sök per klubb, bara aktiva, kön, fler sidor, lägg till alla (max 30 åt gången)
-   - Masters: procent av världsrekordet för åldersgruppen (World Aquatics mastersrekord)
+   - ✅ Masters (v0.30.0): procent av World Aquatics världsrekord i masters för åldersgruppen när loppet simmades
+     (25–29 … 105–109, kort- och långbana). Källa `tools/masters-source-2026.txt` (bara tider, inga namn), byggs med
+     `node tools/build-masters.js 2026`. Visas från det år simmaren fyller 25: kolumnen % VR, bästa grenar, topplista.
    - ✅ Profil: spindeldiagram per simsätt, sprint/mellan/distans, form (senaste loppen mot PB)
    - ✅ Prognos: när nästa kvaltid nås i nuvarande takt (trend senaste 24 mån)
    - ✅ Inbördes möten mellan två simmare i Jämför

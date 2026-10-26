@@ -30,7 +30,9 @@ const fmt = (cs) => {
 function swimmer(id) {
   const i = (id - 5000) % NAMES.length;
   const [first, last, sex] = NAMES[Math.abs(i)];
-  return { id, name: `${first} ${last}`, firstName: first, lastName: last, born: 2008 + (id % 6), club: CLUBS[id % 3], sex };
+  // two masters swimmers (5004, 5005) so the masters views have data in development
+  const born = id === 5004 ? 1984 : id === 5005 ? 1971 : 2008 + (id % 6);
+  return { id, name: `${first} ${last}`, firstName: first, lastName: last, born, club: CLUBS[id % 3], sex };
 }
 
 function results(id, code) {
