@@ -102,6 +102,10 @@ function parseLine(line, thisYear) {
   return { ...name, born, club, ...(para ? { para } : {}) };
 }
 
+// Relay events ("4x50m Medley", "4 x 100 m frisim") list teams, not swimmers
+const RELAY = /\b\d\s*[x×]\s*\d{2,3}\s*m?\b|lagkapp|relay|viesti|stafett/i;
+// A "name" that is really a club ("Spårvägen Simförening")
+const CLUB_WORD = /\b(sim\w*|simförening|simsällskap|simklubb\w*|simallians|sällskap|förening|parasport\w*|SK|SS|SLS|ASS|IF|IK)\b/i;
 const JUNK = /^flag\b|\blogo$|^(image|bild)\b/i;
 const ONLY_YEAR = /^(?:19|20)\d{2}$/;
 const ONLY_NUM_OR_TIME = /^(\d{1,3}\.?|\d{1,2}[:.]\d{2}[.,]\d{2}|\d{2}[.,]\d{2}|NT|DNS|DSQ|DQ|DNF)$/i;
@@ -149,6 +153,7 @@ export function parseList(text, thisYear = new Date().getFullYear()) {
   const byKey = new Map();
   const groups = [];
   let group = '';
+  let relay = false;
   for (const raw of joinVertical(String(text || '').split(/\r?\n/))) {
     const line = raw.trim();
     if (!line || JUNK.test(line)) continue;
@@ -156,11 +161,13 @@ export function parseList(text, thisYear = new Date().getFullYear()) {
     if (RECORD_LINE.test(line)) continue;
     if (HEADING.test(line) && !YEAR.test(` ${line} `.replace(TIME, ' '))) {
       group = line.replace(/\s+/g, ' ').slice(0, 80);
+      relay = RELAY.test(group);
       if (!groups.includes(group)) groups.push(group);
       continue;
     }
+    if (relay) continue; // relay teams are clubs, not swimmers
     const e = parseLine(line, thisYear);
-    if (!e) continue;
+    if (!e || CLUB_WORD.test(`${e.first} ${e.last}`)) continue;
     const key = `${e.first} ${e.last}|${e.born || ''}`.toLocaleLowerCase('sv');
     const prev = byKey.get(key);
     if (prev) {
@@ -176,6 +183,15 @@ export function parseList(text, thisYear = new Date().getFullYear()) {
 
 const norm = (s) => String(s || '').toLocaleLowerCase('sv').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 
+// Words that say "swimming club" rather than which club: "Simklubben Lödde" and "Simklubben Vänersborg" differ
+const GENERIC = new Set(['simklubben', 'simklubb', 'simsallskap', 'simforening', 'simallians', 'sallskap', 'forening', 'klubb', 'sk', 'ss', 'sls', 'ass', 'if', 'ik', 'sf', 'simning', 'swim', 'swimming', 'club', 'team', 'parasportforening']);
+function sameClub(a, b) {
+  if (a === b || a.includes(b) || b.includes(a)) return true;
+  const wa = a.split(' ').filter((w) => !GENERIC.has(w));
+  const wb = new Set(b.split(' ').filter((w) => !GENERIC.has(w)));
+  return wa.some((w) => wb.has(w));
+}
+
 /** Score how well a Tempus swimmer matches a parsed entry (higher is better, < 2 is not a match). */
 export function matchScore(entry, sw) {
   let score = 0;
@@ -190,7 +206,8 @@ export function matchScore(entry, sw) {
   if (entry.born && sw.born) score += entry.born === sw.born ? 2 : -3;
   if (entry.club && sw.club) {
     const [ec, sc] = [norm(entry.club), norm(sw.club)];
-    if (ec && sc && (ec === sc || ec.includes(sc) || sc.includes(ec) || ec.split(' ')[0] === sc.split(' ')[0])) score += 1.5;
+    // a matching club counts for, a different one against: it tells namesakes born the same year apart
+    if (ec && sc) score += sameClub(ec, sc) ? 1.5 : -1.5;
   }
   return score;
 }

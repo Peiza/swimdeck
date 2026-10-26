@@ -105,3 +105,15 @@ test('remark codes after club names in heat lists are dropped', () => {
   assert.equal(cleanClub('SK Neptun'), 'SK Neptun');
   assert.equal(paraFrom('1994 S02 (SWE)'), null); // a club code, not class 2
 });
+
+test('relay teams are skipped and a different club tells namesakes apart', () => {
+  const { entries } = parseList(`Gren 18, 100m Frisim S14
+3 Felix Persson S14 2000 Simklubben Vänersborg
+Gren 19, 4x50m Medley Mixed S/SB1-14 Final
+1 Spårvägen Simförening Spårvägen Simförening 2:40.00`, 2026);
+  assert.deepEqual(entries.map((e) => e.last), ['Persson']);
+  const sws = ['Simklubben Lödde', 'Simklubben Vänersborg', 'Södertörns Simsällskap'].map((club, i) => ({ id: i, firstName: 'Felix', lastName: 'Persson', born: 2000, club }));
+  const r = rankCandidates(entries[0], sws);
+  assert.equal(r.sure, true);
+  assert.equal(r.candidates[0].club, 'Simklubben Vänersborg');
+});
