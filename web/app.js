@@ -414,12 +414,38 @@ async function loadEvent(s, code) {
 
 // ---------------------------------------------------------------- rendering
 
+// ---------------------------------------------------------------- keep the place on reload
+// The current tab, open swimmer and open event live in sessionStorage, so reloading the page (or the
+// browser restoring it) comes back to the same view. A new tab or window starts on the swimmer list.
+function saveNav() {
+  try {
+    sessionStorage.setItem('swimdeck.nav', JSON.stringify({ view: state.view, openId: state.openId || null, openTab: state.openTab, openEvent: state.openEvent || null, openPool: state.openPool }));
+  } catch {}
+}
+
+function restoreNav() {
+  let nav = null;
+  try {
+    nav = JSON.parse(sessionStorage.getItem('swimdeck.nav') || 'null');
+  } catch {}
+  if (!nav) return;
+  if (['deck', 'rank', 'compare', 'qual'].includes(nav.view)) state.view = nav.view;
+  const s = nav.openId && state.swimmers.find((x) => x.id === nav.openId);
+  if (!s) return;
+  state.openId = s.id;
+  state.openTab = ['events', 'meets', 'profile'].includes(nav.openTab) ? nav.openTab : 'events';
+  state.openPool = nav.openPool === 50 ? 50 : 25;
+  state.openEvent = nav.openEvent || null;
+  state.meetsShown = 5;
+}
+
 function render() {
   document.documentElement.lang = state.lang;
   renderHeader();
   renderMain();
   renderFooter();
   if (state.openId) renderSwimmerDialog();
+  saveNav();
 }
 
 function renderHeader() {
@@ -1203,6 +1229,7 @@ function renderSwimmerDialog() {
   if (state.openTab === 'meets') fillMeets(s);
   else if (state.openTab === 'profile') fillForm(s);
   else if (state.openEvent) fillEventDetail(s, state.openEvent);
+  saveNav();
 }
 
 const STROKE_KEYS = ['free', 'back', 'breast', 'fly', 'medley'];
@@ -2557,6 +2584,7 @@ $('#swimmerDialog').addEventListener('close', () => {
   }
   state.openId = null;
   state.openEvent = null;
+  saveNav();
 });
 
 // ---------------------------------------------------------------- drag to reorder (mouse and touch)
@@ -2615,7 +2643,9 @@ document.addEventListener('keydown', (e) => {
 
 // ---------------------------------------------------------------- start
 
+restoreNav();
 render();
+if (state.openId && !$('#swimmerDialog').open) $('#swimmerDialog').showModal();
 checkSyncLink();
 checkImport();
 pullSync({ force: true });
