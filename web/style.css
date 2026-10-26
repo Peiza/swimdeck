@@ -592,3 +592,6 @@ button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4
 /* keep the first column's heading in place when a wide table scrolls sideways, like the row headings */
 .compare:not(.rank-both) thead th:first-child { position: sticky; left: 0; background: var(--surface); z-index: 2; }
 .compare:not(.rank-both) tbody th { z-index: 1; }
+/* while a dialog is open the page behind it stays still (no scroll chaining on phones) */
+html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
+.dialog, .import-list, .meet-pick, .bulk-list, .table-scroll { overscroll-behavior: contain; }
