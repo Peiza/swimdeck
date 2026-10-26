@@ -54,3 +54,28 @@ test('para standards need a class', () => {
   const rows = qualify(sw, [{ event: 12, pool: 50, time: time('00:37,50') }]);
   assert.deepEqual(rows[0].best.map((s) => s.id), ['paraA']);
 });
+
+test('para swimmers aim for Para-SM first; SM only when it is close', async () => {
+  const { qualify } = await import('../qual.js');
+  const QUAL = {
+    year: 2026,
+    standards: [
+      { id: 'smB', comp: 'sm', rows: [['W', 13, 5874]] },
+      { id: 'paraA', comp: 'para', rows: [['W', 'S9', 13, 7000]] },
+      { id: 'paraB', comp: 'para', rows: [['W', 'S9', 13, 7600]] },
+    ],
+  };
+  const para = { sex: 'Woman', born: 2008, para: { S: 9 } };
+  // reached Para-SM B, far from SM B: next is Para-SM A, not SM B
+  let [q] = qualify(para, [{ event: 13, pool: 25, time: 7300 }], QUAL);
+  assert.equal(q.next.id, 'paraA');
+  // reached Para-SM A, SM B 20 % away: no next at all
+  [q] = qualify(para, [{ event: 13, pool: 25, time: 6990 }], QUAL);
+  assert.equal(q.next, null);
+  // reached Para-SM A, SM B within 3 %: suggested
+  [q] = qualify(para, [{ event: 13, pool: 25, time: 6000 }], QUAL);
+  assert.equal(q.next.id, 'smB');
+  // swimmers without a para class: unchanged, closest standard
+  [q] = qualify({ sex: 'Woman', born: 2008 }, [{ event: 13, pool: 25, time: 7300 }], QUAL);
+  assert.equal(q.next.id, 'smB');
+});

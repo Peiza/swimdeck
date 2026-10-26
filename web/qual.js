@@ -42,6 +42,20 @@ export function standardsFor(swimmer, code, qual = QUAL) {
   return out.sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
 }
 
+/** Within this share of the time, a standard counts as close. */
+export const NEAR = 0.03;
+
+/**
+ * The next standard to aim for: the closest one not reached. Para swimmers aim for Para-SM first;
+ * an SM or USM standard is only suggested to them when it is close.
+ */
+function nextFor(missing, time, isPara) {
+  const m = missing.map((x) => ({ ...x, gap: time - x.time }));
+  if (!isPara) return m[0] || null;
+  const para = m.filter((x) => x.id.startsWith('para'));
+  return para[0] || (m[0] && m[0].gap / time <= NEAR ? m[0] : null);
+}
+
 /**
  * For each event the swimmer has swum in the qualifying window: the standards reached,
  * the highest one, and the closest one not yet reached (with the gap in hundredths).
@@ -61,7 +75,7 @@ export function qualify(swimmer, windowBests, qual = QUAL) {
       result: r,
       reached,
       best: [top(reached, false), top(reached, true)].filter(Boolean),
-      next: missing[0] ? { ...missing[0], gap: r.time - missing[0].time } : null,
+      next: nextFor(missing, r.time, stds.some((x) => x.id.startsWith('para'))),
       // every standard not yet reached, closest first
       missing: missing.map((m) => ({ ...m, gap: r.time - m.time })),
     });
