@@ -471,7 +471,7 @@ async function refreshAll({ fresh = false, only = null } = {}) {
 
 function needsLoad(s) {
   const d = state.data[s.id];
-  return !d || !d.all || !d.before || !d.qual || d.periodKey !== periodKey() || Date.now() - (d.fetchedAt || 0) > STALE_MS;
+  return !d || !d.all || !d.before || !d.qual || (state.cardParts.recent && d.recent === undefined) || d.periodKey !== periodKey() || Date.now() - (d.fetchedAt || 0) > STALE_MS;
 }
 
 async function loadEvent(s, code) {
@@ -2716,6 +2716,7 @@ document.addEventListener('change', (e) => {
   if (e.target.dataset?.part) {
     state.cardParts = { ...state.cardParts, [e.target.dataset.part]: e.target.checked };
     store.set('cardParts', state.cardParts);
+    if (e.target.dataset.part === 'recent' && e.target.checked) refreshAll({ only: state.swimmers.filter(needsLoad) });
     return renderMain();
   }
   if (e.target.dataset?.bulk) {
