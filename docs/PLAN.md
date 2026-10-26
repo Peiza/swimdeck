@@ -105,3 +105,7 @@ plattform och fungerar med `site=fi`.
 - ✅ v0.31.0: procent av aktuellt världsrekord för alla åldrar (World Aquatics, `tools/wr-source.txt`, byggs med
   `node tools/build-records.js`). Rad i grenvyn (världsrekord och mastersrekord mot PB) och "Alla grenar (% av världsrekord)"
   i topplistan. Masterskolumnen heter nu "Masters %".
+- ✅ v0.32.0: aktualitet. Workern hämtar världsrekorden från World Aquatics publika rekord-API en gång per dygn
+  (cron, eller vid första anropet) och lagrar i KV; appen använder dem och faller tillbaka på den inbyggda listan.
+  Mastersrekordens "as of"-datum läses från World Aquatics mastersida; finns en nyare lista än den appen har säger appen
+  till (Om-sidan, mastersjämförelser). Ny masterslista: hämta PDF:erna, uppdatera `tools/masters-source-<år>.txt`.

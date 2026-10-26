@@ -9,7 +9,8 @@
 //   GET /api/meet/:id/swimmers?club=               swimmers at a meet (per club, or all on small meets)
 //   POST /api/sync, GET|PUT|DELETE /api/sync/:token  sync a list between devices
 //   GET /api/push/key, POST|DELETE /api/push          notifications for new personal bests
-//   scheduled (cron): checks watched swimmers and sends push notifications
+//   GET /api/records                                  current world records and the latest masters list date
+//   scheduled (cron): checks watched swimmers and sends push notifications; refreshes records once a day
 //
 // Every route accepts ?site=se (default) or ?site=fi.
 // Responses are cached at the edge so Tempus sees as few requests as possible.
@@ -17,6 +18,7 @@
 import { SITES, fetchOverview, fetchEvent, searchSwimmers, nationalRank, fetchMeet, searchMeets, meetSwimmers } from './tempus.js';
 import { handleSync } from './sync.js';
 import { handlePush, runCheck } from './push.js';
+import { refreshRecords, getRecords } from './records.js';
 
 const APP_URL = 'https://peiza.github.io/swimdeck/';
 
@@ -33,6 +35,7 @@ const TTL = {
 export default {
   async scheduled(event, env, ctx) {
     if (!env.LISTS) return;
+    ctx.waitUntil(refreshRecords(env.LISTS).then((r) => console.log('records', JSON.stringify(r))).catch((e) => console.log('records failed', e.message)));
     ctx.waitUntil(
       runCheck(env, async (id) => {
         const o = await fetchOverview(SITES.se, id);
@@ -54,6 +57,17 @@ export default {
         return json(data, 200, { ...cors, 'Cache-Control': 'no-store' });
       } catch (err) {
         return json({ error: err.message || 'Error' }, err.status || 500, cors);
+      }
+    }
+    if (url.pathname === '/api/records' && request.method === 'GET') {
+      try {
+        const data = await getRecords(env.LISTS);
+        // first call after a deploy, or the cron has not run for a while: refresh in the background
+        if (env.LISTS && (!data.checkedAt || Date.now() - data.checkedAt > 26 * 3600e3)) ctx.waitUntil(refreshRecords(env.LISTS).catch(() => {}));
+        delete data.checkedAt;
+        return json(data, 200, { ...cors, 'Cache-Control': 'public, max-age=3600' });
+      } catch (err) {
+        return json({ error: err.message || 'Error' }, 500, cors);
       }
     }
     if (url.pathname === '/api/sync' || url.pathname.startsWith('/api/sync/')) {

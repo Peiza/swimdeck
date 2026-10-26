@@ -35,11 +35,18 @@ export function recordKey(code, sex) {
   return `${code % 2 ? 'S' : 'L'}${sex}${e.dist}${STROKE[e.stroke]}`;
 }
 
+// The app ships with a copy of the world records; the API refreshes them daily and the app swaps them in.
+let current = WR;
+export function useWorldRecords(data) {
+  if (data?.records && Object.keys(data.records).length >= 60) current = data;
+}
+export const worldRecords = () => current;
+
 /** Current world record (hundredths) for an event code and sex 'W'/'M'. */
-export const worldRecordFor = (code, sex, data = WR) => data.records[recordKey(code, sex)] ?? null;
+export const worldRecordFor = (code, sex, data = current) => data.records[recordKey(code, sex)] ?? null;
 
 /** { pct, record } for a swim against the current world record, any age. */
-export function wrPct(swimmer, r, data = WR) {
+export function wrPct(swimmer, r, data = current) {
   if (!r?.time) return null;
   const record = worldRecordFor(r.event, sexOf(swimmer?.sex), data);
   return record ? { pct: (record / r.time) * 100, record } : null;

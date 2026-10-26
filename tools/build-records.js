@@ -3,7 +3,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const src = readFileSync(new URL('./wr-source.txt', import.meta.url), 'utf8');
-const fetched = (src.match(/fetched (\d{1,2} \w{3} \d{4})/) || [])[1] || '';
+const MONTHS = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12' };
+const fm = src.match(/fetched (\d{1,2}) (\w{3}) (\d{4})/);
+const fetched = fm ? `${fm[3]}-${MONTHS[fm[2]]}-${fm[1].padStart(2, '0')}` : '';
 const records = {};
 for (const line of src.split('\n')) {
   if (!line.trim() || line.startsWith('#')) continue;

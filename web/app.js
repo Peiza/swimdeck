@@ -5,8 +5,7 @@ import { parseList, rankCandidates } from './importer.js';
 import { QUAL } from './qual-data.js';
 import { ORDER, qualify, qualCounts, usmAgeGroup, sexOf } from './qual.js';
 import { hasPara, wpsPoints } from './wps.js';
-import { isMasters, mastersPct, wrPct } from './masters.js';
-import { WR } from './wr-data.js';
+import { isMasters, mastersPct, wrPct, useWorldRecords, worldRecords } from './masters.js';
 import { MASTERS } from './masters-data.js';
 import { LANGS, makeT, detectLang } from './i18n.js';
 import {
@@ -536,6 +535,13 @@ function openAbout() {
       ${sections.map(([k, title]) => `<section><h3>${esc(t(title))}</h3>${t(k).split('\n').map((p) => `<p>${esc(p)}</p>`).join('')}</section>`).join('')}
       <section><h3>${esc(t('glossaryTitle'))}</h3><dl class="glossary">${t('glossary').split('\n').map((line) => { const [term, ...rest] = line.split(':'); return `<dt>${esc(term)}</dt><dd>${esc(rest.join(':').trim())}</dd>`; }).join('')}</dl></section>
       <section><h3>${esc(t('aboutDataTitle'))}</h3>${t('aboutData').split('\n').map((p) => `<p>${esc(p)}</p>`).join('')}</section>
+      <section><h3>${esc(t('sourcesTitle'))}</h3><dl class="glossary">${(() => { const r = recordStatus(); return [
+        [t('srcResults'), t('srcResultsText')],
+        [t('srcWr'), (r.wrLive ? t('srcWrLive', { date: shortIso(r.wrDate) }) : t('srcWrShipped', { date: shortIso(r.wrDate) })) + (r.wrStale ? ' ' + t('wrStale', { date: shortIso(r.wrDate) }) : '')],
+        [t('srcMasters'), t('srcMastersText', { date: shortIso(r.mastersDate) }) + (r.mastersNewer ? ' ' + t('mastersNewer', { date: shortIso(r.mastersNewer), ours: shortIso(r.mastersDate) }) : '')],
+        [t('srcQual'), t('srcQualText', { checked: QUAL.checked })],
+        ['WPS', t('srcWpsText')],
+      ].map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join(''); })()}</dl></section>
       <footer class="sheet-foot"><span class="muted small">${esc(versionLabel())}</span><button class="btn primary" data-action="close">${esc(t('done'))}</button></footer>
     </div>`;
   if (!dlg.open) dlg.showModal();
@@ -942,8 +948,8 @@ function rankView() {
     </div>
     ${improveMode ? `<p class="muted small rank-note">${esc(t('improveNote', { period: periodName() }))}</p>` : ''}
     ${wpsMode && !improveMode ? `<p class="muted small rank-note">${esc(t('wpsNote'))}</p>` : ''}
-    ${mastersMode && !improveMode ? `<p class="muted small rank-note">${esc(t('mastersNote', { date: MASTERS.asOf }))}</p>` : ''}
-    ${wrMode && !improveMode ? `<p class="muted small rank-note">${esc(t('wrNote', { date: WR.fetched }))}</p>` : ''}
+    ${mastersMode && !improveMode ? `<p class="muted small rank-note">${esc(t('mastersNote', { date: shortIso(recordStatus().mastersDate) }))}</p>${recordStatus().mastersNewer ? `<p class="warn small rank-note">${esc(t('mastersNewer', { date: shortIso(recordStatus().mastersNewer), ours: shortIso(recordStatus().mastersDate) }))}</p>` : ''}` : ''}
+    ${wrMode && !improveMode ? `<p class="muted small rank-note">${esc(t(recordStatus().wrLive ? 'wrNoteLive' : 'wrNote', { date: shortIso(recordStatus().wrDate) }))}</p>${recordStatus().wrStale ? `<p class="warn small rank-note">${esc(t('wrStale', { date: shortIso(recordStatus().wrDate) }))}</p>` : ''}` : ''}
     ${!rows.length ? `<p class="muted">${esc(improveMode ? t('noImprove') : basis === 'period' ? t('noneInPeriod') : t('noneInEvent'))}</p>`
       : twoCols ? `<div class="row end"><button class="link small" data-action="csvRank">${esc(t('exportCsv'))}</button></div>
       <div class="table-scroll"><table class="compare rank-both">
@@ -1591,6 +1597,40 @@ function setGoal(code, value) {
   renderMain();
 }
 
+// ---------------------------------------------------------------- keeping records current
+// World records come from the API (refreshed daily from World Aquatics); the masters list ships with the app,
+// and the API tells when World Aquatics has published a newer one.
+const MONTHS = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12' };
+const mastersShipped = (() => { const m = String(MASTERS.asOf).match(/(\d{2}) (\w{3}) (\d{4})/); return m ? `${m[3]}-${MONTHS[m[2]]}-${m[1]}` : ''; })();
+const shortIso = (iso) => (iso ? new Date(iso + 'T12:00:00Z').toLocaleDateString(state.lang, { year: 'numeric', month: 'short', day: 'numeric' }) : '');
+const recordStatus = () => {
+  const r = state.records || {};
+  return {
+    wrDate: r.wr?.fetched || worldRecords().fetched || '',
+    wrLive: !!r.wr,
+    wrStale: !!r.wr && !r.wr.current,
+    mastersDate: mastersShipped,
+    mastersNewer: r.mastersAsOf && r.mastersAsOf > mastersShipped ? r.mastersAsOf : null,
+  };
+};
+
+function applyRecords(r) {
+  state.records = r;
+  if (r?.wr?.records) useWorldRecords({ fetched: r.wr.fetched, records: r.wr.records });
+}
+
+async function loadRecords() {
+  const cached = store.get('records', null);
+  if (cached?.data) applyRecords(cached.data);
+  if (cached?.at && Date.now() - cached.at < 12 * 3600e3) return;
+  try {
+    const data = await api('/api/records');
+    store.set('records', { at: Date.now(), data });
+    applyRecords(data);
+    render();
+  } catch {}
+}
+
 /** The PB against the world record, and for masters against the masters record of its age group. */
 function recordLine(s, pb) {
   if (!pb) return '';
@@ -1600,6 +1640,7 @@ function recordLine(s, pb) {
   return `<p class="small muted record-line">${[
     w ? esc(t('wrLine', { record: fmtTime(w.record), pct: fmtPctPlain(w.pct) })) : '',
     m ? esc(t('mwrLine', { group: m.group, record: fmtTime(m.record), pct: fmtPctPlain(m.pct) })) : '',
+    m && recordStatus().mastersNewer ? `<span class="warn">${esc(t('mastersNewer', { date: shortIso(recordStatus().mastersNewer), ours: shortIso(recordStatus().mastersDate) }))}</span>` : '',
   ].filter(Boolean).join('<br>')}</p>`;
 }
 
@@ -2711,6 +2752,7 @@ document.addEventListener('keydown', (e) => {
 // ---------------------------------------------------------------- start
 
 restoreNav();
+loadRecords();
 render();
 if (state.openId && !$('#swimmerDialog').open) $('#swimmerDialog').showModal();
 checkSyncLink();
