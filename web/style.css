@@ -595,3 +595,5 @@ button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4
 /* while a dialog is open the page behind it stays still (no scroll chaining on phones) */
 html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
 .dialog, .import-list, .meet-pick, .bulk-list, .table-scroll { overscroll-behavior: contain; }
+.metric-tools { margin-top: 4px; }
+.metric-hint { margin: -2px 0 6px; }

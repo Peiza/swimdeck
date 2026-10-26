@@ -53,6 +53,7 @@ const state = {
   rankSortPool: store.get('rankSortPool', 25),
   helpOpen: {},
   theme: store.get('theme', 'auto'),
+  metric: store.get('metric', 'aqua'),
   rankSex: store.get('rankSex', ''),
   rankBasis: store.get('rankBasis', 'pb'),
   rankYear: store.get('rankYear', ''),
@@ -79,17 +80,28 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const sexLabel = (x) => (/^(wo|fe|kvin|dam|nai|flick|tyt)/i.test(x || '') ? t('women') : x ? t('men') : '');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-// Para swimmers get WPS points on 50 m swims (the only published table); everyone else AQUA.
+// What the points column shows, chosen in the event view and kept per device:
+// AQUA points, % of the world record, % of the masters record (from 25) or WPS (para class, 50 m).
 const usesWps = (s, pool) => hasPara(s) && pool === 50;
-// Masters swimmers (25 and older) get the share of the masters world record for their age group instead.
 const fmtPctPlain = (v) => `${v.toLocaleString(state.lang, { maximumFractionDigits: 1, minimumFractionDigits: 1 })} %`;
-const ptsOf = (s, r) => {
+const METRICS = ['aqua', 'wr', 'masters', 'wps'];
+const metricsFor = (s) => METRICS.filter((m) => m === 'aqua' || m === 'wr' || (m === 'masters' && isMasters(s)) || (m === 'wps' && hasPara(s)));
+const metricFor = (s) => (metricsFor(s).includes(state.metric) ? state.metric : 'aqua');
+const metricName = (m) => t({ aqua: 'metricAqua', wr: 'metricWr', masters: 'metricMasters', wps: 'metricWps' }[m]);
+const ptsOf = (s, r, m = metricFor(s)) => {
   if (!r) return '';
-  if (usesWps(s, r.pool)) return wpsPoints(s, r) || '';
-  if (isMasters(s)) { const m = mastersPct(s, r); return m ? fmtPctPlain(m.pct) : ''; }
+  if (m === 'wps') return usesWps(s, r.pool) ? wpsPoints(s, r) || '' : '';
+  if (m === 'masters') { const x = mastersPct(s, r); return x ? fmtPctPlain(x.pct) : ''; }
+  if (m === 'wr') { const x = wrPct(s, r); return x ? fmtPctPlain(x.pct) : ''; }
   return r.points || '';
 };
-const ptsLabel = (s, pool) => (usesWps(s, pool) ? 'WPS' : isMasters(s) ? t('mastersShort') : t('points'));
+const ptsTitle = (s, r, m = metricFor(s)) => {
+  if (m === 'masters') { const x = mastersPct(s, r); return x ? t('mastersSwimTitle', { group: x.group, record: fmtTime(x.record) }) : t('metricMastersNone'); }
+  if (m === 'wr') { const x = wrPct(s, r); return x ? t('wrSwimTitle', { record: fmtTime(x.record) }) : ''; }
+  if (m === 'wps' && r.pool !== 50) return t('wpsLongOnly');
+  return '';
+};
+const ptsLabel = (s) => metricName(metricFor(s));
 const periodName = (p = state.period) => seasonLabel(p) || t('periodAllShort');
 const periodOptionLabel = (p) => p === 'season' ? `${t('periodSeason')} · ${seasonLabel(p)}` : p === '12m' ? t('period12') : p === '24m' ? t('period24') : p === 'last' ? `${t('periodLast')} · ${seasonLabel(p)}` : p === 'all' ? t('periodAll') : `${t('periodSeasonOf')} ${seasonLabel(p)}`;
 function oldestSwimYear() {
@@ -1278,7 +1290,7 @@ function renderSwimmerDialog() {
       </div>
       ${!sum ? `<p class="muted">${esc(d?.error ? t('error', { msg: d.error }) : t('loading'))}</p>` : `
       <table class="events">
-        <thead><tr><th>${esc(t('event'))}</th><th class="num">${esc(t('pb'))}</th><th class="num">${esc(t('periodBest'))}</th><th class="num hide-sm" title="${esc(usesWps(s, state.openPool) ? t('wpsTitle') : isMasters(s) ? t('mastersTitle') : '')}">${esc(ptsLabel(s, state.openPool))}</th></tr></thead>
+        <thead><tr><th>${esc(t('event'))}</th><th class="num">${esc(t('pb'))}</th><th class="num">${esc(t('periodBest'))}</th><th class="num hide-sm">${esc(ptsLabel(s))}</th></tr></thead>
         <tbody>${rows.map((r) => eventRow(s, r)).join('')}</tbody>
       </table>`}`}
       ${paraSettings(s)}
@@ -1558,10 +1570,17 @@ async function fillEventDetail(s, code) {
           ${[3, 5, 7, 10, 'all'].map((k) => `<button data-topn="${k}" aria-pressed="${state.topN === k}">${k === 'all' ? esc(t('all')) : k}</button>`).join('')}
         </div>
       </div>
+      <div class="detail-tools metric-tools">
+        <span class="muted small">${esc(t('metricCompare'))}</span>
+        <div class="seg small" role="group" aria-label="${esc(t('metricCompare'))}">
+          ${metricsFor(s).map((k) => `<button data-metric="${k}" aria-pressed="${metricFor(s) === k}">${esc(metricName(k))}</button>`).join('')}
+        </div>
+      </div>
+      <p class="muted small metric-hint">${esc(t('metricHint_' + metricFor(s)))}</p>
       <ol class="top ${recent ? 'recent' : ''}">${top.map((r, i) => `
         <li><span class="pos">${recent ? '' : i + 1}</span><span class="time ${r.time === pbTime ? 'is-pb' : ''}">${fmtTime(r.time)}${recent && r.time !== pbTime ? `<small class="muted"> ${fmtDiff(r.time - pbTime)}</small>` : ''}</span>
         <span class="small"><span>${esc(r.date)}</span> · ${meetButton(r.meet, r.date, code, `${esc(r.meet)}${r.round ? ' · ' + esc(roundLabel(r.round)) : ''}`)}</span>
-        <span class="small muted num" title="${esc(!usesWps(s, r.pool) && isMasters(s) && mastersPct(s, r) ? t('mastersSwimTitle', { group: mastersPct(s, r).group, record: fmtTime(mastersPct(s, r).record) }) : '')}">${ptsOf(s, r) || ''}${usesWps(s, r.pool) && ptsOf(s, r) ? ' <small>WPS</small>' : ''}</span></li>`).join('')}</ol>
+        <span class="small muted num" title="${esc(ptsTitle(s, r))}">${ptsOf(s, r) || '–'}</span></li>`).join('')}</ol>
       <div id="rankBox" class="rank-box"></div>
       ${prognosisLine(s, code, ev.results)}
       ${recordLine(s, ev.results[0])}
@@ -2472,6 +2491,11 @@ document.addEventListener('click', (e) => {
   if (el.matches('tr.ev')) {
     const code = Number(el.dataset.event);
     state.openEvent = state.openEvent === code ? null : code;
+    return renderSwimmerDialog();
+  }
+  if (el.dataset.metric) {
+    state.metric = el.dataset.metric;
+    store.set('metric', state.metric);
     return renderSwimmerDialog();
   }
   if (el.dataset.toporder) {
