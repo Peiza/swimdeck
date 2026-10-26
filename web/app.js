@@ -54,6 +54,8 @@ const state = {
   helpOpen: {},
   theme: store.get('theme', 'auto'),
   metric: store.get('metric', 'aqua'),
+  near: store.get('near', 3),
+  menu: null,
   rankSex: store.get('rankSex', ''),
   rankBasis: store.get('rankBasis', 'pb'),
   rankYear: store.get('rankYear', ''),
@@ -103,16 +105,34 @@ const ptsTitle = (s, r, m = metricFor(s)) => {
 };
 const ptsLabel = (s) => metricName(metricFor(s));
 
-/** The points column heading: a small pill that opens a menu of what to compare with. */
-function metricPill(s, where) {
-  const cur = metricFor(s);
-  const open = state.metricMenu === where;
+/**
+ * A small rounded "pill" that opens a menu of choices: used for what the points column compares with and
+ * for how close counts as close to a qualifying time. `id` names the menu, `kind` the setting it changes.
+ */
+function pill(id, kind, current, items, note = '', title = '') {
+  const open = state.menu === id;
+  const cur = items.find((x) => x.value === current) || items[0];
   return `<span class="metric-wrap">
-    <button type="button" class="metric-pill" data-metric-menu="${where}" aria-haspopup="menu" aria-expanded="${open}" title="${esc(t('metricCompare'))}">${esc(metricName(cur))}<span aria-hidden="true"> ▾</span></button>
-    ${open ? `<span class="metric-menu" role="menu">${metricsFor(s).map((k) => `<button type="button" role="menuitemradio" aria-checked="${k === cur}" data-metric="${k}">
-      <span class="mm-check" aria-hidden="true">${k === cur ? '✓' : ''}</span><b>${esc(metricName(k))}</b><span class="muted small">${esc(t('metricDesc_' + k))}</span></button>`).join('')}${metricsFor(s).includes('masters') ? `<span class="mm-note muted small">${esc(t('mastersOnlyMeets'))}</span>` : ''}</span>` : ''}
+    <button type="button" class="metric-pill" data-menu="${id}" aria-haspopup="menu" aria-expanded="${open}" title="${esc(title)}">${esc(cur.label)}<span aria-hidden="true"> ▾</span></button>
+    ${open ? `<span class="metric-menu" role="menu">${items.map((x) => `<button type="button" role="menuitemradio" aria-checked="${x.value === cur.value}" data-pick="${kind}" data-value="${esc(x.value)}">
+      <span class="mm-check" aria-hidden="true">${x.value === cur.value ? '✓' : ''}</span><b>${esc(x.label)}</b><span class="muted small">${esc(x.desc || '')}</span></button>`).join('')}${note ? `<span class="mm-note muted small">${esc(note)}</span>` : ''}</span>` : ''}
   </span>`;
 }
+
+/** The points column heading: what to compare with (AQUA, % of world record, masters %, WPS). */
+const metricPill = (s, where) => pill(`metric:${where}`, 'metric', metricFor(s), metricsFor(s).map((k) => ({ value: k, label: metricName(k), desc: t('metricDesc_' + k) })), metricsFor(s).includes('masters') ? t('mastersOnlyMeets') : '', t('metricCompare'));
+
+/** How close counts as "close to a qualifying time", in percent of the swimmer's time. */
+const NEAR_CHOICES = [1, 2, 3, 5];
+const nearShare = () => (NEAR_CHOICES.includes(state.near) ? state.near : 3) / 100;
+const nearPill = (where) => pill(`near:${where}`, 'near', String(nearShare() * 100), NEAR_CHOICES.map((n) => ({ value: String(n), label: t('nearWithin', { n }), desc: t('nearDesc_' + n) })), '', t('nearTitle'));
+
+function closeMenu() {
+  state.menu = null;
+  renderMain();
+  if ($('#swimmerDialog').open) renderSwimmerDialog();
+}
+
 const periodName = (p = state.period) => seasonLabel(p) || t('periodAllShort');
 const periodOptionLabel = (p) => p === 'season' ? `${t('periodSeason')} · ${seasonLabel(p)}` : p === '12m' ? t('period12') : p === '24m' ? t('period24') : p === 'last' ? `${t('periodLast')} · ${seasonLabel(p)}` : p === 'all' ? t('periodAll') : `${t('periodSeasonOf')} ${seasonLabel(p)}`;
 function oldestSwimYear() {
@@ -1113,7 +1133,6 @@ const qualHighlights = (reached) => {
 };
 
 /** Overview: every qualifying time the swimmers in the list have reached, all championships and pools. */
-const NEAR = 0.03; // "close to a standard": within 3 %
 
 function qualDoneView() {
   const doc = QUAL.standards[0];
@@ -1122,9 +1141,9 @@ function qualDoneView() {
     const all = qualRows(s);
     const rows = all.filter((q) => q.reached.length).sort(byEvent);
     const near = all
-      .filter((q) => !q.reached.length && q.next && q.next.gap / q.result.time <= NEAR)
-      .map((q) => ({ ...q, close: q.missing.filter((m) => m.gap / q.result.time <= NEAR) }))
-      .sort((a, b) => a.next.gap / a.result.time - b.next.gap / b.result.time);
+      .filter((q) => !q.reached.length && q.missing.some((m) => m.gap / q.result.time <= nearShare()))
+      .map((q) => ({ ...q, close: q.missing.filter((m) => m.gap / q.result.time <= nearShare()) }))
+      .sort((a, b) => a.close[0].gap / a.result.time - b.close[0].gap / b.result.time);
     return { s, rows, near };
   });
   const shown = people.filter((p) => p.rows.length || p.near.length);
@@ -1135,7 +1154,7 @@ function qualDoneView() {
   const swum = (q) => `<td class="num"><b>${fmtTime(q.result.time)}</b><small class="muted">${esc(q.result.date || '')}</small></td>`;
   const head = (label) => `<thead><tr><th class="qd-pool">${label}</th><th class="num">${esc(t('qdSwum'))}</th><th class="num">${esc(t('qdLimit'))}</th></tr></thead>`;
   return `
-    <div class="rank-controls qual-controls">${qualTabs()}</div>
+    <div class="rank-controls qual-controls">${qualTabs()}<span class="near-control"><span class="muted small">${esc(t('qdNear'))}</span> ${nearPill('overview')}</span></div>
     ${!state.swimmers.length ? `<p class="muted">${esc(t('emptyBody'))}</p>` : ''}
     ${shown.length ? `<div class="qual-done">${shown.map(({ s, rows, near }) => `
       <section class="qd-card">
@@ -1156,7 +1175,7 @@ function qualDoneView() {
     ${loading ? `<p class="muted small">${esc(t('loading'))}</p>` : ''}
     ${shown.length && none.length ? `<p class="muted small">${esc(t('qualNotReached'))}: ${none.map((p) => esc(p.s.name)).join(', ')}</p>` : ''}
     <div class="qual-source small muted">
-      <p>${esc(t('qdNearNote'))}</p>
+      <p>${esc(t('qdNearNote', { n: nearShare() * 100 }))}</p>
       <p>${esc(t('qualWindow', { from: QUAL.windowStart }))}</p>
       <p>${esc(t('qualSource', { version: doc.version, checked: QUAL.checked }))} <a href="${QUAL.page}" target="_blank" rel="noopener">svensksimidrott.se ↗</a></p>
     </div>`;
@@ -1195,7 +1214,7 @@ function qualView() {
   // swimmers within 3 % of a standard of this championship that they have not reached yet
   const nearBy = (code) => swimmers.flatMap((s) => {
     const q = qualRows(s).find((x) => x.event === code);
-    const m = q?.missing.find((x) => ids.includes(x.id) && x.gap / q.result.time <= NEAR);
+    const m = q?.missing.find((x) => ids.includes(x.id) && x.gap / q.result.time <= nearShare());
     if (!m) return [];
     const hit = q.reached.find((x) => ids.includes(x.id));
     return hit && ORDER.indexOf(hit.id) < ORDER.indexOf(m.id) ? [] : [{ s, m, time: q.result.time }];
@@ -1213,7 +1232,7 @@ function qualView() {
     ${comp === 'para' ? `<p class="muted small rank-note">${esc(t('paraPools'))}</p>` : ''}
     ${comp === 'usm' ? `<p class="muted small rank-note">${esc(t('usmAges', { year: QUAL.year }))}</p>` : ''}
     <div class="table-scroll"><table class="compare qual-table">
-      <thead><tr><th>${esc(t('event'))}</th>${cols.map(([, label]) => `<th class="num">${esc(label)}</th>`).join('')}<th>${esc(t('reachedByNear'))}</th></tr></thead>
+      <thead><tr><th>${esc(t('event'))}</th>${cols.map(([, label]) => `<th class="num">${esc(label)}</th>`).join('')}<th>${esc(t('reachedByNear'))} ${nearPill('tab')}</th></tr></thead>
       <tbody>${lines.map((l) => `<tr><th scope="row">${esc(eventLabel(l.code, state.lang))}${comp === 'para' ? ` <small class="muted">${prefixFor(l.code)}${cls}</small>` : ''}</th>
         ${l.vals.map((v) => `<td class="num">${v ? fmtTime(v) : '<span class="muted">–</span>'}</td>`).join('')}
         <td class="who-cell">${[
@@ -2325,9 +2344,8 @@ async function purge(ids) {
 // ---------------------------------------------------------------- events
 
 document.addEventListener('click', (e) => {
-  if (state.metricMenu && !e.target.closest('.metric-wrap')) {
-    state.metricMenu = null;
-    renderSwimmerDialog();
+  if (state.menu && !e.target.closest('.metric-wrap')) {
+    closeMenu();
     if (!e.target.closest('button, [data-open], tr.ev, a')) return;
   }
   const el = e.target.closest('button, [data-open], tr.ev, a');
@@ -2503,15 +2521,22 @@ document.addEventListener('click', (e) => {
     state.openEvent = state.openEvent === code ? null : code;
     return renderSwimmerDialog();
   }
-  if (el.dataset.metricMenu) {
-    state.metricMenu = state.metricMenu === el.dataset.metricMenu ? null : el.dataset.metricMenu;
-    return renderSwimmerDialog();
+  if (el.dataset.menu) {
+    state.menu = state.menu === el.dataset.menu ? null : el.dataset.menu;
+    renderMain();
+    if ($('#swimmerDialog').open) renderSwimmerDialog();
+    $(`[data-menu="${el.dataset.menu}"]`)?.focus();
+    return;
   }
-  if (el.dataset.metric) {
-    state.metric = el.dataset.metric;
+  if (el.dataset.pick === 'metric') {
+    state.metric = el.dataset.value;
     store.set('metric', state.metric);
-    state.metricMenu = null;
-    return renderSwimmerDialog();
+    return closeMenu();
+  }
+  if (el.dataset.pick === 'near') {
+    state.near = Number(el.dataset.value);
+    store.set('near', state.near);
+    return closeMenu();
   }
   if (el.dataset.toporder) {
     state.topOrder = el.dataset.toporder;
@@ -2597,11 +2622,11 @@ document.addEventListener('click', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && state.metricMenu) {
+  if (e.key === 'Escape' && state.menu) {
     e.preventDefault();
-    state.metricMenu = null;
-    renderSwimmerDialog();
-    $('.metric-pill')?.focus();
+    const id = state.menu;
+    closeMenu();
+    $(`[data-menu="${id}"]`)?.focus();
     return;
   }
   if (e.key === 'Enter' && e.target.id === 'goalInput') {
@@ -2738,7 +2763,7 @@ $('#swimmerDialog').addEventListener('close', () => {
   }
   state.openId = null;
   state.openEvent = null;
-  state.metricMenu = null;
+  state.menu = null;
   saveNav();
 });
 

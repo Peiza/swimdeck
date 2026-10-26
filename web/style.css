@@ -614,3 +614,7 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
   .events td.metric-td { font-size: 12px; }
 }
 .mm-note { display: block; padding: 6px 10px 4px; border-top: 1px solid var(--line); margin-top: 2px; line-height: 1.4; }
+.near-control { display: inline-flex; align-items: center; gap: 6px; }
+.metric-menu { min-width: 220px; }
+.qual-table th .metric-wrap { margin-left: 4px; }
+.near-control .metric-menu { left: 0; right: auto; }
