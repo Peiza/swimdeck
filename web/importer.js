@@ -41,7 +41,7 @@ export function splitName(raw) {
 }
 
 // Para sport classes printed next to the name in para heat and result lists: "S14", "SB9", "SM10", "S9/SB8/SM9"
-const PARA = /(?:^|[\s,/(])(S|SB|SM)(\d{1,2})(?=$|[\s,/)])/g;
+const PARA = /(?:^|[\s,/(])(S|SB|SM)([1-9]\d?)(?=$|[\s,/)])/g;
 // Record lines at the top of each event in heat lists: "SWE 4:27.80 Name 1994 Club (SWE) 2021-12-03"
 const RECORD_LINE = /^[A-Z]{3}\s+(\d{1,2}:)?\d{2}[.,]\d{2}\b/;
 
@@ -53,6 +53,18 @@ export function paraFrom(text) {
     if (n >= 1 && n <= 14 && !(m[1] === 'SB' && n === 10)) out[m[1]] = n;
   }
   return Object.keys(out).length ? out : null;
+}
+
+/**
+ * Club names in heat lists are followed by remark codes ("Kungsbacka Simsällskap 2, 4, 12, A, 1,",
+ * "Osby Simsällskap L A", "Simklubben Elfsborg +", "Simklubben S02"). Drop trailing tokens that are
+ * numbers, single letters, + or short codes, so one club is one club.
+ */
+export function cleanClub(text) {
+  let words = String(text).replace(/[()]/g, ' ').replace(/[,;]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+  const code = (w) => /^(\d{1,3}|\p{Lu}|[+*#]|[A-ZÅÄÖ]\d{1,3}|[A-ZÅÄÖ]{1,2}\d{2})$/u.test(w);
+  while (words.length > 1 && code(words[words.length - 1])) words.pop();
+  return words.join(' ').replace(/^[–-]+|[–-]+$/g, '').trim();
 }
 
 function parseLine(line, thisYear) {
@@ -86,7 +98,7 @@ function parseLine(line, thisYear) {
   before = before.split(/\t| {3,}/)[0].trim();
   const name = splitName(before);
   if (!name) return null;
-  const club = after.replace(/[()]/g, ' ').replace(/\s+/g, ' ').replace(/^[\s,;–-]+|[\s,;–-]+$/g, '').replace(/\s\d+$/, '').trim();
+  const club = cleanClub(after);
   return { ...name, born, club, ...(para ? { para } : {}) };
 }
 

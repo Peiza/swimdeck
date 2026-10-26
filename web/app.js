@@ -1898,6 +1898,7 @@ function renderImport() {
       : `
         <div class="row wrap import-tools">
           <span class="small muted">${esc(t('importFound', { n: st.entries.length, m: found.length }))}</span>
+          ${st.entries.some(selectable) ? `<button type="button" class="link small" data-action="importAll">${esc(t(st.entries.filter(selectable).every((e) => st.selected.has(e.key)) ? 'importNone' : 'importAll'))}</button>` : ''}
           <span class="spacer"></span>
           ${st.groups.length ? `<div class="seg small" role="group">${['club', 'group'].map((k) => `<button type="button" data-igroup="${k}" aria-pressed="${st.groupBy === k}">${esc(t(k === 'club' ? 'club' : 'event'))}</button>`).join('')}</div>` : ''}
         </div>
@@ -1955,6 +1956,7 @@ function importRow(e) {
 }
 
 const importCache = new Map();
+const IMPORT_PRESELECT = 15; // longer pasted lists start with nothing ticked
 async function importSearch(first, last) {
   const k = `${first}|${last}`.toLocaleLowerCase('sv');
   if (!importCache.has(k)) importCache.set(k, api('/api/search', { first, last }).then((r) => r.swimmers).catch(() => []));
@@ -1981,7 +1983,7 @@ async function runImport(text) {
       const { candidates, sure } = rankCandidates(e, list);
       const pick = candidates.length && (sure || candidates.length === 1) ? candidates[0] : null;
       importState.status.set(e.key, { state: 'done', candidates, sure, pick });
-      if (pick && !state.swimmers.some((s) => s.id === pick.id)) importState.selected.add(e.key);
+      if (pick && !state.swimmers.some((s) => s.id === pick.id) && importState.entries.length <= IMPORT_PRESELECT) importState.selected.add(e.key);
       if ($('#addDialog').open && $('.import-sheet')) renderImportKeepScroll();
     }
   };
@@ -1998,8 +2000,9 @@ function renderImportKeepScroll() {
 
 /** Para classes from a heat list, merged into a swimmer (11–14 are the same in every stroke). Only fills what is missing. */
 function mergePara(current, found) {
-  const v = Object.values(found).find((n) => n >= 11);
-  const add = v ? { S: v, SB: v, SM: v } : found;
+  // fill all three only when every class found is the same 11–14 class; mixed lists (a likely misread) stay as they are
+  const vals = [...new Set(Object.values(found))];
+  const add = vals.length === 1 && vals[0] >= 11 ? { S: vals[0], SB: vals[0], SM: vals[0] } : found;
   const out = { ...(current || {}) };
   for (const [k, n] of Object.entries(add)) if (!out[k]) out[k] = n;
   return out;
@@ -2736,6 +2739,12 @@ document.addEventListener('click', (e) => {
     return renderImport();
   }
   if (el.dataset.action === 'importAdd') return addImported();
+  if (el.dataset.action === 'importAll') {
+    const list = importState.entries.filter(selectable);
+    const all = list.every((e) => importState.selected.has(e.key));
+    for (const e of list) all ? importState.selected.delete(e.key) : importState.selected.add(e.key);
+    return renderImportKeepScroll();
+  }
   if (el.dataset.action === 'importParaUpdate') {
     const list = paraUpdates();
     for (const { sw, merged } of list) sw.para = merged;

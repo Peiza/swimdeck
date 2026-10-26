@@ -21,6 +21,8 @@ export const STROKES_SHORT = {
 
 const T = {
   sv: {
+    importAll: 'Markera alla',
+    importNone: 'Avmarkera alla',
     importParaUse: 'Spara paraklasserna från listan (fyller bara i det som saknas)',
     importParaUpdate: 'Uppdatera paraklass ({n} i din lista)',
     importParaUpdated: 'Paraklass uppdaterad för {n} simmare.',
@@ -425,6 +427,8 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    importAll: 'Select all',
+    importNone: 'Clear all',
     importParaUse: 'Save the para classes from the list (only fills in what is missing)',
     importParaUpdate: 'Update para class ({n} in your list)',
     importParaUpdated: 'Para class updated for {n} swimmers.',
@@ -829,6 +833,8 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    importAll: 'Valitse kaikki',
+    importNone: 'Poista valinnat',
     importParaUse: 'Tallenna listan paraluokat (täyttää vain puuttuvat)',
     importParaUpdate: 'Päivitä paraluokka ({n} listallasi)',
     importParaUpdated: 'Paraluokka päivitetty {n} uimarille.',
@@ -1233,6 +1239,8 @@ const T = {
     apiMissing: 'Sovellukselta puuttuu API-osoite. Katso README.',
   },
   nb: {
+    importAll: 'Merk alle',
+    importNone: 'Fjern alle merker',
     importParaUse: 'Lagre paraklassene fra listen (fyller bare inn det som mangler)',
     importParaUpdate: 'Oppdater paraklasse ({n} i listen din)',
     importParaUpdated: 'Paraklasse oppdatert for {n} svømmere.',

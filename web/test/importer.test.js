@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { splitName, parseList, matchScore, rankCandidates, paraFrom } from '../importer.js';
+import { splitName, parseList, matchScore, rankCandidates, paraFrom, cleanClub } from '../importer.js';
 
 test('splitName handles the usual layouts', () => {
   assert.deepEqual(splitName('ANDERSSON Anna'), { first: 'Anna', last: 'Andersson' });
@@ -93,4 +93,15 @@ SWE 4:27.80 Rekord Hållare 1994 Klubben SS (SWE) 2021-12-03
     ['Cia', 'Test', 2001, { S: 9, SB: 8, SM: 9 }],
   ]);
   assert.equal(paraFrom('SB10'), null); // there is no SB10
+});
+
+test('remark codes after club names in heat lists are dropped', () => {
+  assert.equal(cleanClub('Kungsbacka Simsällskap 2, 4, 12, A, 1,'), 'Kungsbacka Simsällskap');
+  assert.equal(cleanClub('Kungsbacka Simsällskap A, 7, E ,'), 'Kungsbacka Simsällskap');
+  assert.equal(cleanClub('Osby Simsällskap L A'), 'Osby Simsällskap');
+  assert.equal(cleanClub('Simklubben Elfsborg +'), 'Simklubben Elfsborg');
+  assert.equal(cleanClub('Simklubben S02'), 'Simklubben');
+  assert.equal(cleanClub('Örebro Simallians'), 'Örebro Simallians');
+  assert.equal(cleanClub('SK Neptun'), 'SK Neptun');
+  assert.equal(paraFrom('1994 S02 (SWE)'), null); // a club code, not class 2
 });
