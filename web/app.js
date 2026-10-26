@@ -1139,7 +1139,13 @@ function qualView() {
       <thead><tr><th>${esc(t('event'))}</th>${cols.map(([, label]) => `<th class="num">${esc(label)}</th>`).join('')}<th>${esc(t('reachedByNear'))}</th></tr></thead>
       <tbody>${lines.map((l) => `<tr><th scope="row">${esc(eventLabel(l.code, state.lang))}${comp === 'para' ? ` <small class="muted">${prefixFor(l.code)}${cls}</small>` : ''}</th>
         ${l.vals.map((v) => `<td class="num">${v ? fmtTime(v) : '<span class="muted">–</span>'}</td>`).join('')}
-        <td class="who-cell">${l.who.map((w) => { const n = l.near.find((x) => x.s.id === w.s.id); const gap = n ? esc(t('toNext', { gap: fmtTime(n.m.gap), std: stdLabel(n.m.id) })) : ''; return `<button class="pick small-pick" data-open="${w.s.id}" title="${esc(w.s.name)} · ${fmtTime(w.time)}${gap ? ' · ' + gap : ''}">${esc(short[w.s.id])} ${qBadge(w.hit.id)}${gap ? ` <span class="muted near-txt">${gap}</span>` : ''}</button>`; }).join('')}${l.near.filter((w) => !l.who.some((x) => x.s.id === w.s.id)).map((w) => `<button class="pick small-pick near-pick" data-open="${w.s.id}" title="${esc(w.s.name)} · ${fmtTime(w.time)} · ${esc(t('toNext', { gap: fmtTime(w.m.gap), std: stdLabel(w.m.id) }))}">${esc(short[w.s.id])} <span class="muted">${esc(t('toNext', { gap: fmtTime(w.m.gap), std: stdLabel(w.m.id) }))}</span></button>`).join('')}</td></tr>`).join('')}</tbody>
+        <td class="who-cell">${[
+          ...l.who.map((w) => ({ w, badge: qBadge(w.hit.id), n: l.near.find((x) => x.s.id === w.s.id) })),
+          ...l.near.filter((w) => !l.who.some((x) => x.s.id === w.s.id)).map((w) => ({ w, badge: '', n: w })),
+        ].map(({ w, badge, n }) => `<div class="who-item">
+          <button class="pick small-pick ${badge ? '' : 'near-pick'}" data-open="${w.s.id}" title="${esc(w.s.name)} · ${fmtTime(w.time)}">${esc(short[w.s.id])}${badge ? ' ' + badge : ''}</button>
+          ${n ? `<span class="qd-next">${esc(t('toNext', { gap: fmtTime(n.m.gap), std: stdLabel(n.m.id) }))} (${fmtTime(n.m.time)})</span>` : ''}
+        </div>`).join('')}</td></tr>`).join('')}</tbody>
     </table></div>
     <div class="qual-source small muted">
       <p>${esc(t('qualWindow', { from: QUAL.windowStart }))}</p>

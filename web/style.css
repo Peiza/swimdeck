@@ -586,3 +586,6 @@ button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4
 .theme { display: inline-flex; gap: 2px; }
 .bulk-all { padding: 4px 2px; }
 .bulk-list { max-height: 55dvh; overflow: auto; }
+.who-cell .who-item { display: flex; flex-direction: column; align-items: flex-start; margin: 2px 0 6px; }
+.who-cell .who-item .small-pick { margin: 0; }
+.who-cell .who-item .qd-next { margin: 2px 0 0 4px; white-space: nowrap; }
