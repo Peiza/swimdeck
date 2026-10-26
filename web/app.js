@@ -41,7 +41,7 @@ const state = {
   view: 'deck',
   topN: store.get('topN', 5),
   topOrder: store.get('topOrder', 'fast'), // fast | recent
-  cardParts: { stats: true, latest: true, improve: true, qual: true, goals: true, best: true, para: false, ...store.get('cardParts', {}) },
+  cardParts: { stats: true, recent: true, latest: true, improve: true, qual: true, goals: true, best: true, para: false, ...store.get('cardParts', {}) },
   swimmers: store.get('swimmers', []),
   sort: store.get('sort', 'manual'),
   collapsed: store.get('collapsed', []), // ids of minimised cards
@@ -393,19 +393,39 @@ const periodKey = () => {
   return `${from}_${to}`;
 };
 
+const RECENT_DAYS = 60;
+
+/** The swimmer's latest meet in the last 60 days: its name, dates and the swims there, each against the PB. */
+function recentMeet(d) {
+  const bests = d?.recent?.bests || [];
+  if (!bests.length) return null;
+  const lastDate = bests.reduce((m, b) => (b.date > m ? b.date : m), '');
+  const last = bests.find((b) => b.date === lastDate);
+  const swims = bests.filter((b) => b.meet === last.meet && Math.abs(Date.parse(b.date) - Date.parse(lastDate)) < 5 * 86400000);
+  const pbOf = (b) => (d.all?.bests || []).find((x) => x.event === b.event && x.pool === b.pool)?.time;
+  return {
+    meet: last.meet,
+    date: lastDate,
+    swims: swims.sort((a, b) => a.pool - b.pool || eventSortKey(a.event, a.name) - eventSortKey(b.event, b.name)).map((b) => ({ ...b, pb: pbOf(b) })),
+  };
+}
+
 async function loadSwimmer(s, { fresh = false } = {}) {
   const { from, to } = periodRange(state.period);
   const refresh = fresh ? 1 : '';
   const dayBefore = new Date(Date.parse(from) - 86400000).toISOString().slice(0, 10);
-  const [all, period, before, qual] = await Promise.all([
+  // the last 60 days: one extra request that gives every event swum recently (best time per event)
+  const recentFrom = new Date(Date.now() - RECENT_DAYS * 86400000).toISOString().slice(0, 10);
+  const [all, period, before, qual, recent] = await Promise.all([
     api(`/api/swimmer/${s.id}`, { site: s.site, refresh }),
     api(`/api/swimmer/${s.id}`, { site: s.site, from, to, refresh }),
     api(`/api/swimmer/${s.id}`, { site: s.site, from: '1990-01-01', to: dayBefore, refresh }),
     api(`/api/swimmer/${s.id}`, { site: s.site, from: QUAL.windowStart, refresh }),
+    state.cardParts.recent ? api(`/api/swimmer/${s.id}`, { site: s.site, from: recentFrom, refresh }).catch(() => null) : null,
   ]);
   if (all.swimmer) Object.assign(s, pickSwimmer(all.swimmer, s.site));
   if (!state.seen[s.id]) state.seen[s.id] = bestsSnapshot(all.bests);
-  state.data[s.id] = { all, period, before, qual, periodKey: periodKey(), fetchedAt: Date.now(), error: null };
+  state.data[s.id] = { all, period, before, qual, recent, periodKey: periodKey(), fetchedAt: Date.now(), error: null };
 }
 
 function pickSwimmer(sw, site) {
@@ -779,7 +799,7 @@ function renderNotifyDialog(msg = '', problem = '') {
   dlg.onclose = null;
 }
 
-const CARD_PARTS = ['stats', 'latest', 'improve', 'qual', 'goals', 'best', 'para'];
+const CARD_PARTS = ['stats', 'recent', 'latest', 'improve', 'qual', 'goals', 'best', 'para'];
 
 function openCustomize() {
   const dlg = $('#confirmDialog');
@@ -847,6 +867,11 @@ function cardView(s) {
       <div class="stat ${sum.newPbs ? 'good' : ''}"><b>${sum.newPbs}</b><span>${esc(t('newPbsLabel'))}</span></div>
       <div class="stat"><b>${sum.swumInPeriod}</b><span>${esc(t('eventsSwum'))}</span></div>
     </div>` : ''}
+    ${P.recent ? (() => { const rm = recentMeet(d); return rm ? `<div class="recent-meet">
+      <span class="muted small">${esc(t('recentMeet'))}</span>
+      <div class="rm-head"><b>${esc(rm.meet)}</b> <span class="muted small">${esc(rm.date)}</span></div>
+      <div class="rm-swims">${rm.swims.slice(0, 6).map((w) => `<span class="rm-swim"><span>${esc(eventShort(w.event, state.lang, w.name))} <small class="pool">${w.pool} m</small></span> <b>${fmtTime(w.time)}</b>${w.pb != null && w.time <= w.pb ? ` <span class="badge">${esc(t('pb'))}</span>` : w.pb ? ` <small class="muted">${fmtDiff(w.time - w.pb)}</small>` : ''}</span>`).join('')}${rm.swims.length > 6 ? `<span class="muted small">${esc(t('andMore', { n: rm.swims.length - 6 }))}</span>` : ''}</div>
+    </div>` : ''; })() : ''}
     ${P.latest ? `<div class="latest">
       ${latest
         ? `<span class="muted small">${esc(t('latest'))}</span>

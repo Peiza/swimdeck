@@ -618,3 +618,11 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
 .metric-menu { min-width: 220px; }
 .qual-table th .metric-wrap { margin-left: 4px; }
 .near-control .metric-menu { left: 0; right: auto; }
+
+/* latest meet on the cards */
+.recent-meet { display: grid; gap: 4px; }
+.rm-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.rm-swims { display: grid; gap: 2px; }
+.rm-swim { display: flex; gap: 6px; align-items: baseline; font-size: 14px; }
+.rm-swim > span:first-child { min-width: 7.5em; }
+.rm-swim .badge { font-size: 10px; }
