@@ -82,6 +82,17 @@ export default {
     }
     if (request.method !== 'GET') return json({ error: 'Method not allowed' }, 405, cors);
 
+    let bm;
+    if ((bm = url.pathname.match(/^\/api\/swimmer\/(\d{1,9})\/bundle$/))) {
+      const base = SITES[url.searchParams.get('site') || 'se'];
+      if (!base) return json({ error: 'Unknown site' }, 400, cors);
+      try {
+        return json(await swimmerBundle(url, bm[1], base, ctx), 200, cors);
+      } catch (err) {
+        return json({ error: err.message || 'Error' }, err.status || 400, cors);
+      }
+    }
+
     const route = matchRoute(url.pathname);
     if (!route) return json({ error: 'Not found' }, 404, cors);
 
@@ -185,6 +196,44 @@ async function cachedCohort(base, params) {
   const data = await nationalCohort(base, params);
   if (cache) await cache.put(key, new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `public, max-age=${TTL.rank}` } }));
   return data;
+}
+
+/**
+ * Several date ranges of one swimmer in a single request (the app needs 4–5 per swimmer).
+ * Each range is cached under the same key as its own /api/swimmer/:id request, so the
+ * load on Tempus is exactly what the separate requests gave. ?r=from_to, repeated; "_" = all time.
+ * A range that fails gives {error} in its place instead of failing the whole bundle.
+ */
+export async function swimmerBundle(url, id, base, ctx, { cache = caches.default, fetchFn = fetchOverview } = {}) {
+  const ranges = url.searchParams.getAll('r');
+  if (!ranges.length || ranges.length > 6) throw Object.assign(new Error('Give 1–6 ranges'), { status: 400 });
+  const fresh = url.searchParams.get('refresh') === '1';
+  const site = url.searchParams.get('site') || 'se';
+  const day = /^(\d{4}-\d{2}-\d{2})?$/;
+  return Promise.all(
+    ranges.map(async (r) => {
+      const [from = '', to = ''] = r.split('_');
+      if (!day.test(from) || !day.test(to)) return { error: 'Bad range' };
+      const single = new URL(`/api/swimmer/${id}`, url);
+      single.search = '';
+      single.searchParams.set('site', site);
+      if (from) single.searchParams.set('from', from);
+      if (to) single.searchParams.set('to', to);
+      const key = new Request(cacheUrl(single), { method: 'GET' });
+      if (!fresh) {
+        const hit = await cache.match(key);
+        if (hit) return hit.json();
+      }
+      try {
+        const data = await fetchFn(base, id, { from: from || null, to: to || null });
+        const res = json(data, 200, { 'Cache-Control': `public, max-age=${TTL.swimmer}` });
+        ctx.waitUntil(cache.put(key, res));
+        return data;
+      } catch (err) {
+        return { error: err.message || 'Upstream error' };
+      }
+    }),
+  );
 }
 
 function cacheUrl(url) {
