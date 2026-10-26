@@ -3,7 +3,7 @@ name: Deploy web app
 on:
   push:
     branches: [main]
-    paths: ['web/**', 'package.json', '.github/workflows/deploy-web.yml']
+    paths: ['web/**', 'test/ui/**', 'package.json', '.github/workflows/deploy-web.yml']
   workflow_dispatch:
 
 permissions:
@@ -27,6 +27,11 @@ jobs:
         with:
           node-version: 22
       - run: npm test
+      - name: Click tests in a browser
+        run: |
+          npm i --no-save playwright@1.56.0
+          npx playwright install --with-deps chromium
+          npm run test:ui
       - name: Build site
         env:
           API_URL: ${{ vars.SWIMDECK_API_URL }}

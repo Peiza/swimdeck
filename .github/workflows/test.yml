@@ -13,3 +13,8 @@ jobs:
         with:
           node-version: 22
       - run: npm test
+      - name: Click tests in a browser
+        run: |
+          npm i --no-save playwright@1.56.0
+          npx playwright install --with-deps chromium
+          npm run test:ui

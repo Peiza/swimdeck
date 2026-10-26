@@ -432,13 +432,17 @@ async function loadSwimmer(s, { fresh = false } = {}) {
   const dayBefore = new Date(Date.parse(from) - 86400000).toISOString().slice(0, 10);
   // the last 60 days: one extra request that gives every event swum recently (best time per event)
   const recentFrom = new Date(Date.now() - RECENT_DAYS * 86400000).toISOString().slice(0, 10);
-  const [all, period, before, qual, recent] = await Promise.all([
-    api(`/api/swimmer/${s.id}`, { site: s.site, refresh }),
-    api(`/api/swimmer/${s.id}`, { site: s.site, from, to, refresh }),
-    api(`/api/swimmer/${s.id}`, { site: s.site, from: '1990-01-01', to: dayBefore, refresh }),
-    api(`/api/swimmer/${s.id}`, { site: s.site, from: QUAL.windowStart, refresh }),
-    state.cardParts.recent ? api(`/api/swimmer/${s.id}`, { site: s.site, from: recentFrom, refresh }).catch(() => null) : null,
-  ]);
+  // one request for all date ranges (the worker caches each range on its own)
+  const ranges = ['_', `${from}_${to}`, `1990-01-01_${dayBefore}`, `${QUAL.windowStart}_`];
+  if (state.cardParts.recent) ranges.push(`${recentFrom}_`);
+  const q = new URLSearchParams({ site: s.site });
+  if (refresh) q.set('refresh', '1');
+  for (const r of ranges) q.append('r', r);
+  const parts = await api(`/api/swimmer/${s.id}/bundle?${q}`);
+  const [all, period, before, qual, recent = null] = parts.map((p, i) => {
+    if (p?.error && i < 4) throw new Error(p.error);
+    return p?.error ? null : p;
+  });
   if (all.swimmer) Object.assign(s, pickSwimmer(all.swimmer, s.site));
   if (!state.seen[s.id]) state.seen[s.id] = bestsSnapshot(all.bests);
   state.data[s.id] = { all, period, before, qual, recent, periodKey: periodKey(), fetchedAt: Date.now(), error: null };

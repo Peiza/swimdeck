@@ -1,11 +1,12 @@
 {
   "name": "swimdeck",
-  "version": "0.41.0",
+  "version": "0.42.0",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test worker/test/*.test.js web/test/*.test.js",
     "dev": "node tools/dev-server.js",
-    "dev:mock": "node tools/dev-server.js --mock"
+    "dev:mock": "node tools/dev-server.js --mock",
+    "test:ui": "node --test --test-concurrency=1 test/ui/*.test.mjs"
   }
 }

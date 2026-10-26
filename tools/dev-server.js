@@ -50,6 +50,15 @@ async function handleApi(url) {
   if (url.pathname === '/api/meet') return impl.meet(base, url.searchParams);
   if (url.pathname === '/api/meets') return impl.meets(base, url.searchParams);
   if ((m = url.pathname.match(/^\/api\/meet\/(\d+)\/swimmers$/))) return impl.meetSwimmers(base, m[1], url.searchParams);
+  if ((m = url.pathname.match(/^\/api\/swimmer\/(\d+)\/bundle$/))) {
+    const id = m[1];
+    return Promise.all(
+      url.searchParams.getAll('r').map((r) => {
+        const [from = '', to = ''] = r.split('_');
+        return impl.swimmer(base, id, new URLSearchParams({ from, to })).catch((e) => ({ error: e.message }));
+      }),
+    );
+  }
   if ((m = url.pathname.match(/^\/api\/swimmer\/(\d+)$/))) return impl.swimmer(base, m[1], url.searchParams);
   if ((m = url.pathname.match(/^\/api\/swimmer\/(\d+)\/event\/(\d+)$/))) return impl.event(base, m[1], m[2]);
   throw Object.assign(new Error('Not found'), { status: 404 });
