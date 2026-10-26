@@ -102,3 +102,6 @@ plattform och fungerar med `site=fi`.
 - ✅ v0.26.0: importera från tävling i Tempus. Sök tävling (senaste året), välj klubb (förvald: klubben flest i listan
   tillhör), filtrera på kön och årskull, gruppera på årskull eller gren, markera hela grupper. Läser resultatlistan per
   klubb och kön (max 20 sidor à 20 rader per kön); "Alla klubbar" bara på tävlingar med högst 400 resultat.
+- ✅ v0.31.0: procent av aktuellt världsrekord för alla åldrar (World Aquatics, `tools/wr-source.txt`, byggs med
+  `node tools/build-records.js`). Rad i grenvyn (världsrekord och mastersrekord mot PB) och "Alla grenar (% av världsrekord)"
+  i topplistan. Masterskolumnen heter nu "Masters %".

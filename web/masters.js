@@ -1,7 +1,9 @@
-// Masters: a swim as a percentage of the World Aquatics masters world record for the swimmer's age group.
+// World records: a swim as a percentage of the current world record (any age), and for masters
+// a swim as a percentage of the World Aquatics masters world record for the swimmer's age group.
 // Masters age is the age reached during the calendar year of the swim (year of swim minus birth year), from 25.
 
 import { MASTERS } from './masters-data.js';
+import { WR } from './wr-data.js';
 import { eventInfo } from './lib.js';
 import { sexOf } from './qual.js';
 
@@ -20,11 +22,27 @@ export const isMasters = (s, year = new Date().getFullYear()) => !!s?.born && ye
 
 /** World record (hundredths) for an event code (pool from the code), sex 'W'/'M' and age; null if none. */
 export function recordFor(code, sex, age, data = MASTERS) {
-  const e = eventInfo(code);
   const i = ageGroupIndex(age, data);
-  if (!e.dist || !e.stroke || i < 0 || !sex) return null;
-  const key = `${code % 2 ? 'S' : 'L'}${sex}${e.dist}${STROKE[e.stroke]}`;
+  const key = recordKey(code, sex);
+  if (i < 0 || !key) return null;
   return data.records[key]?.[i] ?? null;
+}
+
+/** "LW100fr": pool (from the event code), sex and event, the key both record tables use. */
+export function recordKey(code, sex) {
+  const e = eventInfo(code);
+  if (!e.dist || !e.stroke || !sex) return null;
+  return `${code % 2 ? 'S' : 'L'}${sex}${e.dist}${STROKE[e.stroke]}`;
+}
+
+/** Current world record (hundredths) for an event code and sex 'W'/'M'. */
+export const worldRecordFor = (code, sex, data = WR) => data.records[recordKey(code, sex)] ?? null;
+
+/** { pct, record } for a swim against the current world record, any age. */
+export function wrPct(swimmer, r, data = WR) {
+  if (!r?.time) return null;
+  const record = worldRecordFor(r.event, sexOf(swimmer?.sex), data);
+  return record ? { pct: (record / r.time) * 100, record } : null;
 }
 
 /** { pct, record, group } for one of a swimmer's results ({ event, time, date }), or null. */

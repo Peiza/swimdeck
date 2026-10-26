@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MASTERS } from '../masters-data.js';
-import { ageGroupIndex, ageGroupLabel, recordFor, mastersPct, isMasters } from '../masters.js';
+import { ageGroupIndex, ageGroupLabel, recordFor, mastersPct, isMasters, worldRecordFor, wrPct } from '../masters.js';
 
 test('data covers both pools, both sexes and every age group', () => {
   assert.equal(Object.keys(MASTERS.records).length, 70);
@@ -29,4 +29,12 @@ test('a swim as a share of the record for its age group', () => {
   // under 25 and unknown events give nothing
   assert.equal(mastersPct({ born: 2005, sex: 'Woman' }, { event: 12, time: 2800, date: '2025-06-01' }), null);
   assert.equal(recordFor(62, 'M', 40), null); // no long course 100 m IM
+});
+
+test('open world records for every age', () => {
+  assert.equal(worldRecordFor(14, 'M'), 4640); // 100 m free long course men: 46.40
+  assert.equal(worldRecordFor(61, 'W'), 5511); // 100 m IM short course women: 55.11
+  const r = wrPct({ sex: 'Man', born: 2012 }, { event: 14, time: 5800 });
+  assert.equal(Math.round(r.pct * 10) / 10, 80);
+  assert.equal(wrPct({ sex: '' }, { event: 14, time: 5800 }), null);
 });

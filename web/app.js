@@ -5,7 +5,8 @@ import { parseList, rankCandidates } from './importer.js';
 import { QUAL } from './qual-data.js';
 import { ORDER, qualify, qualCounts, usmAgeGroup, sexOf } from './qual.js';
 import { hasPara, wpsPoints } from './wps.js';
-import { isMasters, mastersPct } from './masters.js';
+import { isMasters, mastersPct, wrPct } from './masters.js';
+import { WR } from './wr-data.js';
 import { MASTERS } from './masters-data.js';
 import { LANGS, makeT, detectLang } from './i18n.js';
 import {
@@ -858,10 +859,11 @@ function rankView() {
   const anyMasters = state.swimmers.some((x) => isMasters(x));
   if (state.rankEvent === 'wps' && !anyPara) state.rankEvent = 'aqua';
   if (state.rankEvent === 'masters' && !anyMasters) state.rankEvent = 'aqua';
-  if (state.rankEvent !== 'aqua' && state.rankEvent !== 'wps' && state.rankEvent !== 'masters' && !options.has(state.rankEvent) && !both.has(state.rankEvent)) state.rankEvent = bothOpts[0] ? `both:${bothOpts[0].code}` : 'aqua';
+  if (state.rankEvent !== 'aqua' && state.rankEvent !== 'wps' && state.rankEvent !== 'masters' && state.rankEvent !== 'wr' && !options.has(state.rankEvent) && !both.has(state.rankEvent)) state.rankEvent = bothOpts[0] ? `both:${bothOpts[0].code}` : 'aqua';
   const wpsMode = state.rankEvent === 'wps';
   const mastersMode = state.rankEvent === 'masters';
-  const aqua = state.rankEvent === 'aqua' || wpsMode || mastersMode;
+  const wrMode = state.rankEvent === 'wr';
+  const aqua = state.rankEvent === 'aqua' || wpsMode || mastersMode || wrMode;
   const bothMode = state.rankEvent.startsWith('both:');
   const sexes = [...new Set(state.swimmers.map((s) => s.sex).filter(Boolean))];
   const years = [...new Set(state.swimmers.map((s) => s.born).filter(Boolean))].sort((a, b) => b - a);
@@ -887,6 +889,15 @@ function rankView() {
       }
       return best ? { swimmer: sw, result: best } : null;
     }).filter(Boolean).sort((a, b) => b.result.points - a.result.points);
+  } else if (wrMode) {
+    rows = swimmers.map((sw) => {
+      let best = null;
+      for (const b of overviews[sw.id]?.bests || []) {
+        const w = wrPct(sw, b);
+        if (w && (!best || w.pct > best.pct)) best = { ...b, pct: w.pct, record: w.record };
+      }
+      return best ? { swimmer: sw, result: best } : null;
+    }).filter(Boolean).sort((a, b) => b.result.pct - a.result.pct);
   } else if (mastersMode) {
     rows = swimmers.filter((x) => isMasters(x)).map((sw) => {
       let best = null;
@@ -919,6 +930,7 @@ function rankView() {
         <select id="rankEvent">
           <option value="aqua" ${state.rankEvent === 'aqua' ? 'selected' : ''}>${esc(t('allEventsAqua'))}</option>
           ${anyPara ? `<option value="wps" ${wpsMode ? 'selected' : ''}>${esc(t('allEventsWps'))}</option>` : ''}
+          <option value="wr" ${wrMode ? 'selected' : ''}>${esc(t('allEventsWr'))}</option>
           ${anyMasters ? `<option value="masters" ${mastersMode ? 'selected' : ''}>${esc(t('allEventsMasters'))}</option>` : ''}
           ${bothOpts.length ? `<optgroup label="${esc(t('bothPools'))}">${bothOpts.map((b) => `<option value="both:${b.code}" ${`both:${b.code}` === state.rankEvent ? 'selected' : ''}>${esc(eventLabel(b.code, state.lang, b.name))}${b.code > 10 ? ' · 25 + 50 m' : ' · 25 m'}</option>`).join('')}</optgroup>` : ''}
           ${[25, 50].map((p) => { const o = opts.filter((b) => b.pool === p); return o.length ? `<optgroup label="${esc(t(p === 25 ? 'shortCourse' : 'longCourse'))}">${o.map((b) => `<option value="${b.pool}:${b.event}" ${`${b.pool}:${b.event}` === state.rankEvent ? 'selected' : ''}>${esc(eventLabel(b.event, state.lang, b.name))} · ${b.pool} m</option>`).join('')}</optgroup>` : ''; }).join('')}
@@ -931,6 +943,7 @@ function rankView() {
     ${improveMode ? `<p class="muted small rank-note">${esc(t('improveNote', { period: periodName() }))}</p>` : ''}
     ${wpsMode && !improveMode ? `<p class="muted small rank-note">${esc(t('wpsNote'))}</p>` : ''}
     ${mastersMode && !improveMode ? `<p class="muted small rank-note">${esc(t('mastersNote', { date: MASTERS.asOf }))}</p>` : ''}
+    ${wrMode && !improveMode ? `<p class="muted small rank-note">${esc(t('wrNote', { date: WR.fetched }))}</p>` : ''}
     ${!rows.length ? `<p class="muted">${esc(improveMode ? t('noImprove') : basis === 'period' ? t('noneInPeriod') : t('noneInEvent'))}</p>`
       : twoCols ? `<div class="row end"><button class="link small" data-action="csvRank">${esc(t('exportCsv'))}</button></div>
       <div class="table-scroll"><table class="compare rank-both">
@@ -949,7 +962,11 @@ function rankView() {
              <span class="muted small when">${esc(eventLabel(r.row.event, state.lang, r.row.name))} ${r.row.pool} m · <b>${fmtTime(r.row.period.time)}</b> (${fmtDiff(-r.row.improve)})<br>${esc(t('prevPb'))} ${fmtTime(r.row.prev.time)} · ${esc(r.row.period.date)}</span>
              <span class="gap"></span>`
           : aqua
-          ? mastersMode
+          ? wrMode
+            ? `<span class="time">${fmtPctPlain(r.result.pct)}</span>
+             <span class="muted small when">${esc(eventLabel(r.result.event, state.lang, r.result.name))} ${r.result.pool} m · <b>${fmtTime(r.result.time)}</b><br>${esc(t('mastersRecord'))} ${fmtTime(r.result.record)} · ${esc(r.result.date)}</span>
+             <span class="gap"></span>`
+            : mastersMode
             ? `<span class="time">${fmtPctPlain(r.result.pct)}</span>
              <span class="muted small when">${esc(eventLabel(r.result.event, state.lang, r.result.name))} ${r.result.pool} m · <b>${fmtTime(r.result.time)}</b> · ${esc(t('mastersGroup', { group: r.result.group })).replace(' ', '\u00a0').replace('–', '\u2060–\u2060')}<br>${esc(t('mastersRecord'))} ${fmtTime(r.result.record)} · ${esc(r.result.date)}</span>
              <span class="gap"></span>`
@@ -1541,6 +1558,7 @@ async function fillEventDetail(s, code) {
         <span class="small muted num" title="${esc(!usesWps(s, r.pool) && isMasters(s) && mastersPct(s, r) ? t('mastersSwimTitle', { group: mastersPct(s, r).group, record: fmtTime(mastersPct(s, r).record) }) : '')}">${ptsOf(s, r) || ''}${usesWps(s, r.pool) && ptsOf(s, r) ? ' <small>WPS</small>' : ''}</span></li>`).join('')}</ol>
       <div id="rankBox" class="rank-box"></div>
       ${prognosisLine(s, code, ev.results)}
+      ${recordLine(s, ev.results[0])}
       ${ev.results.length > 1 ? `<h4 class="small muted">${esc(t('progression'))}</h4>${chart(ev.results, s.goals?.[code] || null)}` : ''}
       ${seasonTable(ev.results)}`;
     fillRank(s, code);
@@ -1571,6 +1589,18 @@ function setGoal(code, value) {
   save();
   renderSwimmerDialog();
   renderMain();
+}
+
+/** The PB against the world record, and for masters against the masters record of its age group. */
+function recordLine(s, pb) {
+  if (!pb) return '';
+  const w = wrPct(s, pb);
+  const m = isMasters(s) ? mastersPct(s, pb) : null;
+  if (!w && !m) return '';
+  return `<p class="small muted record-line">${[
+    w ? esc(t('wrLine', { record: fmtTime(w.record), pct: fmtPctPlain(w.pct) })) : '',
+    m ? esc(t('mwrLine', { group: m.group, record: fmtTime(m.record), pct: fmtPctPlain(m.pct) })) : '',
+  ].filter(Boolean).join('<br>')}</p>`;
 }
 
 function prognosisLine(s, code, results) {
