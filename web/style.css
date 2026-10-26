@@ -613,3 +613,4 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
   .metric-pill { padding: 2px 7px; font-size: 11px; }
   .events td.metric-td { font-size: 12px; }
 }
+.mm-note { display: block; padding: 6px 10px 4px; border-top: 1px solid var(--line); margin-top: 2px; line-height: 1.4; }

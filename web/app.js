@@ -110,7 +110,7 @@ function metricPill(s, where) {
   return `<span class="metric-wrap">
     <button type="button" class="metric-pill" data-metric-menu="${where}" aria-haspopup="menu" aria-expanded="${open}" title="${esc(t('metricCompare'))}">${esc(metricName(cur))}<span aria-hidden="true"> ▾</span></button>
     ${open ? `<span class="metric-menu" role="menu">${metricsFor(s).map((k) => `<button type="button" role="menuitemradio" aria-checked="${k === cur}" data-metric="${k}">
-      <span class="mm-check" aria-hidden="true">${k === cur ? '✓' : ''}</span><b>${esc(metricName(k))}</b><span class="muted small">${esc(t('metricDesc_' + k))}</span></button>`).join('')}</span>` : ''}
+      <span class="mm-check" aria-hidden="true">${k === cur ? '✓' : ''}</span><b>${esc(metricName(k))}</b><span class="muted small">${esc(t('metricDesc_' + k))}</span></button>`).join('')}${metricsFor(s).includes('masters') ? `<span class="mm-note muted small">${esc(t('mastersOnlyMeets'))}</span>` : ''}</span>` : ''}
   </span>`;
 }
 const periodName = (p = state.period) => seasonLabel(p) || t('periodAllShort');
