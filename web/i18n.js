@@ -21,6 +21,8 @@ export const STROKES_SHORT = {
 
 const T = {
   sv: {
+    basisSwims: 'Alla lopp',
+    swimsNote: 'Listans snabbaste lopp i {event} genom tiderna. Samma simmare kan finnas med flera gånger. Visar de 50 snabbaste.',
     mastersOnlyMeets: 'Mastersrekord räknas bara från masterstävlingar, så elitsimmare kan få över 100 %.',
     metricDesc_aqua: 'poäng, 1000 ≈ världsrekord',
     metricDesc_wr: 'procent av världsrekordet',
@@ -407,6 +409,8 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    basisSwims: 'All swims',
+    swimsNote: 'The list\'s fastest swims in {event}, all time. A swimmer can appear more than once. Shows the 50 fastest.',
     mastersOnlyMeets: 'Masters records only count swims at masters meets, so elite swimmers can score over 100 %.',
     metricDesc_aqua: 'points, 1000 ≈ world record',
     metricDesc_wr: 'percentage of the world record',
@@ -793,6 +797,8 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    basisSwims: 'Kaikki uinnit',
+    swimsNote: 'Listan nopeimmat uinnit lajissa {event} kaikkien aikojen. Sama uimari voi esiintyä useasti. Näyttää 50 nopeinta.',
     mastersOnlyMeets: 'Mastersennätyksiin lasketaan vain masters-kilpailujen uinnit, joten huippu-uimarit voivat saada yli 100 %.',
     metricDesc_aqua: 'pisteet, 1000 ≈ maailmanennätys',
     metricDesc_wr: 'prosenttia maailmanennätyksestä',
@@ -1179,6 +1185,8 @@ const T = {
     apiMissing: 'Sovellukselta puuttuu API-osoite. Katso README.',
   },
   nb: {
+    basisSwims: 'Alle løp',
+    swimsNote: 'Listens raskeste løp i {event} gjennom tidene. Samme svømmer kan være med flere ganger. Viser de 50 raskeste.',
     mastersOnlyMeets: 'Mastersrekorder teller bare løp fra masterstevner, så elitesvømmere kan få over 100 %.',
     metricDesc_aqua: 'poeng, 1000 ≈ verdensrekord',
     metricDesc_wr: 'prosent av verdensrekorden',

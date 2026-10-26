@@ -56,6 +56,7 @@ const state = {
   metric: store.get('metric', 'aqua'),
   near: store.get('near', 3),
   menu: null,
+  eventData: {},
   rankSex: store.get('rankSex', ''),
   rankBasis: store.get('rankBasis', 'pb'),
   rankYear: store.get('rankYear', ''),
@@ -921,8 +922,26 @@ function rankView() {
   );
   const c25 = bothMode ? Number(state.rankEvent.slice(5)) : null;
   const c50 = bothMode && c25 > 10 ? c25 + 1 : null;
+  // "All swims": the list's fastest swims in one event, where a swimmer can appear more than once
+  const swimsCode = aqua ? null : bothMode ? (state.rankSortPool === 50 && c50 ? c50 : c25) : Number(state.rankEvent.split(':')[1]);
+  const swimsMode = basis === 'swims' && !!swimsCode;
+  let swimsLoading = 0;
   let rows;
-  if (improveMode) {
+  if (swimsMode) {
+    rows = [];
+    for (const sw of swimmers) {
+      const k = `${sw.site}:${sw.id}:${swimsCode}`;
+      const ev = state.eventData[k];
+      if (ev === undefined) {
+        swimsLoading++;
+        loadEvent(sw, swimsCode).then((d) => { state.eventData[k] = d; }, () => { state.eventData[k] = null; }).then(() => state.view === 'rank' && renderMain());
+        continue;
+      }
+      for (const r of ev?.results || []) rows.push({ swimmer: sw, result: r });
+    }
+    rows.sort((a, b) => a.result.time - b.result.time || String(a.result.date).localeCompare(String(b.result.date)));
+    rows = rows.slice(0, 50);
+  } else if (improveMode) {
     const sums = Object.fromEntries(swimmers.map((s) => { const d = state.data[s.id]; return [s.id, d?.all ? summarize(d.all, d.period, d.before) : null]; }));
     if (bothMode) rows = rankingsByImprovement(swimmers, sums, [c25, c50].filter(Boolean));
     else {
@@ -962,7 +981,7 @@ function rankView() {
     const [pool, event] = state.rankEvent.split(':').map(Number);
     rows = rankings(swimmers, overviews, event, pool);
   }
-  const twoCols = bothMode && !improveMode;
+  const twoCols = bothMode && !improveMode && !swimsMode;
   const lead = rows[0]?.result;
   state.rankRows = { rows, aqua, improveMode, twoCols };
   const sortKey = state.rankSortPool === 50 ? 'r50' : 'r25';
@@ -985,15 +1004,17 @@ function rankView() {
           ${[25, 50].map((p) => { const o = opts.filter((b) => b.pool === p); return o.length ? `<optgroup label="${esc(t(p === 25 ? 'shortCourse' : 'longCourse'))}">${o.map((b) => `<option value="${b.pool}:${b.event}" ${`${b.pool}:${b.event}` === state.rankEvent ? 'selected' : ''}>${esc(eventLabel(b.event, state.lang, b.name))} · ${b.pool} m</option>`).join('')}</optgroup>` : ''; }).join('')}
         </select>
       </label>
-      <div class="seg" role="group">${['pb', 'period', 'improve'].map((x) => `<button data-basis="${x}" aria-pressed="${basis === x}">${esc(x === 'pb' ? t('basisPb') : x === 'period' ? t('basisPeriod', { period: periodName() }) : t('basisImprove'))}</button>`).join('')}</div>
+      <div class="seg" role="group">${['pb', 'period', 'improve', ...(swimsCode ? ['swims'] : [])].map((x) => `<button data-basis="${x}" aria-pressed="${basis === x}">${esc(x === 'pb' ? t('basisPb') : x === 'period' ? t('basisPeriod', { period: periodName() }) : x === 'swims' ? t('basisSwims') : t('basisImprove'))}</button>`).join('')}</div>
       ${sexes.length > 1 ? `<div class="seg" role="group">${['', ...sexes].map((x) => `<button data-sex="${esc(x)}" aria-pressed="${state.rankSex === x}">${esc(x ? sexLabel(x) : t('allSexes'))}</button>`).join('')}</div>` : ''}
       ${years.length > 1 ? `<label class="select compact"><span class="sr">${esc(t('birthYear'))}</span><select id="rankYear"><option value="">${esc(t('allYears'))}</option>${years.map((y) => `<option value="${y}" ${String(state.rankYear) === String(y) ? 'selected' : ''}>${y}</option>`).join('')}</select></label>` : ''}
     </div>
     ${improveMode ? `<p class="muted small rank-note">${esc(t('improveNote', { period: periodName() }))}</p>` : ''}
+    ${swimsMode && bothMode && c50 ? `<div class="seg small" role="group">${[[25, c25], [50, c50]].map(([p]) => `<button data-sortpool="${p}" aria-pressed="${(state.rankSortPool === 50 ? 50 : 25) === p}">${p} m</button>`).join('')}</div>` : ''}
+    ${swimsMode ? `<p class="muted small rank-note">${esc(t('swimsNote', { event: `${eventLabel(swimsCode, state.lang)} ${swimsCode % 2 ? 25 : 50} m` }))}${swimsLoading ? ' · ' + esc(t('loadingMeets', { done: swimmers.length - swimsLoading, total: swimmers.length })) : ''}</p>` : ''}
     ${wpsMode && !improveMode ? `<p class="muted small rank-note">${esc(t('wpsNote'))}</p>` : ''}
     ${mastersMode && !improveMode ? `<p class="muted small rank-note">${esc(t('mastersNote', { date: shortIso(recordStatus().mastersDate) }))}</p>${recordStatus().mastersNewer ? `<p class="warn small rank-note">${esc(t('mastersNewer', { date: shortIso(recordStatus().mastersNewer), ours: shortIso(recordStatus().mastersDate) }))}</p>` : ''}` : ''}
     ${wrMode && !improveMode ? `<p class="muted small rank-note">${esc(t(recordStatus().wrLive ? 'wrNoteLive' : 'wrNote', { date: shortIso(recordStatus().wrDate) }))}</p>${recordStatus().wrStale ? `<p class="warn small rank-note">${esc(t('wrStale', { date: shortIso(recordStatus().wrDate) }))}</p>` : ''}` : ''}
-    ${!rows.length ? `<p class="muted">${esc(improveMode ? t('noImprove') : basis === 'period' ? t('noneInPeriod') : t('noneInEvent'))}</p>`
+    ${!rows.length ? `<p class="muted">${esc(swimsMode && swimsLoading ? t('loading') : improveMode ? t('noImprove') : basis === 'period' ? t('noneInPeriod') : t('noneInEvent'))}</p>`
       : twoCols ? `<div class="row end"><button class="link small" data-action="csvRank">${esc(t('exportCsv'))}</button></div>
       <div class="table-scroll"><table class="compare rank-both">
         <thead><tr><th class="pos">#</th><th>${esc(t('swimmer'))}</th>${[[25, 'r25', 'shortCourse'], ...(c50 ? [[50, 'r50', 'longCourse']] : [])].map(([p, k, label]) => `<th class="num"><button class="sort-head" data-sortpool="${p}" aria-pressed="${sortKey === k}">${p} m${sortKey === k ? ' ↓' : ''}<small>${esc(t(label))}</small></button></th><th class="gapc"></th>`).join('')}</tr></thead>
