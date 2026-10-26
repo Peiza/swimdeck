@@ -589,3 +589,6 @@ button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4
 .who-cell .who-item { display: flex; flex-direction: column; align-items: flex-start; margin: 2px 0 6px; }
 .who-cell .who-item .small-pick { margin: 0; }
 .who-cell .who-item .qd-next { margin: 2px 0 0 4px; white-space: nowrap; }
+/* keep the first column's heading in place when a wide table scrolls sideways, like the row headings */
+.compare:not(.rank-both) thead th:first-child { position: sticky; left: 0; background: var(--surface); z-index: 2; }
+.compare:not(.rank-both) tbody th { z-index: 1; }
