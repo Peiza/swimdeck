@@ -55,6 +55,7 @@ const state = {
   theme: store.get('theme', 'auto'),
   metric: store.get('metric', 'aqua'),
   near: store.get('near', 3),
+  compareMetric: store.get('compareMetric', 'time'),
   menu: null,
   eventData: {},
   paraLookup: {},
@@ -106,6 +107,20 @@ const ptsTitle = (s, r, m = metricFor(s)) => {
   return '';
 };
 const ptsLabel = (s) => metricName(metricFor(s));
+
+/** The metric as a number (higher is better), for comparing; null when it cannot be worked out. WPS on 25 m is an estimate. */
+function metricValue(s, r, m) {
+  if (!r) return null;
+  if (m === 'aqua') return r.points || null;
+  if (m === 'wr') return wrPct(s, r)?.pct ?? null;
+  if (m === 'masters') return mastersPct(s, r)?.pct ?? null;
+  if (m === 'wps') return (r.pool === 50 ? wpsPoints(s, r) : wpsEstimate(s, r)) || null;
+  return null;
+}
+const fmtMetric = (v, m, r) => (v == null ? '–' : m === 'aqua' ? String(v) : m === 'wps' ? `${r?.pool === 25 ? '≈ ' : ''}${v}` : fmtPctPlain(v));
+
+/** What the compare table can show: times, or a metric every chosen swimmer has. */
+const compareMetrics = (chosen) => ['time', ...METRICS.filter((m) => chosen.length && chosen.every((s) => metricsFor(s).includes(m)))];
 
 /**
  * A small rounded "pill" that opens a menu of choices: used for what the points column compares with and
@@ -1109,6 +1124,27 @@ function compareView() {
   const table = compareTable(chosen, overviews, state.comparePool);
   const labels = shortNames(chosen.map((s) => s.name));
   const first = (i) => esc(labels[i]);
+  const options = compareMetrics(chosen);
+  const m = options.includes(state.compareMetric) ? state.compareMetric : 'time';
+  const val = (i, c) => (c ? metricValue(chosen[i], c, m) : null);
+  const cellHtml = (row) => {
+    if (m === 'time') return row.cells.map((c) => c
+      ? `<td class="num ${c.time === row.fastest && chosen.length > 1 ? 'fastest' : ''}"><b>${fmtTime(c.time)}</b>${c.time !== row.fastest ? `<small>${fmtDiff(c.time - row.fastest)}</small>` : `<small>${esc(c.date.slice(0, 4))}</small>`}</td>`
+      : '<td class="num muted">–</td>').join('');
+    const vals = row.cells.map((c, i) => val(i, c));
+    const top = Math.max(...vals.filter((v) => v != null));
+    return row.cells.map((c, i) => (c
+      ? `<td class="num ${vals[i] != null && vals[i] === top && chosen.length > 1 ? 'fastest' : ''}"><b>${esc(fmtMetric(vals[i], m, c))}</b><small>${fmtTime(c.time)}</small></td>`
+      : '<td class="num muted">–</td>')).join('');
+  };
+  // with a metric, a last row with each swimmer's best value over all events in the table
+  const bestRow = m === 'time' ? '' : (() => {
+    const best = chosen.map((sw, i) => table.reduce((acc, row) => { const c = row.cells[i]; const v = val(i, c); return v != null && (!acc || v > acc.v) ? { v, c, row } : acc; }, null));
+    const top = Math.max(...best.filter(Boolean).map((b) => b.v));
+    return `<tr class="compare-best"><th scope="row">${esc(t('compareBest'))}</th>${best.map((b) => (b
+      ? `<td class="num ${b.v === top && chosen.length > 1 ? 'fastest' : ''}"><b>${esc(fmtMetric(b.v, m, b.c))}</b><small>${esc(eventShort(b.row.event, state.lang, b.row.name))}</small></td>`
+      : '<td class="num muted">–</td>')).join('')}</tr>`;
+  })();
   return `
     <div class="compare-pick">
       <p class="muted small">${esc(t('compareHint'))}</p>
@@ -1116,14 +1152,13 @@ function compareView() {
     </div>
     <div class="rank-controls">
       <div class="seg" role="group">${[25, 50].map((p) => `<button data-cpool="${p}" aria-pressed="${state.comparePool === p}">${esc(t(p === 25 ? 'pool25' : 'pool50'))}</button>`).join('')}</div>
+      <span class="near-control"><span class="muted small">${esc(t('compareShow'))}</span> ${pill('compare', 'cmetric', m, options.map((k) => ({ value: k, label: k === 'time' ? t('compareTimes') : metricName(k), desc: k === 'time' ? t('compareTimesDesc') : t('metricDesc_' + k) })), options.length < METRICS.length + 1 ? t('compareOnlyShared') : '', t('compareShow'))}</span>
       <span class="spacer"></span>
       ${table.length ? `<button class="link small" data-action="csvCompare">${esc(t('exportCsv'))}</button>` : ''}
     </div>
     ${table.length ? `<div class="table-scroll"><table class="compare">
       <thead><tr><th>${esc(t('event'))}</th>${chosen.map((s, i) => `<th class="num" title="${esc(s.name)}">${first(i)}</th>`).join('')}</tr></thead>
-      <tbody>${table.map((row) => `<tr><th scope="row">${esc(eventLabel(row.event, state.lang, row.name))}</th>${row.cells.map((c) => c
-        ? `<td class="num ${c.time === row.fastest && chosen.length > 1 ? 'fastest' : ''}"><b>${fmtTime(c.time)}</b>${c.time !== row.fastest ? `<small>${fmtDiff(c.time - row.fastest)}</small>` : `<small>${esc(c.date.slice(0, 4))}</small>`}</td>`
-        : '<td class="num muted">–</td>').join('')}</tr>`).join('')}</tbody>
+      <tbody>${table.map((row) => `<tr><th scope="row">${esc(eventLabel(row.event, state.lang, row.name))}</th>${cellHtml(row)}</tr>`).join('')}${bestRow}</tbody>
     </table></div>` : `<p class="muted">${esc(t('noneInEvent'))}</p>`}
     ${chosen.length === 2 ? `<div class="h2h"><h3 class="small">${esc(t('h2hTitle', { a: labels[0], b: labels[1] }))}</h3>
       <div id="h2hBox"><button class="btn small" data-action="h2h">${esc(t('h2hShow'))}</button><p class="muted small">${esc(t('h2hHint'))}</p></div></div>` : `<p class="muted small h2h-hint">${esc(t('h2hPickTwo'))}</p>`}`;
@@ -2466,6 +2501,11 @@ document.addEventListener('click', (e) => {
   if (el.dataset.choose === 'metric') {
     state.metric = el.dataset.value;
     store.set('metric', state.metric);
+    return closeMenu();
+  }
+  if (el.dataset.choose === 'cmetric') {
+    state.compareMetric = el.dataset.value;
+    store.set('compareMetric', state.compareMetric);
     return closeMenu();
   }
   if (el.dataset.choose === 'near') {

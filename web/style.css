@@ -633,3 +633,5 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
 .para-lookup { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 8px; }
 .import-para { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
 .iname .q { margin-left: 4px; vertical-align: 1px; }
+.compare-best th, .compare-best td { border-top: 2px solid var(--line); }
+.rank-controls .near-control .metric-menu { left: 0; right: auto; }

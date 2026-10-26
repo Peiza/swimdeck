@@ -21,6 +21,11 @@ export const STROKES_SHORT = {
 
 const T = {
   sv: {
+    compareShow: 'Visa',
+    compareTimes: 'Tider',
+    compareTimesDesc: 'snabbast markerad, skillnad i sekunder',
+    compareBest: 'Bästa gren',
+    compareOnlyShared: 'Masters % och WPS visas bara när alla valda simmare har värdet, så att jämförelsen blir rättvis.',
     importAll: 'Markera alla',
     importNone: 'Avmarkera alla',
     importParaUse: 'Spara paraklasserna från listan (fyller bara i det som saknas)',
@@ -427,6 +432,11 @@ const T = {
     apiMissing: 'Appen saknar adress till sitt API. Se README.',
   },
   en: {
+    compareShow: 'Show',
+    compareTimes: 'Times',
+    compareTimesDesc: 'fastest highlighted, gap in seconds',
+    compareBest: 'Best event',
+    compareOnlyShared: 'Masters % and WPS appear only when every chosen swimmer has the value, so the comparison is fair.',
     importAll: 'Select all',
     importNone: 'Clear all',
     importParaUse: 'Save the para classes from the list (only fills in what is missing)',
@@ -833,6 +843,11 @@ const T = {
     apiMissing: 'The app has no API address configured. See README.',
   },
   fi: {
+    compareShow: 'Näytä',
+    compareTimes: 'Ajat',
+    compareTimesDesc: 'nopein korostettu, ero sekunteina',
+    compareBest: 'Paras laji',
+    compareOnlyShared: 'Masters % ja WPS näkyvät vain, kun kaikilla valituilla uimareilla on arvo, jotta vertailu on reilu.',
     importAll: 'Valitse kaikki',
     importNone: 'Poista valinnat',
     importParaUse: 'Tallenna listan paraluokat (täyttää vain puuttuvat)',
@@ -1239,6 +1254,11 @@ const T = {
     apiMissing: 'Sovellukselta puuttuu API-osoite. Katso README.',
   },
   nb: {
+    compareShow: 'Vis',
+    compareTimes: 'Tider',
+    compareTimesDesc: 'raskest markert, forskjell i sekunder',
+    compareBest: 'Beste øvelse',
+    compareOnlyShared: 'Masters % og WPS vises bare når alle valgte svømmere har verdien, så sammenligningen blir rettferdig.',
     importAll: 'Merk alle',
     importNone: 'Fjern alle merker',
     importParaUse: 'Lagre paraklassene fra listen (fyller bare inn det som mangler)',
