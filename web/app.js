@@ -115,7 +115,7 @@ function pill(id, kind, current, items, note = '', title = '') {
   const cur = items.find((x) => x.value === current) || items[0];
   return `<span class="metric-wrap">
     <button type="button" class="metric-pill" data-menu="${id}" aria-haspopup="menu" aria-expanded="${open}" title="${esc(title)}">${esc(cur.label)}<span aria-hidden="true"> ▾</span></button>
-    ${open ? `<span class="metric-menu" role="menu">${items.map((x) => `<button type="button" role="menuitemradio" aria-checked="${x.value === cur.value}" data-pick="${kind}" data-value="${esc(x.value)}">
+    ${open ? `<span class="metric-menu" role="menu">${items.map((x) => `<button type="button" role="menuitemradio" aria-checked="${x.value === cur.value}" data-choose="${kind}" data-value="${esc(x.value)}">
       <span class="mm-check" aria-hidden="true">${x.value === cur.value ? '✓' : ''}</span><b>${esc(x.label)}</b><span class="muted small">${esc(x.desc || '')}</span></button>`).join('')}${note ? `<span class="mm-note muted small">${esc(note)}</span>` : ''}</span>` : ''}
   </span>`;
 }
@@ -2405,6 +2405,16 @@ document.addEventListener('click', (e) => {
     if (e.target.tagName === 'DIALOG') e.target.close();
     return;
   }
+  if (el.dataset.choose === 'metric') {
+    state.metric = el.dataset.value;
+    store.set('metric', state.metric);
+    return closeMenu();
+  }
+  if (el.dataset.choose === 'near') {
+    state.near = Number(el.dataset.value);
+    store.set('near', state.near);
+    return closeMenu();
+  }
   if (el.id === 'add' || el.dataset.action === 'add') return openAdd();
   if (el.id === 'refresh') return refreshAll({ fresh: true });
   if (el.id === 'share') return share();
@@ -2587,16 +2597,6 @@ document.addEventListener('click', (e) => {
     save();
     renderSwimmerDialog();
     return renderMain();
-  }
-  if (el.dataset.pick === 'metric') {
-    state.metric = el.dataset.value;
-    store.set('metric', state.metric);
-    return closeMenu();
-  }
-  if (el.dataset.pick === 'near') {
-    state.near = Number(el.dataset.value);
-    store.set('near', state.near);
-    return closeMenu();
   }
   if (el.dataset.toporder) {
     state.topOrder = el.dataset.toporder;
