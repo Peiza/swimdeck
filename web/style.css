@@ -208,7 +208,7 @@ a { color: var(--accent); }
 .chev { display: inline-block; width: 14px; color: var(--muted); transition: transform 0.15s; }
 tr.open .chev { transform: rotate(90deg); }
 .badge { font-size: 10px; font-weight: 700; color: var(--good); background: var(--good-soft); padding: 1px 6px; border-radius: 99px; vertical-align: 1px; white-space: nowrap; }
-tr.detail td { background: var(--surface-2); padding: 12px; }
+.events > tbody > tr.detail > td { background: var(--surface-2); padding: 12px; }
 @media (max-width: 520px) { .hide-sm { display: none; } }
 
 .event-detail { display: grid; gap: 10px; }
@@ -217,9 +217,9 @@ tr.detail td { background: var(--surface-2); padding: 12px; }
 .top li { display: grid; grid-template-columns: 24px 72px 1fr auto; gap: 8px; align-items: baseline; background: var(--surface); border-radius: 8px; padding: 6px 8px; }
 .top li:first-child .time { color: var(--accent); }
 
-.chart { width: 100%; max-width: 560px; height: auto; background: var(--surface); border-radius: 10px; }
+.chart { width: 100%; height: auto; background: var(--surface); border-radius: 10px; }
 .chart .grid { stroke: var(--line); stroke-width: 1; }
-.chart .axis { font-size: 9px; fill: var(--muted); }
+.chart .axis { font-size: 11px; fill: var(--muted); }
 .chart .best { fill: none; stroke: var(--accent); stroke-width: 2; }
 .chart .dot { fill: var(--muted); opacity: 0.6; }
 .chart .dot.pb { fill: var(--accent); opacity: 1; }
@@ -315,8 +315,8 @@ body:has(.card.dragging) { user-select: none; -webkit-user-select: none; }
 .meet-swims td.num { padding-left: 10px; white-space: nowrap; }
 .meet-swims tr.pb td:nth-child(2) b { color: var(--good); }
 .tag-cell { width: 1%; }
-.seasons { width: 100%; max-width: 560px; border-collapse: collapse; background: var(--surface); border-radius: 10px; overflow: hidden; }
-.seasons th { font-size: 12px; color: var(--muted); font-weight: 600; text-align: left; padding: 6px 10px; }
+.seasons { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seasons th { font-size: 12px; color: var(--muted); font-weight: 600; text-align: left; padding: 6px 10px; background: var(--accent-soft); }
 .seasons th.num { text-align: right; }
 .seasons td { padding: 6px 10px; border-top: 1px solid var(--line); }
 .rank-note { margin: -6px 0 12px; }
@@ -439,8 +439,8 @@ body:has(.card.dragging) { user-select: none; -webkit-user-select: none; }
 .new-block .new-tag { justify-self: start; }
 
 /* ---------- personal goals */
-.goal-edit { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; background: var(--surface); border-radius: 10px; padding: 8px 10px; }
-.goal-edit label { display: grid; gap: 2px; color: var(--muted); font-weight: 600; }
+.goal-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; background: var(--surface); border-radius: 10px; padding: 6px 10px; }
+.goal-edit label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-weight: 600; }
 .goal-edit input { min-height: 34px; width: 120px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); padding: 0 8px; font-variant-numeric: tabular-nums; }
 .goal-status { align-self: center; }
 .goal-ok { color: var(--good); font-weight: 700; }
@@ -608,7 +608,7 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
 .metric-menu button:hover, .metric-menu button:focus-visible { background: var(--surface-2); }
 .metric-menu button[aria-checked="true"] b { color: var(--accent); }
 .mm-check { color: var(--accent); font-weight: 700; }
-.metric-row { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin: 6px 0 4px; }
+.metric-row { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-left: auto; }
 .events th.metric-th { text-align: right; }
 .events td.metric-td { font-size: 13px; color: var(--muted); white-space: nowrap; }
 @media (max-width: 560px) {
@@ -635,3 +635,10 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
 .iname .q { margin-left: 4px; vertical-align: 1px; }
 .compare-best th, .compare-best td { border-top: 2px solid var(--line); }
 .rank-controls .near-control .metric-menu { left: 0; right: auto; }
+
+/* ---------- the open event: its row stays at the top while its details scroll under it */
+.events tr.ev.open td { position: sticky; top: 0; z-index: 4; background: var(--accent-soft); box-shadow: 0 1px 0 var(--line); }
+.events tr.ev.open td:first-child { box-shadow: inset 3px 0 0 var(--accent), 0 1px 0 var(--line); color: var(--accent); font-weight: 600; }
+.events tr.ev.open:hover { background: none; }
+.events > tbody > tr.detail > td { box-shadow: inset 3px 0 0 var(--accent); }
+.event-detail { gap: 8px; }

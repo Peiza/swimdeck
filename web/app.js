@@ -1716,8 +1716,8 @@ async function fillEventDetail(s, code) {
         <div class="seg small" role="group" aria-label="${esc(t('topN'))}">
           ${[3, 5, 7, 10, 'all'].map((k) => `<button data-topn="${k}" aria-pressed="${state.topN === k}">${k === 'all' ? esc(t('all')) : k}</button>`).join('')}
         </div>
+        <div class="metric-row"><span class="muted small">${esc(t('metricCompare'))}</span> ${metricPill(s, 'detail')}</div>
       </div>
-      <div class="metric-row"><span class="muted small">${esc(t('metricCompare'))}</span> ${metricPill(s, 'detail')}</div>
       <ol class="top ${recent ? 'recent' : ''}">${top.map((r, i) => `
         <li><span class="pos">${recent ? '' : i + 1}</span><span class="time ${r.time === pbTime ? 'is-pb' : ''}">${fmtTime(r.time)}${recent && r.time !== pbTime ? `<small class="muted"> ${fmtDiff(r.time - pbTime)}</small>` : ''}</span>
         <span class="small"><span>${esc(r.date)}</span> · ${meetButton(r.meet, r.date, code, `${esc(r.meet)}${r.round ? ' · ' + esc(roundLabel(r.round)) : ''}`)}</span>
@@ -1725,7 +1725,7 @@ async function fillEventDetail(s, code) {
       <div id="rankBox" class="rank-box"></div>
       ${prognosisLine(s, code, ev.results)}
       ${recordLine(s, ev.results[0])}
-      ${ev.results.length > 1 ? `<h4 class="small muted">${esc(t('progression'))}</h4>${chart(ev.results, s.goals?.[code] || null)}` : ''}
+      ${ev.results.length > 1 ? `<h4 class="small muted">${esc(t('progression'))}</h4>${chart(ev.results, s.goals?.[code] || null, box.clientWidth - 24)}` : ''}
       ${seasonTable(ev.results)}`;
     fillRank(s, code);
   } catch (e) {
@@ -1848,9 +1848,10 @@ function seasonTable(results) {
       <td class="num ${x.change < 0 ? 'good' : x.change > 0 ? 'muted' : ''}">${x.change == null ? '' : fmtDiff(x.change)}</td><td class="num hide-sm muted">${x.count}</td></tr>`).join('')}</tbody></table>`;
 }
 
-function chart(results, goal = null) {
+function chart(results, goal = null, width = 320) {
   const pts = progression(results);
-  const W = 320, H = 130, P = { l: 44, r: 8, t: 8, b: 20 };
+  // drawn at about its real width, so text and lines keep their size on wide screens too
+  const W = Math.round(Math.min(720, Math.max(320, width || 320))), H = W > 480 ? 170 : 130, P = { l: 50, r: 8, t: 8, b: 20 };
   const ts = pts.map((p) => Date.parse(p.date));
   const x0 = Math.min(...ts), x1 = Math.max(...ts) || x0 + 1;
   const times = pts.map((p) => p.time).concat(goal ? [goal] : []);
