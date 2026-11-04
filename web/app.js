@@ -1583,7 +1583,7 @@ async function fillMeets(s) {
             <td class="num tag-cell">${w.pb ? `<span class="badge">${esc(t('newPb'))} ${fmtDiff(w.time - w.prevBest)}</span>` : w.first ? `<span class="badge neutral">${esc(t('firstSwim'))}</span>` : ''}</td>
           </tr>`).join('')}</tbody></table>
       </li>`).join('')}</ol>
-    ${list.length > shown.length ? `<div class="row"><button class="btn small" data-action="moreMeets">${esc(t('showMore'))}</button></div>` : ''}`;
+    ${list.length > shown.length ? `<div class="row more-row"><button class="btn small" data-action="moreMeets">${esc(t('showMore'))}</button></div>` : ''}`;
 }
 
 // ---------------------------------------------------------------- meet result lists
@@ -1725,7 +1725,7 @@ async function fillEventDetail(s, code) {
         <span class="small"><span>${esc(r.date)}</span> · ${meetButton(r.meet, r.date, code, `${esc(r.meet)}${r.round ? ' · ' + esc(roundLabel(r.round)) : ''}`)}</span>
         <span class="small muted num" title="${esc(ptsTitle(s, r))}">${ptsOf(s, r) || '–'}</span></li>`).join('')}</ol>
       ${recent && top.some((r) => r.time !== pbTime) ? `<p class="small muted top-legend">${esc(t('diffPbLegend', { pb: fmtTime(pbTime) }))}</p>` : ''}
-      <div id="rankBox" class="rank-box"></div>
+      <div id="rankBox" class="rank-box">${rankRow(s, code) ? `<div class="rank-line"><span class="rank-num">…</span><span class="small muted">${esc(t('rankLoading'))}</span></div>` : ''}</div>
       ${prognosisLine(s, code, ev.results)}
       ${recordLine(s, ev.results[0])}
       ${ev.results.length > 1 ? `<h4 class="small muted">${esc(t('progression'))}</h4>${chart(ev.results, s.goals?.[code] || null, box.clientWidth - 24)}` : ''}
@@ -1817,28 +1817,36 @@ function prognosisLine(s, code, results) {
   return `<p class="small prog">${esc(t('progWhen', { std: label, when, gap: fmtTime(q.next.gap) }))}</p>`;
 }
 
+/** The period best a national rank can be worked out for, or null (no birth year, sex or a Finnish swimmer). */
+function rankRow(s, code) {
+  const row = state.data[s.id]?.period?.bests?.find((b) => b.event === code);
+  return row && s.born && sexOf(s.sex) && s.site === 'se' ? row : null;
+}
+
+// The rank box keeps the same height from "loading" to the answer, so nothing below it moves while it loads
+// (a row that moves just as it is clicked would miss the click).
+const rankMsg = (text) => `<div class="rank-line"><span class="muted small">${esc(text)}</span></div>`;
+
 async function fillRank(s, code) {
   const box = () => (state.openEvent === code ? $('#rankBox') : null);
-  const d = state.data[s.id];
-  const row = d?.period?.bests?.find((b) => b.event === code);
+  const row = rankRow(s, code);
   const sex = sexOf(s.sex);
-  if (!box() || !row || !s.born || !sex || s.site !== 'se') return;
+  if (!box() || !row) return;
   const { from, to } = periodRange(state.period);
-  box().innerHTML = `<span class="muted small">${esc(t('rankLoading'))}</span>`;
   try {
     const key = `rank:${s.id}:${code}:${from}:${to}:${row.time}`;
     state.events[key] ||= api('/api/rank', { event: code, sex, born: s.born, from, to, time: row.time });
     const r = await state.events[key];
     if (!box()) return;
     if (!r.available) {
-      box().innerHTML = `<span class="muted small">${esc(t('rankTooYoung'))}</span>`;
+      box().innerHTML = rankMsg(t('rankTooYoung'));
       return;
     }
     const head = r.complete ? t('rankPlace', { place: r.rank }) : t('rankBeyond', { n: r.rank - 1 });
     box().innerHTML = `<div class="rank-line"><span class="rank-num">${esc(head)}</span>
       <span class="small muted">${esc(t('rankDetail', { year: s.born, period: periodName(), time: fmtTime(row.time) }))}${r.leader && r.rank > 1 ? ' · ' + esc(t('rankLeader', { time: fmtTime(r.leader) })) : ''}</span></div>`;
   } catch (e) {
-    if (box()) box().innerHTML = `<span class="muted small">${esc(t('error', { msg: e.message }))}</span>`;
+    if (box()) box().innerHTML = rankMsg(t('error', { msg: e.message }));
   }
 }
 
