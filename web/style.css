@@ -654,3 +654,9 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
   .compare tbody tr:hover td.fastest { background: color-mix(in srgb, var(--good) 22%, var(--surface)); }
 }
 .more-row { margin-top: 14px; }
+/* larger screens: the difference to the PB on the same line as the time */
+@media (min-width: 600px) {
+  .top.recent li { grid-template-columns: 4px 128px 1fr auto; }
+  .top.recent .time { white-space: nowrap; }
+  .events .top.recent .time small { display: inline; margin-left: 4px; }
+}
