@@ -104,6 +104,8 @@ const ptsTitle = (s, r, m = metricFor(s)) => {
   if (m === 'masters') { const x = mastersPct(s, r); return x ? t('mastersSwimTitle', { group: x.group, record: fmtTime(x.record) }) : t('metricMastersNone'); }
   if (m === 'wr') { const x = wrPct(s, r); return x ? t('wrSwimTitle', { record: fmtTime(x.record) }) : ''; }
   if (m === 'wps' && r.pool !== 50) return wpsEstimate(s, r) ? t('wpsEstimateTitle') : t('wpsLongOnly');
+  if (m === 'wps') return wpsPoints(s, r) ? t('wpsSwimTitle') : '';
+  if (m === 'aqua') return r.points ? t('aquaSwimTitle') : '';
   return '';
 };
 const ptsLabel = (s) => metricName(metricFor(s));
