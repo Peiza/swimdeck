@@ -656,7 +656,8 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
 .more-row { margin-top: 14px; }
 /* larger screens: the difference to the PB on the same line as the time */
 @media (min-width: 600px) {
-  .top.recent li { grid-template-columns: 4px 128px 1fr auto; }
-  .top.recent .time { white-space: nowrap; }
-  .events .top.recent .time small { display: inline; margin-left: 4px; }
+  #eventDetail .top li { grid-template-columns: 24px 128px 1fr auto; }
+  #eventDetail .top.recent li { grid-template-columns: 4px 128px 1fr auto; }
+  #eventDetail .top .time { white-space: nowrap; }
+  #eventDetail .top .time small { display: inline; margin-left: 4px; }
 }
