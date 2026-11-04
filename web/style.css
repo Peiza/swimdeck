@@ -167,7 +167,6 @@ a { color: var(--accent); }
   padding: 10px 14px; border-top: 1px solid var(--line); cursor: pointer;
 }
 .ranking li:first-child { border-top: 0; }
-.ranking li:hover { background: var(--surface-2); }
 .ranking .who { display: grid; }
 .ranking .time { font-size: 17px; }
 .ranking .gap { text-align: right; }
@@ -203,7 +202,6 @@ a { color: var(--accent); }
 .events td small { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
 .events td small.good { color: var(--good); }
 .events tr.ev { cursor: pointer; }
-.events tr.ev:hover { background: var(--surface-2); }
 .events tr.pb td:first-child { box-shadow: inset 3px 0 0 var(--good); }
 .chev { display: inline-block; width: 14px; color: var(--muted); transition: transform 0.15s; }
 tr.open .chev { transform: rotate(90deg); }
@@ -517,7 +515,6 @@ button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4
 
 /* toplist with both pools */
 .rank-both tbody tr { cursor: pointer; }
-.rank-both tbody tr:hover { background: var(--surface-2); }
 .rank-both td small { display: block; }
 .rank-both .pos { width: 2em; color: var(--muted); }
 .rank-both tbody tr:first-child .pos { color: var(--accent); }
@@ -638,7 +635,21 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
 /* ---------- the open event: its row stays at the top while its details scroll under it */
 .events tr.ev.open td { position: sticky; top: 0; z-index: 4; background: var(--accent-soft); box-shadow: 0 1px 0 var(--line); }
 .events tr.ev.open td:first-child { box-shadow: inset 3px 0 0 var(--accent), 0 1px 0 var(--line); color: var(--accent); font-weight: 600; }
-.events tr.ev.open:hover { background: none; }
 .events > tbody > tr.detail > td { box-shadow: inset 3px 0 0 var(--accent); }
 .event-detail { gap: 8px; }
 .top-legend { margin: -2px 0 0; }
+
+/* ---------- row highlight under the mouse, in every list and table (not on touch screens, where it would stick) */
+:root { --hover: color-mix(in srgb, var(--accent) 16%, var(--surface)); }
+@media (hover: hover) {
+  .events tr.ev:not(.open):hover td,
+  .top li:hover,
+  .seasons tbody tr:hover td,
+  .meet-swims tr:hover td,
+  .meet-list tr:hover td,
+  .qd-table tbody tr:hover td,
+  .compare tbody tr:hover td, .compare tbody tr:hover th,
+  .ranking li:hover,
+  .hits li:hover { background: var(--hover); }
+  .compare tbody tr:hover td.fastest { background: color-mix(in srgb, var(--good) 22%, var(--surface)); }
+}
