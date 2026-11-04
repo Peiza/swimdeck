@@ -1719,9 +1719,10 @@ async function fillEventDetail(s, code) {
         <div class="metric-row"><span class="muted small">${esc(t('metricCompare'))}</span> ${metricPill(s, 'detail')}</div>
       </div>
       <ol class="top ${recent ? 'recent' : ''}">${top.map((r, i) => `
-        <li><span class="pos">${recent ? '' : i + 1}</span><span class="time ${r.time === pbTime ? 'is-pb' : ''}">${fmtTime(r.time)}${recent && r.time !== pbTime ? `<small class="muted"> ${fmtDiff(r.time - pbTime)}</small>` : ''}</span>
+        <li><span class="pos">${recent ? '' : i + 1}</span><span class="time ${r.time === pbTime ? 'is-pb' : ''}">${fmtTime(r.time)}${recent && r.time !== pbTime ? `<small class="muted" title="${esc(t('diffPbTitle', { gap: fmtTime(r.time - pbTime), pb: fmtTime(pbTime) }))}"> ${fmtDiff(r.time - pbTime)}</small>` : ''}</span>
         <span class="small"><span>${esc(r.date)}</span> · ${meetButton(r.meet, r.date, code, `${esc(r.meet)}${r.round ? ' · ' + esc(roundLabel(r.round)) : ''}`)}</span>
         <span class="small muted num" title="${esc(ptsTitle(s, r))}">${ptsOf(s, r) || '–'}</span></li>`).join('')}</ol>
+      ${recent && top.some((r) => r.time !== pbTime) ? `<p class="small muted top-legend">${esc(t('diffPbLegend', { pb: fmtTime(pbTime) }))}</p>` : ''}
       <div id="rankBox" class="rank-box"></div>
       ${prognosisLine(s, code, ev.results)}
       ${recordLine(s, ev.results[0])}
