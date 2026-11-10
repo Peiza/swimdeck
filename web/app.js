@@ -583,9 +583,9 @@ function render() {
 function renderHeader() {
   const busy = state.busy;
   const last = Math.max(0, ...state.swimmers.map((s) => state.data[s.id]?.fetchedAt || 0));
-  $('#header').innerHTML = `
+  const html = `
     <button class="brand" data-action="home" aria-label="${esc(t('home'))}">
-      <svg class="logo" viewBox="2 6 28 20" aria-hidden="true"><defs><clipPath id="logoClip"><rect x="4.8" y="8" width="24.4" height="17"/></clipPath></defs><rect x="2" y="6" width="28" height="20" rx="5" fill="var(--accent)"/><g clip-path="url(#logoClip)"><path class="logo-wave" d="M-10 19c3-3 5-3 8 0s5 3 8 0 5-3 8 0 5 3 8 0 5-3 8 0 5 3 8 0 5-3 8 0" stroke="var(--on-accent)" stroke-width="2.4" fill="none" stroke-linecap="round"/></g><circle class="logo-head" cx="11" cy="12" r="2.2" fill="var(--on-accent)"/></svg>
+      <span class="logo" aria-hidden="true"><svg class="logo-wave" viewBox="0 0 64 20"><path d="M0 13c3-3 5-3 8 0s5 3 8 0 5-3 8 0 5 3 8 0 5-3 8 0 5 3 8 0 5-3 8 0 5 3 8 0" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg><span class="logo-head"></span></span>
       <div><h1>SwimDeck</h1><p class="tagline">${esc(t('slogan'))}</p></div>
     </button>
     <div class="toolbar">
@@ -609,6 +609,21 @@ function renderHeader() {
       ${syncStatusHtml()}
       ${state.swimmers.length ? `<span class="muted small hide-sm">${esc(t('updated', { when: last ? new Date(last).toLocaleString(state.lang, { dateStyle: 'short', timeStyle: 'short' }) : t('never') }))}</span>` : ''}
     </nav>`;
+  const header = $('#header');
+  const tpl = document.createElement('template');
+  tpl.innerHTML = html;
+  // Keep the brand button (and so the running logo animation) in place; only refresh its text.
+  const oldBrand = header.querySelector(':scope > .brand');
+  const newBrand = tpl.content.querySelector('.brand');
+  if (oldBrand && newBrand) {
+    oldBrand.setAttribute('aria-label', newBrand.getAttribute('aria-label'));
+    oldBrand.querySelector('div').replaceWith(newBrand.querySelector('div'));
+    newBrand.remove();
+    [...header.children].forEach((c) => c !== oldBrand && c.remove());
+    header.append(...tpl.content.childNodes);
+  } else {
+    header.replaceChildren(...tpl.content.childNodes);
+  }
 }
 
 const HELP_VIEWS = ['deck', 'rank', 'compare', 'qual'];

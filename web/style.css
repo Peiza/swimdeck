@@ -76,8 +76,10 @@ a { color: var(--accent); }
 /* ---------- header */
 #header { padding-top: 20px; display: grid; gap: 14px; grid-template-columns: 1fr auto; align-items: center; }
 .brand { display: flex; gap: 10px; align-items: center; }
-.logo { width: 50px; height: auto; flex: none; }
-@media (max-width: 480px) { .logo { width: 42px; } }
+.logo { position: relative; display: block; width: 54px; aspect-ratio: 28 / 20; flex: none; overflow: hidden; border-radius: 18% / 25%; background: var(--accent); color: var(--on-accent); }
+.logo-wave { position: absolute; left: 0; top: 0; width: 228.57%; height: 100%; }
+.logo-head { position: absolute; left: 24.3%; top: 19%; width: 15.7%; aspect-ratio: 1; border-radius: 50%; background: var(--on-accent); }
+@media (max-width: 480px) { .logo { width: 44px; } }
 .brand h1 { font-size: 22px; letter-spacing: -0.02em; }
 .tagline { color: var(--muted); font-size: 13px; }
 .toolbar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
@@ -664,11 +666,11 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
 }
 
 /* ---------- the logo's wave flows and the swimmer bobs while data is loading */
-@keyframes logo-flow { to { transform: translateX(-16px); } }
-@keyframes logo-bob { 50% { transform: translateY(1.4px); } }
+@keyframes logo-flow { to { transform: translateX(-25%); } }
+@keyframes logo-bob { 50% { transform: translateY(32%); } }
 @media (prefers-reduced-motion: no-preference) {
-  html.loading .logo-wave { animation: logo-flow 1.1s linear infinite; }
-  html.loading .logo-head { animation: logo-bob 1.1s ease-in-out infinite; }
+  html.loading .logo-wave { will-change: transform; animation: logo-flow 1.1s linear infinite; }
+  html.loading .logo-head { will-change: transform; animation: logo-bob 1.1s ease-in-out infinite; }
 }
 
 /* ---------- event names: the arrow hangs in the margin, so a name on two lines stays aligned */
