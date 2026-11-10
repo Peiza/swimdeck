@@ -661,3 +661,11 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
   #eventDetail .top .time { white-space: nowrap; }
   #eventDetail .top .time small { display: inline; margin-left: 4px; }
 }
+
+/* ---------- the logo's wave flows and the swimmer bobs while data is loading */
+@keyframes logo-flow { to { transform: translateX(-16px); } }
+@keyframes logo-bob { 50% { transform: translateY(1.4px); } }
+@media (prefers-reduced-motion: no-preference) {
+  html.loading .logo-wave { animation: logo-flow 1.1s linear infinite; }
+  html.loading .logo-head { animation: logo-bob 1.1s ease-in-out infinite; }
+}

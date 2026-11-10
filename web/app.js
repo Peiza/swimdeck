@@ -394,14 +394,36 @@ const ICON = {
 
 // ---------------------------------------------------------------- api
 
+// While anything is being fetched the logo's wave flows (html.loading, see style.css). It stops at the end
+// of a wave, not mid-movement; the timer is for when no animation runs (reduced motion).
+let pending = 0;
+let loadingTimer = 0;
+const loadingStop = () => pending === 0 && document.documentElement.classList.remove('loading');
+function loadingStart() {
+  pending++;
+  clearTimeout(loadingTimer);
+  document.documentElement.classList.add('loading');
+}
+function loadingEnd() {
+  pending = Math.max(0, pending - 1);
+  if (pending === 0) loadingTimer = setTimeout(loadingStop, 1500);
+}
+document.addEventListener('animationiteration', (e) => e.animationName === 'logo-flow' && loadingStop());
+
 async function api(path, params = {}) {
   if (CONFIG.api == null) throw new Error(t('apiMissing'));
   const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== '' && v != null));
-  const res = await fetch(`${API}${path}${q.toString() ? '?' + q : ''}`);
+  loadingStart();
+  let res;
   let body = null;
   try {
-    body = await res.json();
-  } catch {}
+    res = await fetch(`${API}${path}${q.toString() ? '?' + q : ''}`);
+    try {
+      body = await res.json();
+    } catch {}
+  } finally {
+    loadingEnd();
+  }
   if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
   return body;
 }
@@ -548,7 +570,7 @@ function renderHeader() {
   const last = Math.max(0, ...state.swimmers.map((s) => state.data[s.id]?.fetchedAt || 0));
   $('#header').innerHTML = `
     <button class="brand" data-action="home" aria-label="${esc(t('home'))}">
-      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="6" width="28" height="20" rx="5" fill="var(--accent)"/><path d="M6 19c3-3 5-3 8 0s5 3 8 0 5-3 6-1" stroke="var(--on-accent)" stroke-width="2.4" fill="none" stroke-linecap="round"/><circle cx="11" cy="12" r="2.2" fill="var(--on-accent)"/></svg>
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><defs><clipPath id="logoClip"><rect x="4.8" y="8" width="24.4" height="17"/></clipPath></defs><rect x="2" y="6" width="28" height="20" rx="5" fill="var(--accent)"/><g clip-path="url(#logoClip)"><path class="logo-wave" d="M-10 19c3-3 5-3 8 0s5 3 8 0 5-3 8 0 5 3 8 0 5-3 8 0 5 3 8 0 5-3 8 0" stroke="var(--on-accent)" stroke-width="2.4" fill="none" stroke-linecap="round"/></g><circle class="logo-head" cx="11" cy="12" r="2.2" fill="var(--on-accent)"/></svg>
       <div><h1>SwimDeck</h1><p class="tagline">${esc(t('slogan'))}</p></div>
     </button>
     <div class="toolbar">
@@ -646,7 +668,7 @@ function renderMain() {
   if (!state.swimmers.length) {
     main.innerHTML = `
       <div class="empty">
-        <svg viewBox="0 0 120 60" aria-hidden="true"><path d="M5 40c10-10 20-10 30 0s20 10 30 0 20-10 30 0 15 8 20 4" stroke="var(--accent)" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M5 52c10-10 20-10 30 0s20 10 30 0 20-10 30 0 15 8 20 4" stroke="var(--line)" stroke-width="4" fill="none" stroke-linecap="round"/></svg>
+        <svg viewBox="0 28 120 36" aria-hidden="true"><path d="M5 40c10-10 20-10 30 0s20 10 30 0 20-10 30 0 15 8 20 4" stroke="var(--accent)" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M5 52c10-10 20-10 30 0s20 10 30 0 20-10 30 0 15 8 20 4" stroke="var(--line)" stroke-width="4" fill="none" stroke-linecap="round"/></svg>
         <h2>${esc(t('emptyTitle'))}</h2>
         <p>${esc(t('emptyBody'))}</p>
         <button class="btn primary" data-action="add">+ ${esc(t('add'))}</button>
