@@ -522,3 +522,25 @@ export function shortNames(names) {
     return out.filter((y) => y.toLocaleLowerCase() === key).length > 1 ? `${label} (${n})` : label;
   });
 }
+
+/**
+ * Three-way merge of sync lists. `base` is what this device last synced, `local` what it has now and
+ * `remote` what another device has written since. Local removals, additions and edits (para, goals)
+ * are applied on top of the remote list; the remote order is kept.
+ */
+export function mergeSyncLists(base, local, remote) {
+  const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  const baseMap = new Map((base || []).map((s) => [s.id, s]));
+  const localMap = new Map((local || []).map((s) => [s.id, s]));
+  const out = [];
+  for (const r of remote || []) {
+    const b = baseMap.get(r.id);
+    const l = localMap.get(r.id);
+    if (b && !l) continue; // removed here
+    if (b && l && (!same(b.goals, l.goals) || !same(b.para, l.para))) out.push(l);
+    else out.push(r);
+  }
+  const have = new Set(out.map((s) => s.id));
+  for (const l of local || []) if (!baseMap.has(l.id) && !have.has(l.id)) out.push(l);
+  return out;
+}

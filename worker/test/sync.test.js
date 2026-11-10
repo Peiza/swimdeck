@@ -85,3 +85,12 @@ test('goals are kept when valid and dropped otherwise', () => {
   const out = cleanList({ swimmers: [{ id: 1, goals: { 13: 6550, 44: '7000', 999: 100, 11: -5, x: 3000 } }] });
   assert.deepEqual(out.swimmers[0].goals, { 13: 6550, 44: 7000 });
 });
+
+test('a write based on an old version is refused with 409', async () => {
+  const env = { LISTS: memoryKv() };
+  const { token, updatedAt } = await handleSync(req('POST', { swimmers: [{ id: 1 }] }), env, '/api/sync');
+  await new Promise((r) => setTimeout(r, 5));
+  await handleSync(req('PUT', { swimmers: [{ id: 1 }, { id: 2 }], base: updatedAt }), env, `/api/sync/${token}`);
+  await assert.rejects(handleSync(req('PUT', { swimmers: [{ id: 9 }], base: updatedAt }), env, `/api/sync/${token}`), (e) => e.status === 409);
+  assert.deepEqual((await handleSync(req('GET'), env, `/api/sync/${token}`)).swimmers.map((s) => s.id), [1, 2]);
+});

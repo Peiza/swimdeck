@@ -77,7 +77,12 @@ export async function handleSync(request, env, path) {
   if (request.method === 'PUT') {
     const raw = await kv.get(key);
     if (!raw) throw bad('Not found', 404);
-    const list = cleanList(await readJson(request));
+    const body = await readJson(request);
+    const list = cleanList(body);
+    // Optimistic check: the client says which version it last saw. If someone else has written since, refuse
+    // so the client can fetch, merge and try again instead of overwriting the other device's changes.
+    const base = Number(body?.base);
+    if (Number.isFinite(base) && base > 0 && JSON.parse(raw).updatedAt > base) throw bad('Conflict', 409);
     const updatedAt = Date.now();
     await kv.put(key, JSON.stringify({ ...list, updatedAt }), { expirationTtl: TTL });
     return { updatedAt };

@@ -12,7 +12,7 @@ import {
   eventLabel, eventShort, eventSortKey, eventInfo, fmtTime, fmtDiff, periodRange, seasonLabel, periodOptions,
   summarize, progression, parseTempusRef, parseTime, goalStatus, rankings, rankingsByPoints, rankingsBothPools, sortSwimmers,
   seasonBests, meets, compareTable, shortNames, rankingsByImprovement, toCsv, profile, form, prognosis, headToHead,
-  bestsSnapshot, newSince,
+  bestsSnapshot, newSince, mergeSyncLists,
 } from './lib.js';
 
 // ---------------------------------------------------------------- state
@@ -231,9 +231,21 @@ function schedulePush() {
 async function pushSync() {
   pushTimer = null;
   if (!state.sync) return;
-  const payload = JSON.stringify(syncPayload());
+  let payload = JSON.stringify(syncPayload());
   try {
-    const r = await syncApi('PUT', '/' + state.sync.token, JSON.parse(payload));
+    let r;
+    try {
+      r = await syncApi('PUT', '/' + state.sync.token, { ...JSON.parse(payload), base: state.sync.updatedAt });
+    } catch (e) {
+      if (e.status !== 409) throw e;
+      // Another device wrote first: merge its changes with ours, then write once more.
+      const remote = await syncApi('GET', '/' + state.sync.token);
+      let before = [];
+      try { before = JSON.parse(state.sync.payload || '{}').swimmers || []; } catch {}
+      applyRemote({ swimmers: mergeSyncLists(before, JSON.parse(payload).swimmers, remote.swimmers) });
+      payload = JSON.stringify(syncPayload());
+      r = await syncApi('PUT', '/' + state.sync.token, { ...JSON.parse(payload), base: remote.updatedAt });
+    }
     state.sync = { ...state.sync, updatedAt: r.updatedAt, payload, error: null };
   } catch (e) {
     state.sync = { ...state.sync, error: e.status === 404 ? 'gone' : e.message };
