@@ -585,7 +585,7 @@ function renderHeader() {
   const last = Math.max(0, ...state.swimmers.map((s) => state.data[s.id]?.fetchedAt || 0));
   const html = `
     <button class="brand" data-action="home" aria-label="${esc(t('home'))}">
-      <span class="logo" aria-hidden="true"><svg class="logo-wave" viewBox="0 0 64 20"><path d="M0 13c3-3 5-3 8 0s5 3 8 0 5-3 8 0 5 3 8 0 5-3 8 0 5 3 8 0 5-3 8 0 5 3 8 0" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg><span class="logo-head"></span></span>
+      <span class="logo" aria-hidden="true"><svg class="logo-wave" viewBox="0 0 80 20"><path d="M0 13c3-3 5-3 8 0s5 3 8 0 5-3 8 0 5 3 8 0 5-3 8 0 5 3 8 0 5-3 8 0 5 3 8 0 5-3 8 0 5 3 8 0" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg><span class="logo-head"></span></span>
       <div><h1>SwimDeck</h1><p class="tagline">${esc(t('slogan'))}</p></div>
     </button>
     <div class="toolbar">
