@@ -752,7 +752,8 @@ async function enableNotify() {
 
 async function sendNotifyList(sub) {
   const swimmers = state.swimmers.filter((s) => s.site === 'se').map((s) => s.id);
-  await notifyApi('POST', '', { subscription: sub.toJSON(), swimmers, lang: state.lang });
+  const goals = Object.fromEntries(state.swimmers.filter((s) => s.site === 'se' && s.goals && Object.keys(s.goals).length).map((s) => [s.id, s.goals]));
+  await notifyApi('POST', '', { subscription: sub.toJSON(), swimmers, goals, lang: state.lang });
   state.notify = { endpoint: sub.endpoint, count: swimmers.length };
   store.set('notify', state.notify);
 }
@@ -1778,6 +1779,7 @@ function setGoal(code, value) {
   else goals[code] = value;
   s.goals = Object.keys(goals).length ? goals : undefined;
   save();
+  scheduleNotifyUpdate();
   renderSwimmerDialog();
   renderMain();
 }

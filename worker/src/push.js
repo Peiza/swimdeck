@@ -107,6 +107,8 @@ function bad(message, status = 400) {
   return Object.assign(new Error(message), { status });
 }
 
+const MAX_GOALS = 300;
+
 export function cleanSubscription(input) {
   const s = input?.subscription;
   if (!s || typeof s.endpoint !== 'string' || !/^https:\/\//.test(s.endpoint) || s.endpoint.length > 1000) throw bad('Bad subscription');
@@ -115,7 +117,18 @@ export function cleanSubscription(input) {
   if (!/^[A-Za-z0-9_-]{80,100}$/.test(p256dh) || !/^[A-Za-z0-9_-]{16,32}$/.test(auth)) throw bad('Bad subscription keys');
   const ids = [...new Set((input.swimmers || []).map(Number).filter((n) => Number.isInteger(n) && n > 0 && n < 1e9))].slice(0, MAX_SWIMMERS);
   const lang = ['sv', 'en', 'fi', 'nb'].includes(input.lang) ? input.lang : 'sv';
-  return { subscription: { endpoint: s.endpoint, keys: { p256dh, auth } }, swimmers: ids, lang };
+  const goals = {};
+  let n = 0;
+  for (const [id, byEvent] of Object.entries(input.goals || {})) {
+    if (!ids.includes(Number(id)) || !byEvent || typeof byEvent !== 'object') continue;
+    for (const [ev, cs] of Object.entries(byEvent)) {
+      if (n >= MAX_GOALS) break;
+      if (!Number.isInteger(Number(ev)) || Number(ev) < 1 || Number(ev) > 99 || !Number.isInteger(cs) || cs < 1000 || cs > 600000) continue;
+      (goals[id] ||= {})[ev] = cs;
+      n++;
+    }
+  }
+  return { subscription: { endpoint: s.endpoint, keys: { p256dh, auth } }, swimmers: ids, goals, lang };
 }
 
 export async function handlePush(request, env, path) {
@@ -167,10 +180,10 @@ async function readJson(request) {
 // ---------------------------------------------------------------- scheduled check
 
 const TEXT = {
-  sv: { title: 'Nytt PB: {name}', body: '{event} {pool} m: {time}', more: '{n} nya PB', bodyMore: '{list}' },
-  en: { title: 'New PB: {name}', body: '{event} {pool} m: {time}', more: '{n} new PBs', bodyMore: '{list}' },
-  fi: { title: 'Uusi SE: {name}', body: '{event} {pool} m: {time}', more: '{n} uutta ennätystä', bodyMore: '{list}' },
-  nb: { title: 'Ny pers: {name}', body: '{event} {pool} m: {time}', more: '{n} nye pers', bodyMore: '{list}' },
+  sv: { goal: 'Mål nått: {name}', title: 'Nytt PB: {name}', body: '{event} {pool} m: {time}', more: '{n} nya PB', bodyMore: '{list}' },
+  en: { goal: 'Goal reached: {name}', title: 'New PB: {name}', body: '{event} {pool} m: {time}', more: '{n} new PBs', bodyMore: '{list}' },
+  fi: { goal: 'Tavoite saavutettu: {name}', title: 'Uusi SE: {name}', body: '{event} {pool} m: {time}', more: '{n} uutta ennätystä', bodyMore: '{list}' },
+  nb: { goal: 'Mål nådd: {name}', title: 'Ny pers: {name}', body: '{event} {pool} m: {time}', more: '{n} nye pers', bodyMore: '{list}' },
 };
 const fill = (s, v) => s.replace(/\{(\w+)\}/g, (_, k) => v[k] ?? '');
 
@@ -194,9 +207,22 @@ export function diffBests(snapshot, bests) {
 
 export const snapshotOf = (bests) => Object.fromEntries((bests || []).map((b) => [`${b.pool}:${b.event}`, b.time]));
 
-export function messageFor(swimmer, news, lang) {
+/** New bests that reach a goal { "event": centiseconds } for the first time (the old best was above it). */
+export function reachedGoals(goals, news, snapshot) {
+  return news.filter((b) => {
+    const g = goals?.[b.event];
+    const was = snapshot?.[`${b.pool}:${b.event}`];
+    return g != null && b.time <= g && was != null && was > g;
+  });
+}
+
+export function messageFor(swimmer, news, lang, reached = []) {
   const T = TEXT[lang] || TEXT.sv;
   const name = swimmer?.name || '';
+  if (reached.length) {
+    const list = reached.slice(0, 4).map((b) => `✓ ${b.name} ${b.pool} m: ${fmtTime(b.time)}`).join('\n');
+    return { title: fill(T.goal, { name }), body: list, tag: `goal-${swimmer.id}` };
+  }
   if (news.length === 1) {
     const b = news[0];
     return { title: fill(T.title, { name }), body: fill(T.body, { event: b.name, pool: b.pool, time: fmtTime(b.time) }), tag: `pb-${swimmer.id}` };
@@ -240,7 +266,7 @@ export async function runCheck(env, fetchBests, { appUrl, send = sendPush, maxSw
     const next = snapshotOf(data.bests);
     if (snap) {
       const fresh = diffBests(snap, data.bests);
-      if (fresh.length) news.set(id, { swimmer: data.swimmer || { id }, news: fresh });
+      if (fresh.length) news.set(id, { swimmer: data.swimmer || { id }, news: fresh, snap });
     }
     if (!snap || JSON.stringify(snap) !== JSON.stringify(next)) await kv.put('snap:' + id, JSON.stringify(next), { expirationTtl: TTL });
   }
@@ -252,7 +278,8 @@ export async function runCheck(env, fetchBests, { appUrl, send = sendPush, maxSw
       for (const id of sub.swimmers) {
         const n = news.get(id);
         if (!n) continue;
-        const msg = { ...messageFor({ ...n.swimmer, id }, n.news, sub.lang), url: appUrl };
+        const reached = reachedGoals(sub.goals?.[id], n.news, n.snap);
+        const msg = { ...messageFor({ ...n.swimmer, id }, n.news, sub.lang, reached), url: appUrl };
         try {
           const res = await send(sub.subscription, msg, keys, appUrl);
           if (res.status === 404 || res.status === 410) {

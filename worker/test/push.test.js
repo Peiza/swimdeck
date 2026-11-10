@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { b64u, vapidKeys, vapidHeader, encryptPayload, cleanSubscription, handlePush, diffBests, snapshotOf, messageFor, runCheck, fmtTime } from '../src/push.js';
+import { b64u, vapidKeys, vapidHeader, encryptPayload, cleanSubscription, handlePush, diffBests, snapshotOf, messageFor, reachedGoals, runCheck, fmtTime } from '../src/push.js';
 
 function memoryKv() {
   const store = new Map();
@@ -139,4 +139,21 @@ test('test notifications go only to stored subscriptions, at most once a minute'
   assert.equal(r.sent, true);
   assert.match(sent[0].msg.body, /Testnotis/);
   await assert.rejects(handlePush(req('/api/push/test', { endpoint: a.subscription.endpoint }), env, '/api/push/test'), (e) => e.status === 429);
+});
+
+test('goal reached only when the old best was above the goal', () => {
+  const snap = { '25:13': 6100, '25:15': 7000 };
+  const news = [{ pool: 25, event: 13, time: 5990, name: '100m Freestyle' }, { pool: 25, event: 15, time: 6900, name: '200m Freestyle' }];
+  const hit = reachedGoals({ 13: 6000, 15: 6800 }, news, snap);
+  assert.deepEqual(hit.map((b) => b.event), [13]);
+  assert.equal(reachedGoals({ 13: 6000 }, [{ pool: 25, event: 13, time: 5950, name: 'x' }], { '25:13': 5990 }).length, 0);
+  const m = messageFor({ id: 7, name: 'Anna A' }, news, 'en', hit);
+  assert.match(m.title, /Goal reached: Anna A/);
+  assert.match(m.body, /1:00\.00|59\.90/);
+});
+
+test('cleanSubscription keeps only valid goals for listed swimmers', () => {
+  const sub = { endpoint: 'https://example.com/x', keys: { p256dh: 'A'.repeat(87), auth: 'B'.repeat(22) } };
+  const c = cleanSubscription({ subscription: sub, swimmers: [7], goals: { 7: { 13: 6000, 14: 5, 15: 'x' }, 8: { 13: 6000 } } });
+  assert.deepEqual(c.goals, { 7: { 13: 6000 } });
 });
