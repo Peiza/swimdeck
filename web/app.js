@@ -410,7 +410,9 @@ const ICON = {
 // of a wave, not mid-movement; the timer is for when no animation runs (reduced motion).
 let pending = 0;
 let loadingTimer = 0;
-const loadingStop = () => pending === 0 && document.documentElement.classList.remove('loading');
+let lastEnd = 0;
+// Stop only when nothing has been loading for a moment, so a list of swimmers loaded one after another keeps one smooth animation.
+const loadingStop = () => pending === 0 && Date.now() - lastEnd >= 600 && document.documentElement.classList.remove('loading');
 function loadingStart() {
   pending++;
   clearTimeout(loadingTimer);
@@ -418,6 +420,7 @@ function loadingStart() {
 }
 function loadingEnd() {
   pending = Math.max(0, pending - 1);
+  lastEnd = Date.now();
   if (pending === 0) loadingTimer = setTimeout(loadingStop, 1500);
 }
 document.addEventListener('animationiteration', (e) => e.animationName === 'logo-flow' && loadingStop());
