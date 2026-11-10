@@ -44,8 +44,14 @@ async function open(swimmers, { width = 1200, store = {} } = {}) {
   }, { swimmers, store });
   await page.reload();
   await page.waitForSelector('.card');
-  await page.waitForTimeout(600);
+  await settled(page);
   return page;
+}
+
+/** Waits until nothing is being fetched (the app sets html.loading meanwhile), so a re-render can't pull an element away mid-click. */
+async function settled(page) {
+  await page.waitForTimeout(300);
+  await page.waitForFunction(() => !document.documentElement.classList.contains('loading'), null, { timeout: 10000 });
 }
 
 const stored = (page, key) => page.evaluate((k) => JSON.parse(localStorage.getItem('swimdeck.' + k)), key);
@@ -121,6 +127,7 @@ test('scrolling up or down over a wide table scrolls the page', async () => {
   await page.setViewportSize({ width: 400, height: 500 });
   await page.click('[data-view="compare"]');
   await page.waitForSelector('.table-scroll');
+  await settled(page);
   await page.evaluate(() => window.scrollTo(0, 0));
   const box = await page.locator('.table-scroll').boundingBox();
   await page.mouse.move(box.x + box.width / 2, Math.min(box.y + 40, 450));

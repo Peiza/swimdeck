@@ -579,11 +579,11 @@ function renderHeader() {
           ${[...new Set([...periodOptions(oldestSwimYear()), state.period])].map((p) => `<option value="${p}" ${p === state.period ? 'selected' : ''}>${esc(periodOptionLabel(p))}</option>`).join('')}
         </select>
       </label>
-      <button id="refresh" class="btn" ${busy || !state.swimmers.length ? 'disabled' : ''}>
+      <button id="refresh" class="btn" aria-label="${esc(t('refresh'))}" title="${esc(t('refresh'))}" ${busy || !state.swimmers.length ? 'disabled' : ''}>
         <svg viewBox="0 0 24 24" aria-hidden="true" class="${busy ? 'spin' : ''}"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>${busy ? esc(t('refreshing', busy)) : esc(t('refresh'))}</span>
       </button>
-      <button id="add" class="btn primary"><span aria-hidden="true">+</span> <span>${esc(t('add'))}</span></button>
+      <button id="add" class="btn primary" aria-label="${esc(t('add'))}"><span aria-hidden="true">+</span> <span class="add-long">${esc(t('add'))}</span><span class="add-short">${esc(t('addShort'))}</span></button>
     </div>
     <nav class="tabs" role="tablist">
       <button role="tab" data-view="deck" aria-selected="${state.view === 'deck'}">${esc(t('deck'))} <span class="count">${state.swimmers.length}</span></button>
@@ -592,7 +592,7 @@ function renderHeader() {
       <button role="tab" data-view="qual" aria-selected="${state.view === 'qual'}">${esc(t('qualTab'))}</button>
       <span class="spacer"></span>
       ${syncStatusHtml()}
-      <span class="muted small hide-sm">${esc(t('updated', { when: last ? new Date(last).toLocaleString(state.lang, { dateStyle: 'short', timeStyle: 'short' }) : t('never') }))}</span>
+      ${state.swimmers.length ? `<span class="muted small hide-sm">${esc(t('updated', { when: last ? new Date(last).toLocaleString(state.lang, { dateStyle: 'short', timeStyle: 'short' }) : t('never') }))}</span>` : ''}
     </nav>`;
 }
 
@@ -1424,7 +1424,7 @@ function renderSwimmerDialog() {
       </nav>
       ${state.openTab === 'profile' ? profileView(s) : state.openTab === 'meets' ? `<div id="meetsBox"><p class="muted">${esc(t('loading'))}</p></div>` : `
       <div class="sheet-tools">
-        <div class="seg" role="tablist">${pools.sort().map((p) => `<button data-pool="${p}" aria-pressed="${p === state.openPool}">${esc(t(p === 25 ? 'pool25' : 'pool50'))}</button>`).join('')}</div>
+        <div class="seg" role="tablist" ${pools.length < 2 ? 'hidden' : ''}>${pools.sort().map((p) => `<button data-pool="${p}" aria-pressed="${p === state.openPool}">${esc(t(p === 25 ? 'pool25' : 'pool50'))}</button>`).join('')}</div>
         <label class="select compact period-sheet"><span class="muted small">${esc(t('periodBest'))}</span>
           <select id="periodSheet">${[...new Set([...periodOptions(oldestSwimYear()), state.period])].map((p) => `<option value="${p}" ${p === state.period ? 'selected' : ''}>${esc(periodOptionLabel(p))}</option>`).join('')}</select></label>
       </div>
@@ -1711,7 +1711,7 @@ function eventRow(s, r) {
   const gHtml = goal ? (r.pb && r.pb.time <= goal ? ` <span class="gbadge ok">✓ ${esc(t('goal'))}</span>` : `<small class="qnext">${esc(t('goal'))} ${fmtTime(goal)}${r.pb ? ' · ' + esc(t('goalLeft', { gap: fmtTime(r.pb.time - goal) })) : ''}</small>`) : '';
   return `
     <tr class="ev ${r.newPb ? 'pb' : ''} ${open ? 'open' : ''}" data-event="${r.event}" tabindex="0" aria-expanded="${open}">
-      <td><span class="chev" aria-hidden="true">›</span>${esc(eventLabel(r.event, state.lang, r.name))}${r.newPb ? ` <span class="badge">${esc(t('newPb'))}${r.improve ? ' ' + fmtDiff(-r.improve) : ''}</span>` : ''}${qHtml}${gHtml}</td>
+      <td class="ev-name"><span class="chev" aria-hidden="true">›</span>${esc(eventLabel(r.event, state.lang, r.name)).replace(/^(\d+) m /, '$1\u00a0m ')}${r.newPb ? ` <span class="badge">${esc(t('newPb'))}${r.improve ? ' ' + fmtDiff(-r.improve) : ''}</span>` : ''}${qHtml}${gHtml}</td>
       <td class="num"><b>${r.pb ? fmtTime(r.pb.time) : '–'}</b><small>${esc(r.pb?.date || '')}</small></td>
       <td class="num">${r.period ? `${fmtTime(r.period.time)}<small class="${r.diff > 0 ? '' : 'good'}">${r.diff != null ? fmtDiff(r.diff) : ''}</small>` : '<span class="muted">–</span>'}</td>
       <td class="num metric-td" title="${esc(r.pb ? ptsTitle(s, r.pb) : '')}">${ptsOf(s, r.pb) || '<span class="muted">–</span>'}</td>

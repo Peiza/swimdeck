@@ -669,3 +669,35 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
   html.loading .logo-wave { animation: logo-flow 1.1s linear infinite; }
   html.loading .logo-head { animation: logo-bob 1.1s ease-in-out infinite; }
 }
+
+/* ---------- event names: the arrow hangs in the margin, so a name on two lines stays aligned */
+.events td.ev-name { position: relative; padding-left: 24px; }
+.events td.ev-name .chev { position: absolute; left: 6px; }
+.seg[hidden] { display: none; }
+
+/* ---------- top list: no wider than it is easy to read across */
+.ranking, .table-scroll:has(> .rank-both) { max-width: 860px; }
+.row.end:has(+ .ranking), .row.end:has(+ .table-scroll > .rank-both) { max-width: 860px; }
+
+/* ---------- phones: a lower header, and the tools above the cards on tidy rows */
+.add-short { display: none; }
+@media (max-width: 720px) {
+  #header { grid-template-columns: 1fr auto auto; gap: 10px 8px; padding-top: 14px; }
+  .toolbar { display: contents; }
+  .toolbar #refresh { grid-column: 2; grid-row: 1; padding: 0 12px; }
+  .toolbar #refresh span { display: none; }
+  .toolbar #add { grid-column: 3; grid-row: 1; }
+  .add-long { display: none; }
+  .add-short { display: inline; }
+  .toolbar .select { grid-column: 1 / -1; grid-row: 2; }
+}
+@media (max-width: 560px) {
+  .deck-tools { flex-wrap: wrap; gap: 2px 14px; align-items: center; }
+  .deck-tools-left { display: contents; }
+  .deck-tools .select { flex: 1 1 55%; min-width: 0; order: 1; }
+  .deck-tools .select select { width: 100%; }
+  .deck-tools > .muted-link { order: 2; flex: none; }
+  .deck-tools-left > button.link { order: 3; min-height: 36px; font-size: 14px; }
+  .events th, .events td { padding-left: 5px; padding-right: 5px; }
+  .events td.ev-name { padding-left: 22px; }
+}
