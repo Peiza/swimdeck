@@ -720,11 +720,16 @@ function cardInfo(id) {
   return { newPbs: sum.newPbs, latest: sum.latest?.date || '' };
 }
 
-function deckView() {
-  const allCollapsed = state.swimmers.every((s) => state.collapsed.includes(s.id));
-  const list = state.sort === 'fresh'
+/** The swimmers in the order chosen under "Sort by" on the Swimmers tab; other views follow it. */
+function sortedSwimmers() {
+  return state.sort === 'fresh'
     ? [...state.swimmers].sort((a, b) => newFor(b).length - newFor(a).length)
     : sortSwimmers(state.swimmers, state.sort, cardInfo, state.lang);
+}
+
+function deckView() {
+  const allCollapsed = state.swimmers.every((s) => state.collapsed.includes(s.id));
+  const list = sortedSwimmers();
   return `
     <div class="deck-tools">
       <div class="deck-tools-left">
@@ -1280,7 +1285,7 @@ const qualHighlights = (reached) => {
 function qualDoneView() {
   const doc = QUAL.standards[0];
   const byEvent = (a, b) => a.pool - b.pool || eventSortKey(a.event) - eventSortKey(b.event);
-  const people = state.swimmers.map((s) => {
+  const people = sortedSwimmers().map((s) => {
     const all = qualRows(s);
     const rows = all.filter((q) => q.reached.length).sort(byEvent);
     const near = all
