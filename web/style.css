@@ -546,7 +546,7 @@ button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4
 .qd-table tbody tr:first-child td { border-top: 0; }
 .rank-both thead th.num { text-align: right; }
 .rank-both th.num, .rank-both td.num { width: 7.5em; }
-.qd-table thead th.num { text-transform: none; letter-spacing: 0; text-align: right; padding-left: 10px; }
+.qd-table thead th.num { text-transform: none; letter-spacing: 0; text-align: right; padding-left: 10px; padding-right: 10px; }
 .qd-table td small { display: block; font-size: 11px; }
 .qd-badges { white-space: nowrap; }
 .qd-std { display: flex; justify-content: flex-end; align-items: center; gap: 8px; line-height: 1.8; }
@@ -731,7 +731,7 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
   .qd-card { padding: 12px 10px; }
   .qd-table { font-size: 13px; }
   .qd-table td.num { padding: 5px 0 5px 8px; }
-  .qd-table thead th.num { padding-left: 8px; }
+  .qd-table thead th.num { padding-left: 8px; padding-right: 0; }
   .qd-table thead th { letter-spacing: 0; }
   .qd-lim { font-size: 12px; }
 }
