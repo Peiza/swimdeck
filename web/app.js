@@ -380,7 +380,9 @@ async function joinSync(token) {
 
 const STD_LABEL = { smA: 'SM A', smB: 'SM B', usm: 'USM', paraA: 'Para-SM A', paraB: 'Para-SM B' };
 const stdLabel = (id) => STD_LABEL[id] || id;
-const qBadge = (id, extra = '') => `<span class="q q-${id}">${esc(stdLabel(id))}${extra}</span>`;
+// Compact labels for the overview table, so every pill is about as wide and they line up in a column.
+const SHORT_LABEL = { paraA: 'Para A', paraB: 'Para B' };
+const qBadge = (id, extra = '', short = false) => `<span class="q q-${id}" ${short ? `title="${esc(stdLabel(id))}"` : ''}>${esc(short ? SHORT_LABEL[id] || stdLabel(id) : stdLabel(id))}${extra}</span>`;
 
 function newFor(s) {
   return newSince(state.data[s.id]?.all?.bests, state.seen[s.id]);
@@ -1290,7 +1292,7 @@ function qualDoneView() {
   const shown = people.filter((p) => p.rows.length || p.near.length);
   const none = people.filter((p) => !p.rows.length && !p.near.length);
   const loading = state.swimmers.some((s) => !state.data[s.id]?.qual);
-  const std = (id, time) => `<span class="qd-std">${qBadge(id)}<span class="qd-lim">${fmtTime(time)}</span></span>`;
+  const std = (id, time) => `<span class="qd-std">${qBadge(id, '', true)}<span class="qd-lim">${fmtTime(time)}</span></span>`;
   const next = (q) => (q.next ? `<span class="qd-next">${esc(t('toNext', { gap: fmtTime(q.next.gap), std: stdLabel(q.next.id) }))} (${fmtTime(q.next.time)})</span>` : '');
   const swum = (q) => `<td class="num"><b>${fmtTime(q.result.time)}</b><small class="muted">${esc(q.result.date || '')}</small></td>`;
   const head = (label) => `<thead><tr><th class="qd-pool">${label}</th><th class="num">${esc(t('qdSwum'))}</th><th class="num">${esc(t('qdLimit'))}</th></tr></thead>`;

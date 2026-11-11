@@ -550,8 +550,8 @@ button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4
 .qd-table td small { display: block; font-size: 11px; }
 .qd-badges { white-space: nowrap; }
 .qd-std { display: flex; justify-content: flex-end; align-items: center; gap: 8px; line-height: 1.8; }
-.qd-std .q { min-width: 3.4em; justify-content: center; }
-.qd-lim { min-width: 3.9em; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
+.qd-std .q { min-width: 5em; justify-content: center; }
+.qd-lim { min-width: 4.4em; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
 .qd-next-row td { border-top: 0 !important; padding: 0 0 6px !important; text-align: right; }
 .qd-next { font-size: 12px; color: var(--muted); }
 .qd-table tr:has(+ .qd-next-row) td { padding-bottom: 1px; }
@@ -717,10 +717,15 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
 /* qualifying overview on narrow screens: the table must fit inside its card */
 @media (max-width: 520px) {
   .qd-badges { white-space: normal; }
-  .qd-std { flex-wrap: wrap; gap: 2px 6px; }
-  .qd-std .q { min-width: 0; }
-  .qd-lim { min-width: 0; }
   .qd-table thead th.qd-pool { white-space: normal; }
+}
+@media (max-width: 340px) {
+  .qd-std { flex-wrap: wrap; gap: 2px 6px; }
+}
+/* the pill and the limit stack when the card is narrow for its text size (larger text needs a wider card) */
+.qd-card { container-type: inline-size; }
+@container (max-width: 20em) {
+  .qd-std { flex-wrap: wrap; gap: 2px 6px; }
 }
 @media (max-width: 400px) {
   .qd-card { padding: 12px 10px; }
