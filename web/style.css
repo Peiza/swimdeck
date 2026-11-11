@@ -716,15 +716,17 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
 
 /* qualifying overview on narrow screens: the table must fit inside its card */
 @media (max-width: 520px) {
+  .qd-badges { white-space: normal; }
+  .qd-std { flex-wrap: wrap; gap: 2px 6px; }
+  .qd-std .q { min-width: 0; }
+  .qd-lim { min-width: 0; }
+  .qd-table thead th.qd-pool { white-space: normal; }
+}
+@media (max-width: 400px) {
   .qd-card { padding: 12px 10px; }
   .qd-table { font-size: 13px; }
   .qd-table td.num { padding: 5px 0 5px 8px; }
   .qd-table thead th.num { padding-left: 8px; }
-  .qd-badges { white-space: normal; }
-  .qd-std { flex-wrap: wrap; gap: 2px 6px; }
-  .qd-std .q { min-width: 0; }
-  .qd-lim { min-width: 0; font-size: 12px; }
-  .qd-table thead th.qd-pool { white-space: normal; }
   .qd-table thead th { letter-spacing: 0; }
-  .qd-next-row td { text-align: left; }
+  .qd-lim { font-size: 12px; }
 }
