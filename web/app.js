@@ -709,7 +709,49 @@ function renderMain() {
     return;
   }
   main.innerHTML = helpBox(state.view) + (state.view === 'rank' ? rankView() : state.view === 'compare' ? compareView() : state.view === 'qual' ? qualView() : deckView());
+  packQualCards();
 }
+
+/**
+ * Qualifying cards: spread them over as many columns as fit, each card going to the currently shortest column.
+ * The order reads left to right, row by row, like the Swimmers tab, and short cards leave no gaps.
+ */
+const QUAL_CARD_MIN = 360;
+const QUAL_GAP = 12;
+function packQualCards() {
+  const box = $('.qual-done');
+  if (!box) return;
+  const cards = [...box.querySelectorAll('.qd-card')];
+  if (!cards.length) return;
+  const cols = Math.max(1, Math.floor((box.clientWidth + QUAL_GAP) / (QUAL_CARD_MIN + QUAL_GAP)));
+  if (box.dataset.cols === String(cols) && box.dataset.count === String(cards.length) && box.dataset.sig === cards.map((c) => c.dataset.id).join()) return;
+  const columns = Array.from({ length: cols }, () => Object.assign(document.createElement('div'), { className: 'qual-col' }));
+  box.replaceChildren(...columns);
+  const heights = new Array(cols).fill(0);
+  for (const card of cards) {
+    let k = 0;
+    columns.forEach((c, i) => { if (heights[i] < heights[k]) k = i; });
+    columns[k].append(card);
+    heights[k] += card.offsetHeight + QUAL_GAP;
+  }
+  box.classList.add('packed');
+  box.dataset.cols = String(cols);
+  box.dataset.count = String(cards.length);
+  box.dataset.sig = cards.map((c) => c.dataset.id).join();
+}
+let packTimer = 0;
+addEventListener('resize', () => {
+  clearTimeout(packTimer);
+  packTimer = setTimeout(() => {
+    const box = $('.qual-done');
+    if (!box) return;
+    const cards = [...box.querySelectorAll('.qd-card')];
+    box.replaceChildren(...cards);
+    box.classList.remove('packed');
+    delete box.dataset.cols;
+    packQualCards();
+  }, 150);
+});
 
 const SORTS = { manual: 'sortManual', fresh: 'sortFresh', name: 'sortName', born: 'sortBorn', club: 'sortClub', newPbs: 'sortNewPbs', recent: 'sortRecent' };
 
@@ -1305,7 +1347,7 @@ function qualDoneView() {
     <div class="rank-controls qual-controls">${qualTabs()}<span class="near-control"><span class="muted small">${esc(t('qdNear'))}</span> ${nearPill('overview')}</span></div>
     ${!state.swimmers.length ? `<p class="muted">${esc(t('emptyBody'))}</p>` : ''}
     ${shown.length ? `<div class="qual-done">${shown.map(({ s, rows, near }) => `
-      <section class="qd-card">
+      <section class="qd-card" data-id="${s.id}">
         <button class="qd-name" data-open="${s.id}"><b>${esc(s.name)}</b> <span class="muted small">${esc([s.born, s.club].filter(Boolean).join(' · '))}</span></button>
         ${[25, 50].map((p) => { const rs = rows.filter((q) => q.pool === p); return rs.length ? `<table class="qd-table">${head(`${esc(t(p === 25 ? 'shortCourse' : 'longCourse'))} ${p} m`)}
           <tbody>${rs.map((q) => `<tr>

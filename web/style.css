@@ -527,8 +527,10 @@ button.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4
 .sort-head:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* qualifying overview */
-.qual-done { column-width: 360px; column-gap: 12px; }
-.qd-card { break-inside: avoid; margin-bottom: 12px; min-width: 0; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px 14px; display: grid; gap: 8px; align-content: start; }
+.qual-done { display: grid; gap: 12px; }
+.qual-done.packed { display: flex; align-items: flex-start; }
+.qual-col { flex: 1 1 0; min-width: 0; display: grid; gap: 12px; align-content: start; }
+.qd-card { min-width: 0; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px 14px; display: grid; gap: 8px; align-content: start; }
 .qd-name { all: unset; cursor: pointer; }
 .qd-name:hover b { color: var(--accent); }
 .qd-table { width: 100%; border-collapse: collapse; font-size: 14px; }
