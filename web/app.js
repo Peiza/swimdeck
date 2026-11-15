@@ -12,7 +12,7 @@ import {
   eventLabel, eventShort, eventSortKey, eventInfo, fmtTime, fmtDiff, periodRange, seasonLabel, periodOptions,
   summarize, progression, parseTempusRef, parseTime, goalStatus, rankings, rankingsByPoints, rankingsBothPools, sortSwimmers,
   seasonBests, meets, compareTable, shortNames, rankingsByImprovement, toCsv, profile, form, prognosis, headToHead,
-  bestsSnapshot, newSince, mergeSyncLists,
+  bestsSnapshot, newSince, mergeSyncLists, cleanRemoteSwimmers,
 } from './lib.js';
 
 // ---------------------------------------------------------------- state
@@ -272,7 +272,7 @@ async function pullSync({ force = false } = {}) {
 
 function applyRemote(remote) {
   const known = new Map(state.swimmers.map((s) => [s.id, s]));
-  const next = remote.swimmers.map((r) => ({ ...(known.get(r.id) || { name: '', born: null, club: '', sex: '' }), id: r.id, site: r.site, para: r.para, goals: r.goals }));
+  const next = cleanRemoteSwimmers(remote.swimmers).map((r) => ({ ...(known.get(r.id) || { name: '', born: null, club: '', sex: '' }), id: r.id, site: r.site, para: r.para, goals: r.goals }));
   const added = next.filter((s) => !known.has(s.id));
   state.swimmers = next;
   store.set('swimmers', state.swimmers);
@@ -352,20 +352,19 @@ async function joinSync(token) {
     return;
   }
   const local = state.swimmers.map((s) => s.id);
-  const remoteIds = remote.swimmers.map((s) => s.id);
+  const remoteIds = cleanRemoteSwimmers(remote.swimmers).map((s) => s.id);
   const extra = local.filter((id) => !remoteIds.includes(id));
-  let mode = 'replace';
-  if (extra.length) {
-    const dlg = $('#confirmDialog');
-    mode = await new Promise((resolve) => {
-      dlg.innerHTML = `<form method="dialog" class="sheet small-sheet">
-        <h2>${esc(t('syncJoinTitle'))}</h2><p>${esc(t('syncJoinBody', { n: remoteIds.length, m: extra.length }))}</p>
-        <div class="row end wrap"><button class="btn" value="cancel">${esc(t('cancel'))}</button><button class="btn" value="replace">${esc(t('syncReplace'))}</button><button class="btn primary" value="merge">${esc(t('syncMerge'))}</button></div></form>`;
-      dlg.returnValue = '';
-      dlg.onclose = () => resolve(dlg.returnValue || 'cancel');
-      dlg.showModal();
-    });
-  }
+  // Always ask: whoever made the link can see and change the list from now on.
+  const dlg = $('#confirmDialog');
+  const mode = await new Promise((resolve) => {
+    dlg.innerHTML = `<form method="dialog" class="sheet small-sheet">
+      <h2>${esc(t('syncJoinTitle'))}</h2><p>${esc(t('syncJoinBody', { n: remoteIds.length, m: extra.length }))}</p>
+      <p class="muted small">${esc(t('syncJoinWarn'))}</p>
+      <div class="row end wrap"><button class="btn" value="cancel" autofocus>${esc(t('cancel'))}</button>${extra.length ? `<button class="btn" value="replace">${esc(t('syncReplace'))}</button><button class="btn primary" value="merge">${esc(t('syncMerge'))}</button>` : `<button class="btn primary" value="replace">${esc(t('syncJoinYes'))}</button>`}</div></form>`;
+    dlg.returnValue = '';
+    dlg.onclose = () => resolve(dlg.returnValue || 'cancel');
+    dlg.showModal();
+  });
   if (mode === 'cancel') return;
   state.sync = { token, updatedAt: remote.updatedAt, payload: '' };
   applyRemote(remote);

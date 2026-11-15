@@ -42,7 +42,7 @@ export function poolOf(r, fallback) {
 /** One swim, in the shape the app uses. Time is in hundredths of a second. */
 export function normResult(r, pool) {
   return {
-    id: r.id ?? null,
+    id: Number.isFinite(Number(r.id)) ? Number(r.id) : null,
     event: Number(r.event_code),
     name: r.event_name ?? '',
     pool: poolOf(r, pool),
@@ -51,7 +51,7 @@ export function normResult(r, pool) {
     date: r.result_date ?? null,
     meet: r.competition_name ?? '',
     round: r.round_type_name ?? '',
-    points: r.aqua_points ?? null,
+    points: r.aqua_points != null && Number.isFinite(Number(r.aqua_points)) ? Number(r.aqua_points) : null,
     club: r.club_name ?? '',
   };
 }

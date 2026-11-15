@@ -98,6 +98,7 @@ export async function sendPush(subscription, message, keys, subject, fetchImpl =
       Urgency: 'normal',
     },
     body,
+    redirect: 'manual',
   });
 }
 
@@ -109,9 +110,20 @@ function bad(message, status = 400) {
 
 const MAX_GOALS = 300;
 
+// Only the push services of the browsers' vendors; the Worker must not post to arbitrary addresses.
+const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /(^|\.)push\.apple\.com$/, /^updates\.push\.services\.mozilla\.com$/, /(^|\.)notify\.windows\.com$/, /^push\.services\.mozilla\.com$/];
+export const isPushEndpoint = (u) => {
+  try {
+    const url = new URL(u);
+    return url.protocol === 'https:' && !url.port && PUSH_HOSTS.some((re) => re.test(url.hostname));
+  } catch {
+    return false;
+  }
+};
+
 export function cleanSubscription(input) {
   const s = input?.subscription;
-  if (!s || typeof s.endpoint !== 'string' || !/^https:\/\//.test(s.endpoint) || s.endpoint.length > 1000) throw bad('Bad subscription');
+  if (!s || typeof s.endpoint !== 'string' || !isPushEndpoint(s.endpoint) || s.endpoint.length > 1000) throw bad('Bad subscription');
   const p256dh = String(s.keys?.p256dh || '');
   const auth = String(s.keys?.auth || '');
   if (!/^[A-Za-z0-9_-]{80,100}$/.test(p256dh) || !/^[A-Za-z0-9_-]{16,32}$/.test(auth)) throw bad('Bad subscription keys');

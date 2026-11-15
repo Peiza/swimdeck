@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { b64u, vapidKeys, vapidHeader, encryptPayload, cleanSubscription, handlePush, diffBests, snapshotOf, messageFor, reachedGoals, runCheck, fmtTime } from '../src/push.js';
+import { b64u, vapidKeys, vapidHeader, encryptPayload, cleanSubscription, handlePush, diffBests, snapshotOf, messageFor, reachedGoals, isPushEndpoint, runCheck, fmtTime } from '../src/push.js';
 
 function memoryKv() {
   const store = new Map();
@@ -18,7 +18,7 @@ async function fakeBrowser() {
   const ua = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
   const auth = crypto.getRandomValues(new Uint8Array(16));
   const p256dh = b64u.encode(await crypto.subtle.exportKey('raw', ua.publicKey));
-  return { ua, auth, subscription: { endpoint: 'https://push.example.net/send/abc', keys: { p256dh, auth: b64u.encode(auth) } } };
+  return { ua, auth, subscription: { endpoint: 'https://fcm.googleapis.com/fcm/send/abc', keys: { p256dh, auth: b64u.encode(auth) } } };
 }
 
 async function hkdf(salt, ikm, info, len) {
@@ -59,12 +59,12 @@ test('VAPID keys are created once and the JWT verifies', async () => {
   const keys = await vapidKeys(kv);
   assert.deepEqual(await vapidKeys(kv), keys);
   assert.equal(b64u.decode(keys.pub).length, 65);
-  const h = await vapidHeader('https://push.example.net/send/abc', keys, 'https://app.example/', Date.UTC(2026, 9, 25));
+  const h = await vapidHeader('https://fcm.googleapis.com/fcm/send/abc', keys, 'https://app.example/', Date.UTC(2026, 9, 25));
   const [, jwt, k] = h.match(/^vapid t=([^,]+), k=(.+)$/);
   assert.equal(k, keys.pub);
   const [hd, pl, sig] = jwt.split('.');
   const payload = JSON.parse(new TextDecoder().decode(b64u.decode(pl)));
-  assert.equal(payload.aud, 'https://push.example.net');
+  assert.equal(payload.aud, 'https://fcm.googleapis.com');
   assert.equal(payload.sub, 'https://app.example/');
   const pub = await crypto.subtle.importKey('raw', b64u.decode(keys.pub), { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
   assert.ok(await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, pub, b64u.decode(sig), new TextEncoder().encode(`${hd}.${pl}`)));
@@ -102,7 +102,7 @@ test('the scheduled check snapshots first, then notifies watchers and drops dead
   const env = { LISTS: kv };
   const a = await fakeBrowser();
   const b = await fakeBrowser();
-  b.subscription.endpoint = 'https://push.example.net/send/gone';
+  b.subscription.endpoint = 'https://fcm.googleapis.com/fcm/send/gone';
   await handlePush(new Request('https://x/api/push', { method: 'POST', body: JSON.stringify({ subscription: a.subscription, swimmers: [1, 2] }) }), env, '/api/push');
   await handlePush(new Request('https://x/api/push', { method: 'POST', body: JSON.stringify({ subscription: b.subscription, swimmers: [1] }) }), env, '/api/push');
   let times = { 1: 6000, 2: 3000 };
@@ -153,7 +153,15 @@ test('goal reached only when the old best was above the goal', () => {
 });
 
 test('cleanSubscription keeps only valid goals for listed swimmers', () => {
-  const sub = { endpoint: 'https://example.com/x', keys: { p256dh: 'A'.repeat(87), auth: 'B'.repeat(22) } };
+  const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/x', keys: { p256dh: 'A'.repeat(87), auth: 'B'.repeat(22) } };
   const c = cleanSubscription({ subscription: sub, swimmers: [7], goals: { 7: { 13: 6000, 14: 5, 15: 'x' }, 8: { 13: 6000 } } });
   assert.deepEqual(c.goals, { 7: { 13: 6000 } });
+});
+
+test('only the browsers\' push services are accepted as endpoints', () => {
+  assert.ok(isPushEndpoint('https://fcm.googleapis.com/fcm/send/x'));
+  assert.ok(isPushEndpoint('https://web.push.apple.com/abc'));
+  assert.ok(isPushEndpoint('https://updates.push.services.mozilla.com/wpush/v2/x'));
+  assert.ok(isPushEndpoint('https://db5p.notify.windows.com/?token=x'));
+  for (const bad of ['https://example.com/x', 'http://fcm.googleapis.com/x', 'https://fcm.googleapis.com.evil.net/x', 'https://evil.net/fcm.googleapis.com', 'https://fcm.googleapis.com:8443/x', 'nonsense']) assert.equal(isPushEndpoint(bad), false, bad);
 });

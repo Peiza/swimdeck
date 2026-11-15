@@ -33,6 +33,7 @@ after(async () => {
 async function open(swimmers, { width = 1200, store = {} } = {}) {
   const page = await browser.newPage({ viewport: { width, height: 900 } });
   page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => { if (/Content Security Policy/i.test(m.text())) errors.push(m.text()); }); // the CSP must not block anything the app does
   await page.route('https://static.cloudflareinsights.com/**', (r) => r.abort()); // test runs are not visits
   await page.goto(URL);
   await page.evaluate(({ swimmers, store }) => {

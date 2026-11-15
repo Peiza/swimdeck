@@ -4,9 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>SwimDeck</title>
+  <!-- The API address below is replaced at deploy time when the SWIMDECK_API_URL variable is set. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://swimdeck-api.peiza.workers.dev https://cloudflareinsights.com; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="description" content="Follow your swimmers: personal bests, top times and latest results from Tempus Open.">
-  <script>try{var t=JSON.parse(localStorage.getItem('swimdeck.theme'));if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+  <script src="theme-init.js"></script>
   <meta name="theme-color" content="#0b5cad" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0b1724" media="(prefers-color-scheme: dark)">
   <link rel="icon" href="icon.svg" type="image/svg+xml">

@@ -544,3 +544,37 @@ export function mergeSyncLists(base, local, remote) {
   for (const l of local || []) if (!baseMap.has(l.id) && !have.has(l.id)) out.push(l);
   return out;
 }
+
+/**
+ * Keep only well-formed swimmers from a sync response. The server is trusted, but the data is
+ * written into the page and into localStorage, so every field is coerced to its expected type.
+ */
+export function cleanRemoteSwimmers(list) {
+  const seen = new Set();
+  const out = [];
+  for (const r of Array.isArray(list) ? list.slice(0, 200) : []) {
+    const id = Number(r?.id);
+    if (!Number.isInteger(id) || id <= 0 || id > 1e9 || seen.has(id)) continue;
+    seen.add(id);
+    const s = { id, site: r.site === 'fi' ? 'fi' : 'se' };
+    if (r.para && typeof r.para === 'object') {
+      const para = {};
+      for (const k of ['S', 'SB', 'SM']) {
+        const v = Number(r.para[k]);
+        if (Number.isInteger(v) && v >= 1 && v <= 14) para[k] = v;
+      }
+      if (Object.keys(para).length) s.para = para;
+    }
+    if (r.goals && typeof r.goals === 'object') {
+      const goals = {};
+      for (const [k, v] of Object.entries(r.goals).slice(0, 60)) {
+        const code = Number(k);
+        const time = Number(v);
+        if (Number.isInteger(code) && code >= 1 && code <= 99 && Number.isInteger(time) && time >= 100 && time <= 1e7) goals[code] = time;
+      }
+      if (Object.keys(goals).length) s.goals = goals;
+    }
+    out.push(s);
+  }
+  return out;
+}
