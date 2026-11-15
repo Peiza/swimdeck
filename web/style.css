@@ -8,7 +8,7 @@
   --accent: #0b5cad;
   --accent-soft: #e2eefb;
   --on-accent: #ffffff;
-  --good: #11845b;
+  --good: #0d6e4b;
   --good-soft: #e1f5ec;
   --warn: #b4441b;
   --radius: 14px;
@@ -282,7 +282,7 @@ tr.open .chev { transform: rotate(90deg); }
 #toast { width: max-content; max-width: calc(100vw - 32px); }
 .hits li > span.row { display: flex; flex: none; }
 
-.version { font-size: 11px; color: var(--muted); opacity: 0.8; margin-top: -4px; font-variant-numeric: tabular-nums; }
+.version { font-size: 11px; color: var(--muted); margin-top: -4px; font-variant-numeric: tabular-nums; }
 
 /* ---------- sorting and drag */
 .deck { align-items: start; }
@@ -737,3 +737,19 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
   .qd-table thead th { letter-spacing: 0; }
   .qd-lim { font-size: 12px; }
 }
+
+/* events table on very narrow screens: never wider than the sheet */
+.dialog { overflow-x: hidden; }
+.events td.ev-name { overflow-wrap: anywhere; }
+@media (max-width: 400px) {
+  .events th.metric-th, .events td.metric-td { display: none; }
+  .events th, .events td { padding-left: 4px; padding-right: 4px; }
+  .events td.ev-name { padding-left: 20px; }
+}
+
+/* toast as a popover (top layer): reset the browser's popover defaults */
+#toast[popover] { inset: auto; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); margin: 0; border: 0; overflow: visible; color: var(--bg); }
+
+/* contrast: dark theme danger button and toast action */
+:root[data-theme="dark"] .btn.danger { color: #1a0f0b; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.danger { color: #1a0f0b; } }

@@ -2466,14 +2466,20 @@ function toast(msg, action = null) {
   const el = $('#toast');
   el.innerHTML = `<span>${esc(msg)}</span>${action ? `<button data-toast-action>${esc(action.label)}</button>` : ''}`;
   toast.action = action?.run || null;
+  clearTimeout(toast.hideTimer);
+  // In the top layer, so it also shows above an open dialog.
+  try { if (el.showPopover && !el.matches(':popover-open')) el.showPopover(); } catch { /* ignore */ }
   el.classList.add('show');
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => el.classList.remove('show'), action ? 8000 : 2500);
+  toast.timer = setTimeout(hideToast, action ? 8000 : 2500);
 }
 
 function hideToast() {
   clearTimeout(toast.timer);
-  $('#toast').classList.remove('show');
+  const el = $('#toast');
+  el.classList.remove('show');
+  clearTimeout(toast.hideTimer);
+  toast.hideTimer = setTimeout(() => { try { if (el.hidePopover && el.matches(':popover-open')) el.hidePopover(); } catch { /* ignore */ } }, 250);
 }
 
 /** A small yes/no dialog. Resolves true when the person confirms. */
