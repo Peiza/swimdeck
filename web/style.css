@@ -753,3 +753,6 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
 /* contrast: dark theme danger button and toast action */
 :root[data-theme="dark"] .btn.danger { color: #1a0f0b; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.danger { color: #1a0f0b; } }
+
+/* keep the close button reachable in long sheets (not where the events table has its own sticky row) */
+.sheet:not(:has(.events)) > .sheet-head { position: sticky; top: -18px; z-index: 5; background: var(--surface); margin: -18px -18px 0; padding: 18px 18px 8px; }

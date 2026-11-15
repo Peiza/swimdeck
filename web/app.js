@@ -306,7 +306,7 @@ async function renderSyncDialog() {
   dlg.innerHTML = `<div class="sheet small-sheet sync-sheet">
     <header class="sheet-head"><h2>${esc(t('syncTitle'))}</h2><button class="icon" data-action="close" aria-label="${esc(t('close'))}">✕</button></header>
     ${on ? `
-      ${state.sync.error === 'gone' ? `<p class="warn small">${esc(t('syncGone'))}</p>` : state.sync.error ? `<p class="warn small">${esc(t('error', { msg: state.sync.error }))}</p>` : `<p class="small">${esc(t('syncOn', { when: state.sync.updatedAt ? new Date(state.sync.updatedAt).toLocaleString(state.lang, { dateStyle: 'short', timeStyle: 'short' }) : '–' }))}</p>`}
+      ${state.sync.error === 'gone' ? `<p class="warn small">${esc(t('syncGone'))}</p>` : state.sync.error ? `<p class="warn small">${esc(errText(state.sync.error))}</p>` : `<p class="small">${esc(t('syncOn', { when: state.sync.updatedAt ? new Date(state.sync.updatedAt).toLocaleString(state.lang, { dateStyle: 'short', timeStyle: 'short' }) : '–' }))}</p>`}
       <p class="small muted">${esc(t('syncHowTo'))}</p>
       <div class="qr" id="syncQr"></div>
       <div class="row"><input class="sync-link" readonly value="${esc(syncLink())}"><button class="btn small" data-action="syncCopy">${esc(t('copy'))}</button></div>
@@ -336,7 +336,7 @@ async function createSync() {
     state.sync = { token: r.token, updatedAt: r.updatedAt, payload: JSON.stringify(payload) };
     store.set('sync', state.sync);
   } catch (e) {
-    toast(t('error', { msg: e.message }));
+    toast(errText(e.message));
   }
   renderSyncDialog();
   renderSyncStatus();
@@ -348,7 +348,7 @@ async function joinSync(token) {
   try {
     remote = await syncApi('GET', '/' + token);
   } catch (e) {
-    toast(e.status === 404 ? t('syncGone') : t('error', { msg: e.message }));
+    toast(e.status === 404 ? t('syncGone') : errText(e.message));
     return;
   }
   const local = state.swimmers.map((s) => s.id);
@@ -824,7 +824,7 @@ async function enableNotify() {
     renderNotifyDialog();
     toast(t('notifyOnToast'));
   } catch (e) {
-    renderNotifyDialog(t('error', { msg: e.message }));
+    renderNotifyDialog(errText(e.message));
   }
 }
 
@@ -885,7 +885,7 @@ async function testNotify() {
     await notifyApi('POST', '/test', { endpoint: sub.endpoint });
     toast(t('notifyTestSent'));
   } catch (e) {
-    toast(/429|minute/i.test(e.message) ? t('notifyWait') : t('error', { msg: e.message }));
+    toast(/429|minute/i.test(e.message) ? t('notifyWait') : errText(e.message));
   }
 }
 
@@ -976,13 +976,13 @@ function cardView(s) {
     const line = sum
       ? [sum.newPbs ? `<b class="good">${sum.newPbs} ${esc(t('newPbsLabel'))}</b>` : esc(t('noPbsInPeriod')),
          sum.latest ? `${esc(eventLabel(sum.latest.event, state.lang, sum.latest.name))} <span class="time">${fmtTime(sum.latest.time)}</span>` : ''].filter(Boolean).join(' · ')
-      : esc(d?.error ? t('error', { msg: d.error }) : t('loading'));
+      : esc(d?.error ? errText(d.error) : t('loading'));
     const fresh = newFor(s).length;
     return `<li class="card collapsed ${fresh ? 'has-new' : ''}" data-open="${s.id}" tabindex="0">${head}<p class="small muted">${fresh ? `<span class="new-tag">${esc(t('newSince', { n: fresh }))}</span> ` : ''}${line}</p></li>`;
   }
   if (!d || !d.all) {
     return `<li class="card ${d?.error ? 'has-error' : 'loading'}" data-open="${s.id}" tabindex="0">${head}
-      <p class="muted">${d?.error ? esc(t('error', { msg: d.error })) : esc(t('loading'))}</p></li>`;
+      <p class="muted">${d?.error ? esc(errText(d.error)) : esc(t('loading'))}</p></li>`;
   }
   const sum = summarize(d.all, d.period, d.before);
   const latest = sum.latest;
@@ -1012,7 +1012,7 @@ function cardView(s) {
     ${P.qual ? qualChips(s) : ''}
     ${P.goals ? goalChip(s) : ''}
     ${P.best && bestFor(s, sum).list.length ? `<div class="best-block"><span class="muted small">${esc(bestFor(s, sum).label)}</span><div class="chips">${bestFor(s, sum).list.map((r) => `<span class="chip"><span class="chip-name">${esc(eventLabel(r.event, state.lang, r.name))}</span><span class="chip-meta"><small>${r.pool} m</small><b>${fmtTime(r.pb.time)}</b></span></span>`).join('')}</div></div>` : ''}
-    ${d.error ? `<p class="warn small">${esc(t('error', { msg: d.error }))}</p>` : ''}
+    ${d.error ? `<p class="warn small">${esc(errText(d.error))}</p>` : ''}
   </li>`;
 }
 
@@ -1510,7 +1510,7 @@ function renderSwimmerDialog() {
         <label class="select compact period-sheet"><span class="muted small">${esc(t('periodBest'))}</span>
           <select id="periodSheet">${[...new Set([...periodOptions(oldestSwimYear()), state.period])].map((p) => `<option value="${p}" ${p === state.period ? 'selected' : ''}>${esc(periodOptionLabel(p))}</option>`).join('')}</select></label>
       </div>
-      ${!sum ? `<p class="muted">${esc(d?.error ? t('error', { msg: d.error }) : t('loading'))}</p>` : `
+      ${!sum ? `<p class="muted">${esc(d?.error ? errText(d.error) : t('loading'))}</p>` : `
       <table class="events">
         <thead><tr><th>${esc(t('event'))}</th><th class="num">${esc(t('pb'))}</th><th class="num">${esc(t('periodBest'))}</th><th class="num metric-th">${metricPill(s, 'table')}</th></tr></thead>
         <tbody>${rows.map((r) => eventRow(s, r)).join('')}</tbody>
@@ -1592,7 +1592,7 @@ async function fillForm(s) {
   const level = f.avg <= 0.5 ? 'top' : f.avg <= 2 ? 'good' : f.avg <= 4 ? 'ok' : 'low';
   const trend = f.prevAvg == null ? '' : f.avg < f.prevAvg - 0.3 ? 'up' : f.avg > f.prevAvg + 0.3 ? 'down' : 'flat';
   box().innerHTML = `
-    ${failed ? `<p class="warn small">${esc(t('error', { msg: failed.message }))}</p>` : ''}
+    ${failed ? `<p class="warn small">${esc(errText(failed.message))}</p>` : ''}
     <div class="form-head form-${level}"><b>${esc(t('form_' + level))}</b>
       <span class="small">${esc(t('formAvg', { pct: pct(f.avg), n: f.recent.length }))}${trend ? ' · ' + esc(t('trend_' + trend)) : ''}</span></div>
     <ol class="top form-list">${f.recent.map((w) => `
@@ -1605,7 +1605,7 @@ function paraLookupHtml(s) {
   const r = state.paraLookup[s.id];
   if (!r) return `<div class="para-lookup"><button type="button" class="btn small" data-action="paraLookup">${esc(t('paraLookup'))}</button> <span class="muted small">${esc(t('paraLookupHint'))}</span></div>`;
   if (r.busy) return `<p class="muted small">${esc(t('loading'))}</p>`;
-  if (r.error) return `<p class="warn small">${esc(t('error', { msg: r.error }))}</p>`;
+  if (r.error) return `<p class="warn small">${esc(errText(r.error))}</p>`;
   if (!r.found) return `<p class="muted small">${esc(t('paraLookupNone'))}</p>`;
   const top = r.classes[0];
   return `<div class="para-suggest"><span class="small">${esc(t('paraLookupFound', { cls: top.cls, date: top.latest }))}${r.classes.length > 1 ? ` <span class="muted">(${esc(t('paraLookupEarlier', { list: r.classes.slice(1).map((c) => c.cls).join(', ') }))})</span>` : ''}</span>
@@ -1675,7 +1675,7 @@ async function fillMeets(s) {
   const list = meets(results);
   const shown = list.slice(0, state.meetsShown);
   box().innerHTML = `
-    ${failed ? `<p class="warn small">${esc(t('error', { msg: failed.message }))}</p>` : ''}
+    ${failed ? `<p class="warn small">${esc(errText(failed.message))}</p>` : ''}
     <ol class="meets">${shown.map((g) => `
       <li class="meet">
         <div class="meet-head">${meetButton(g.meet, g.swims[0].date, g.swims[0].event, `<b>${esc(g.meet)}</b>`, 'strong')}
@@ -1730,7 +1730,7 @@ async function loadMeet() {
   } catch (e) {
     meetCache.delete(key);
     if (state.meet !== m) return;
-    m.error = e.status === 404 || /not found/i.test(e.message) ? t('meetNotFound') : t('error', { msg: e.message });
+    m.error = e.status === 404 || /not found/i.test(e.message) ? t('meetNotFound') : errText(e.message);
   }
   renderMeet();
 }
@@ -1836,7 +1836,7 @@ async function fillEventDetail(s, code) {
       ${seasonTable(ev.results)}`;
     fillRank(s, code);
   } catch (e) {
-    box.innerHTML = `<p class="warn">${esc(t('error', { msg: e.message }))}</p><button class="btn small" data-retry-event="${code}">${esc(t('retry'))}</button>`;
+    box.innerHTML = `<p class="warn">${esc(errText(e.message))}</p><button class="btn small" data-retry-event="${code}">${esc(t('retry'))}</button>`;
   }
 }
 
@@ -1951,7 +1951,7 @@ async function fillRank(s, code) {
     box().innerHTML = `<div class="rank-line"><span class="rank-num">${esc(head)}</span>
       <span class="small muted">${esc(t('rankDetail', { year: s.born, period: periodName(), time: fmtTime(row.time) }))}${r.leader && r.rank > 1 ? ' · ' + esc(t('rankLeader', { time: fmtTime(r.leader) })) : ''}</span></div>`;
   } catch (e) {
-    if (box()) box().innerHTML = rankMsg(t('error', { msg: e.message }));
+    if (box()) box().innerHTML = rankMsg(errText(e.message));
   }
 }
 
@@ -2216,7 +2216,7 @@ async function findMeets() {
     if (meetImport !== mi) return;
     mi.meets = r.meets;
   } catch (e) {
-    mi.error = t('error', { msg: e.message });
+    mi.error = errText(e.message);
   }
   mi.busy = false;
   renderMeetImport();
@@ -2240,7 +2240,7 @@ async function pickMeet(id) {
     if (mine) return loadMeetClub(String(mine.id));
     if (head.allowAll && !head.clubs.length) return loadMeetClub('all');
   } catch (e) {
-    mi.error = t('error', { msg: e.message });
+    mi.error = errText(e.message);
     mi.busy = false;
   }
   renderMeetImport();
@@ -2256,7 +2256,7 @@ async function loadMeetClub(club) {
     if (meetImport !== mi || mi.club !== club) return;
     mi.data = r;
   } catch (e) {
-    mi.error = t('error', { msg: e.message });
+    mi.error = errText(e.message);
   }
   mi.busy = false;
   renderMeetImport();
@@ -2379,7 +2379,7 @@ async function doSearch(form, page = 1) {
     Object.assign(searchState, { total: r.total, page: r.page || page, lastPage: r.lastPage || 1 });
     renderHits();
   } catch (e) {
-    hits.innerHTML = `<p class="warn">${esc(t('error', { msg: e.message }))}</p>`;
+    hits.innerHTML = `<p class="warn">${esc(errText(e.message))}</p>`;
   }
 }
 
@@ -2460,6 +2460,13 @@ function checkImport() {
     refreshAll({ only: added });
   };
   dlg.showModal();
+}
+
+/** One friendly message for network trouble; other errors keep their text. */
+function errText(msg) {
+  const m = String(msg ?? '');
+  if (!navigator.onLine || /failed to fetch|networkerror|load failed|network request/i.test(m)) return t('offlineErr');
+  return t('error', { msg: m });
 }
 
 function toast(msg, action = null) {
