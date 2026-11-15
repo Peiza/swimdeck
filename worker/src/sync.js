@@ -82,7 +82,10 @@ export async function handleSync(request, env, path) {
     // Optimistic check: the client says which version it last saw. If someone else has written since, refuse
     // so the client can fetch, merge and try again instead of overwriting the other device's changes.
     const base = Number(body?.base);
-    if (Number.isFinite(base) && base > 0 && JSON.parse(raw).updatedAt > base) throw bad('Conflict', 409);
+    const stored = JSON.parse(raw);
+    if (Number.isFinite(base) && base > 0 && stored.updatedAt > base) throw bad('Conflict', 409);
+    // The same list again is not written again, except now and then so that the entry does not expire.
+    if (JSON.stringify(stored.swimmers) === JSON.stringify(list.swimmers) && Date.now() - stored.updatedAt < 30 * 864e5) return { updatedAt: stored.updatedAt };
     const updatedAt = Date.now();
     await kv.put(key, JSON.stringify({ ...list, updatedAt }), { expirationTtl: TTL });
     return { updatedAt };

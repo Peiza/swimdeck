@@ -113,7 +113,7 @@ test('the scheduled check snapshots first, then notifies watchers and drops dead
     return { ok: !sub.endpoint.endsWith('gone'), status: sub.endpoint.endsWith('gone') ? 410 : 201 };
   };
   let r = await runCheck(env, fetchBests, { appUrl: 'https://app.example/', send });
-  assert.deepEqual(r, { subs: 2, swimmers: 2, news: 0, sent: 0 }); // first run only snapshots
+  assert.deepEqual(r, { subs: 2, swimmers: 2, of: 2, failed: 0, news: 0, sent: 0 }); // first run only snapshots
   times = { 1: 5900, 2: 3000 };
   r = await runCheck(env, fetchBests, { appUrl: 'https://app.example/', send });
   assert.equal(r.news, 1);
@@ -164,4 +164,20 @@ test('only the browsers\' push services are accepted as endpoints', () => {
   assert.ok(isPushEndpoint('https://updates.push.services.mozilla.com/wpush/v2/x'));
   assert.ok(isPushEndpoint('https://db5p.notify.windows.com/?token=x'));
   for (const bad of ['https://example.com/x', 'http://fcm.googleapis.com/x', 'https://fcm.googleapis.com.evil.net/x', 'https://evil.net/fcm.googleapis.com', 'https://fcm.googleapis.com:8443/x', 'nonsense']) assert.equal(isPushEndpoint(bad), false, bad);
+});
+
+test('each hourly run checks one slice, and every swimmer comes round', async () => {
+  const kv = memoryKv();
+  const env = { LISTS: kv };
+  const a = await fakeBrowser();
+  const ids = Array.from({ length: 45 }, (_, i) => i + 1);
+  await handlePush(new Request('https://x/api/push', { method: 'POST', body: JSON.stringify({ subscription: a.subscription, swimmers: ids }) }), env, '/api/push');
+  const seen = new Set();
+  const fetchBests = async (id) => { seen.add(id); return { swimmer: { id }, bests: [] }; };
+  for (let hour = 0; hour < 3; hour++) {
+    const r = await runCheck(env, fetchBests, { appUrl: 'x', send: async () => ({ ok: true, status: 201 }), perRun: 20, hour });
+    assert.ok(r.swimmers <= 20);
+    assert.equal(r.of, 45);
+  }
+  assert.equal(seen.size, 45);
 });

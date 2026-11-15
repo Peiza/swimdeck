@@ -94,3 +94,16 @@ test('a write based on an old version is refused with 409', async () => {
   await assert.rejects(handleSync(req('PUT', { swimmers: [{ id: 9 }], base: updatedAt }), env, `/api/sync/${token}`), (e) => e.status === 409);
   assert.deepEqual((await handleSync(req('GET'), env, `/api/sync/${token}`)).swimmers.map((s) => s.id), [1, 2]);
 });
+
+test('writing the same list again does not write to storage again', async () => {
+  const env = { LISTS: memoryKv() };
+  const { token } = await handleSync(req('POST', { swimmers: [{ id: 1 }] }), env, '/api/sync');
+  let puts = 0;
+  const put = env.LISTS.put.bind(env.LISTS);
+  env.LISTS.put = (...a) => { puts++; return put(...a); };
+  const r = await handleSync(req('PUT', { swimmers: [{ id: 1 }] }), env, `/api/sync/${token}`);
+  assert.equal(puts, 0);
+  assert.ok(r.updatedAt > 0);
+  await handleSync(req('PUT', { swimmers: [{ id: 1 }, { id: 2 }] }), env, `/api/sync/${token}`);
+  assert.equal(puts, 1);
+});

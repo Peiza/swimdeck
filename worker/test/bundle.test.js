@@ -35,3 +35,20 @@ test('a failing range gives an error in its place; bad input is refused', async 
   assert.deepEqual(out, [{ ok: 1 }, { error: 'boom' }, { error: 'Bad range' }]);
   await assert.rejects(swimmerBundle(new URL('https://a/api/swimmer/7/bundle'), '7', 'b', ctx, { cache: memCache(), fetchFn }));
 });
+
+test('unknown query parameters do not make new cache entries', async () => {
+  const { cacheUrl } = await import('../src/index.js');
+  const a = cacheUrl('https://x.test/api/swimmer/5?site=se&from=2025-01-01&refresh=1&junk=1');
+  const b = cacheUrl('https://x.test/api/swimmer/5?junk=zzz&from=2025-01-01&site=se&utm=2');
+  assert.equal(a, b);
+  assert.match(a, /from=2025-01-01/);
+});
+
+test('refresh only goes past the cache when the cached copy is older than the cooldown', async () => {
+  const { isRecent, REFRESH_COOLDOWN_MS } = await import('../src/index.js');
+  const res = (at) => new Response('{}', { headers: { 'X-Fetched': String(at) } });
+  const now = 1_000_000_000_000;
+  assert.equal(isRecent(res(now - 1000), now), true);
+  assert.equal(isRecent(res(now - REFRESH_COOLDOWN_MS - 1), now), false);
+  assert.equal(isRecent(new Response('{}'), now), false);
+});

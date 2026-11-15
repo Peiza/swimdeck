@@ -42,7 +42,7 @@ export default {
       runCheck(env, async (id) => {
         const o = await fetchOverview(SITES.se, id);
         return { swimmer: o.swimmer, bests: o.bests };
-      }, { appUrl: env.APP_URL || APP_URL }).then((r) => console.log('push check', JSON.stringify(r))),
+      }, { appUrl: env.APP_URL || APP_URL }).then((r) => console.log('push check', JSON.stringify(r))).catch((e) => console.log('push check failed', e.message)),
     );
   },
 
@@ -99,19 +99,21 @@ export default {
     const site = url.searchParams.get('site') || 'se';
     const base = SITES[site];
     if (!base) return json({ error: 'Unknown site' }, 400, cors);
+    for (const k of ['from', 'to']) {
+      const v = url.searchParams.get(k);
+      if (v && !DAY.test(v)) return json({ error: `Bad ${k}` }, 400, cors);
+    }
 
     // ?refresh=1 skips the edge cache (used by the app's "update" button).
     const fresh = url.searchParams.get('refresh') === '1';
     const cacheKey = new Request(cacheUrl(url), { method: 'GET' });
     const cache = caches.default;
-    if (!fresh) {
-      const hit = await cache.match(cacheKey);
-      if (hit) return withHeaders(hit, { ...cors, 'X-Cache': 'HIT' });
-    }
+    const hit = await cache.match(cacheKey);
+    if (hit && (!fresh || isRecent(hit))) return withHeaders(hit, { ...cors, 'X-Cache': 'HIT' });
 
     try {
       const data = await route.run(base, url.searchParams);
-      const res = json(data, 200, { 'Cache-Control': `public, max-age=${TTL[route.kind]}` });
+      const res = json(data, 200, { 'Cache-Control': `public, max-age=${TTL[route.kind]}`, 'X-Fetched': String(Date.now()) });
       ctx.waitUntil(cache.put(cacheKey, res.clone()));
       return withHeaders(res, { ...cors, 'X-Cache': 'MISS' });
     } catch (err) {
@@ -220,13 +222,11 @@ export async function swimmerBundle(url, id, base, ctx, { cache = caches.default
       if (from) single.searchParams.set('from', from);
       if (to) single.searchParams.set('to', to);
       const key = new Request(cacheUrl(single), { method: 'GET' });
-      if (!fresh) {
-        const hit = await cache.match(key);
-        if (hit) return hit.json();
-      }
+      const hit = await cache.match(key);
+      if (hit && (!fresh || isRecent(hit))) return hit.json();
       try {
         const data = await fetchFn(base, id, { from: from || null, to: to || null });
-        const res = json(data, 200, { 'Cache-Control': `public, max-age=${TTL.swimmer}` });
+        const res = json(data, 200, { 'Cache-Control': `public, max-age=${TTL.swimmer}`, 'X-Fetched': String(Date.now()) });
         ctx.waitUntil(cache.put(key, res));
         return data;
       } catch (err) {
@@ -236,11 +236,23 @@ export async function swimmerBundle(url, id, base, ctx, { cache = caches.default
   );
 }
 
-function cacheUrl(url) {
+// Only these query parameters make a different answer; anything else must not create new cache entries.
+const KEY_PARAMS = new Set(['site', 'from', 'to', 'r', 'born', 'sex', 'event', 'club', 'name', 'page', 'date', 'first', 'last', 'code', 'active', 'time', 'id']);
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+// "Update" may go past the cache, but not more than once per this long for the same request.
+export const REFRESH_COOLDOWN_MS = 2 * 60 * 1000;
+
+export function cacheUrl(url) {
   const u = new URL(url);
-  u.searchParams.delete('refresh');
+  for (const k of [...new Set(u.searchParams.keys())]) if (!KEY_PARAMS.has(k)) u.searchParams.delete(k);
   u.searchParams.sort();
   return u.toString();
+}
+
+/** True when a cached response was fetched from Tempus less than the cooldown ago. */
+export function isRecent(res, now = Date.now()) {
+  const at = Number(res?.headers?.get('X-Fetched'));
+  return Number.isFinite(at) && at > 0 && now - at < REFRESH_COOLDOWN_MS;
 }
 
 function corsHeaders(request, env) {

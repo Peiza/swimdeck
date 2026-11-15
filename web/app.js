@@ -820,7 +820,7 @@ async function enableNotify() {
       sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: Uint8Array.from(raw, (c) => c.charCodeAt(0)) });
     }
     if (state.notify?.endpoint && state.notify.endpoint !== sub.endpoint) await notifyApi('DELETE', '', { endpoint: state.notify.endpoint }).catch(() => {});
-    await sendNotifyList(sub);
+    await sendNotifyList(sub, true);
     renderNotifyDialog();
     toast(t('notifyOnToast'));
   } catch (e) {
@@ -828,11 +828,14 @@ async function enableNotify() {
   }
 }
 
-async function sendNotifyList(sub) {
+async function sendNotifyList(sub, force = false) {
   const swimmers = state.swimmers.filter((s) => s.site === 'se').map((s) => s.id);
   const goals = Object.fromEntries(state.swimmers.filter((s) => s.site === 'se' && s.goals && Object.keys(s.goals).length).map((s) => [s.id, s.goals]));
+  // Nothing to tell the server when the list, goals and language are what it already has (saves a server write).
+  const sig = JSON.stringify([sub.endpoint, swimmers, goals, state.lang]);
+  if (!force && state.notify?.sig === sig && Date.now() - (state.notify.sentAt || 0) < 7 * 864e5) return;
   await notifyApi('POST', '', { subscription: sub.toJSON(), swimmers, goals, lang: state.lang });
-  state.notify = { endpoint: sub.endpoint, count: swimmers.length };
+  state.notify = { endpoint: sub.endpoint, count: swimmers.length, sig, sentAt: Date.now() };
   store.set('notify', state.notify);
 }
 

@@ -185,7 +185,18 @@ test('worker: CORS, routing, caching', async () => {
       assert.equal(r.headers.get('X-Cache'), 'HIT');
       assert.equal(calls, 1);
 
-      r = await worker.fetch(req('/api/swimmer/1001?refresh=1'), env, ctx);
+      // "update" right after a fetch is served from the cache (cooldown), junk parameters make no new entry
+      r = await worker.fetch(req('/api/swimmer/1001?refresh=1&junk=7'), env, ctx);
+      assert.equal(r.headers.get('X-Cache'), 'HIT');
+      assert.equal(calls, 1);
+      // once the cached copy is older than the cooldown, "update" fetches again
+      const realNow = Date.now;
+      Date.now = () => realNow() + 3 * 60 * 1000;
+      try {
+        r = await worker.fetch(req('/api/swimmer/1001?refresh=1'), env, ctx);
+      } finally {
+        Date.now = realNow;
+      }
       assert.equal(r.headers.get('X-Cache'), 'MISS');
       assert.equal(calls, 2);
 

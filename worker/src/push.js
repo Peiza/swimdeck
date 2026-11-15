@@ -149,7 +149,16 @@ export async function handlePush(request, env, path) {
   if (path === '/api/push/key' && request.method === 'GET') return { key: (await vapidKeys(kv)).pub };
   if (path === '/api/push' && (request.method === 'POST' || request.method === 'PUT')) {
     const sub = cleanSubscription(await readJson(request));
-    await kv.put('push:' + (await sha256hex(sub.subscription.endpoint)), JSON.stringify({ ...sub, updatedAt: Date.now() }), { expirationTtl: TTL });
+    const key = 'push:' + (await sha256hex(sub.subscription.endpoint));
+    // The same list again is not written again, except now and then so that the entry does not expire.
+    const old = await kv.get(key);
+    if (old) {
+      try {
+        const { updatedAt, testedAt, ...prev } = JSON.parse(old);
+        if (JSON.stringify(prev) === JSON.stringify(sub) && Date.now() - (updatedAt || 0) < 30 * 864e5) return { ok: true, swimmers: sub.swimmers.length, unchanged: true };
+      } catch {}
+    }
+    await kv.put(key, JSON.stringify({ ...sub, updatedAt: Date.now() }), { expirationTtl: TTL });
     return { ok: true, swimmers: sub.swimmers.length };
   }
   if (path === '/api/push/test' && request.method === 'POST') {
@@ -250,7 +259,11 @@ export function messageFor(swimmer, news, lang, reached = []) {
  * The cron job. `fetchBests(id)` returns { swimmer, bests } for a Tempus swimmer id.
  * Returns a small report for logging and tests.
  */
-export async function runCheck(env, fetchBests, { appUrl, send = sendPush, maxSwimmers = 150 } = {}) {
+/**
+ * Checks watched swimmers for new bests. Run hourly: each run takes one slice of `perRun` swimmers (a different
+ * one every hour), so a run stays small and every swimmer is still checked within a few hours.
+ */
+export async function runCheck(env, fetchBests, { appUrl, send = sendPush, maxSwimmers = 300, perRun = 20, hour = Math.floor(Date.now() / 3600e3) } = {}) {
   const kv = env.LISTS;
   const subs = [];
   let cursor;
@@ -262,8 +275,11 @@ export async function runCheck(env, fetchBests, { appUrl, send = sendPush, maxSw
     }
     cursor = page.list_complete ? null : page.cursor;
   } while (cursor);
-  const watched = [...new Set(subs.flatMap((s) => s.swimmers))].slice(0, maxSwimmers);
+  const all = [...new Set(subs.flatMap((s) => s.swimmers))].sort((a, b) => a - b).slice(0, maxSwimmers);
+  const groups = Math.max(1, Math.ceil(all.length / perRun));
+  const watched = all.slice((hour % groups) * perRun, (hour % groups) * perRun + perRun);
   if (!watched.length) return { subs: subs.length, swimmers: 0, news: 0, sent: 0 };
+  let failed = 0;
 
   const news = new Map(); // id -> { swimmer, news }
   for (const id of watched) {
@@ -271,6 +287,7 @@ export async function runCheck(env, fetchBests, { appUrl, send = sendPush, maxSw
     try {
       data = await fetchBests(id);
     } catch {
+      failed++;
       continue;
     }
     const raw = await kv.get('snap:' + id);
@@ -303,5 +320,5 @@ export async function runCheck(env, fetchBests, { appUrl, send = sendPush, maxSw
       }
     }
   }
-  return { subs: subs.length, swimmers: watched.length, news: news.size, sent };
+  return { subs: subs.length, swimmers: watched.length, of: all.length, failed, news: news.size, sent };
 }
