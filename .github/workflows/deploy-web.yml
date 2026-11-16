@@ -52,7 +52,7 @@ jobs:
             # let the Content-Security-Policy allow that API address instead of the default one
             sed -i "s#https://swimdeck-api.peiza.workers.dev#$(node -p 'new URL(process.env.API_URL).origin')#" _site/index.html
           fi
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
