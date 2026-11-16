@@ -2,6 +2,7 @@
 import { state, store, t, $, esc, API, toast, errText, hooks } from './core.js';
 import { mergeSyncLists, cleanRemoteSwimmers } from './lib.js';
 import { scheduleNotifyUpdate } from './notify.js';
+import { refreshAll } from './api.js';
 
 state.sync = store.get('sync', null); // { token, updatedAt, payload }
 let pushTimer = null;
@@ -104,7 +105,7 @@ export function applyRemote(remote) {
   store.set('swimmers', state.swimmers);
   hooks.render();
   scheduleNotifyUpdate();
-  if (added.length) hooks.refreshAll({ only: added });
+  if (added.length) refreshAll({ only: added });
 }
 
 export function renderSyncStatus() {
