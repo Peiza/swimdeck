@@ -500,6 +500,7 @@ window.addEventListener('storage', (e) => {
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSync(); });
 window.addEventListener('pagehide', flushSync);
 
+applyTheme(state.theme); // the status bar colour must follow a saved choice from the first paint
 restoreNav();
 loadRecords();
 render();
