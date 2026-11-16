@@ -167,6 +167,11 @@ function applyTheme(theme) {
   const root = document.documentElement;
   if (theme === 'auto') delete root.dataset.theme;
   else root.dataset.theme = theme;
+  const dark = theme === 'dark' || (theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => {
+    if (theme === 'auto') m.media = m.dataset.media || m.media;
+    else { m.dataset.media = m.dataset.media || m.media; m.media = 'all'; m.content = dark ? '#0b1724' : '#0b5cad'; }
+  });
 }
 
 function goHome() {
@@ -495,6 +500,7 @@ window.addEventListener('storage', (e) => {
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSync(); });
 window.addEventListener('pagehide', flushSync);
 
+applyTheme(state.theme); // the status bar colour must follow a saved choice from the first paint
 restoreNav();
 loadRecords();
 render();
