@@ -211,3 +211,14 @@ test('focus stays on the same control after the page is redrawn', async () => {
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'sortMode');
   await page.close();
 });
+
+test('a card can be moved with the arrow keys and the new order is kept', async () => {
+  const page = await open([5004, 5001]);
+  await page.waitForSelector('.card [data-drag]');
+  const before = await page.evaluate(() => JSON.parse(localStorage.getItem('swimdeck.swimmers')).map((s) => s.id));
+  await page.focus('.card [data-drag]');
+  await page.keyboard.press('ArrowDown');
+  const after = await page.evaluate(() => JSON.parse(localStorage.getItem('swimdeck.swimmers')).map((s) => s.id));
+  assert.deepEqual(after, [before[1], before[0]]);
+  await page.close();
+});
