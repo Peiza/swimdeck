@@ -8,7 +8,7 @@
   "display": "standalone",
   "orientation": "any",
   "background_color": "#0b1724",
-  "theme_color": "#0b1724",
+  "theme_color": "#0b5cad",
   "categories": ["sports"],
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

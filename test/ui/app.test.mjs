@@ -270,10 +270,10 @@ test('the install tip appears from the second visit when the browser offers inst
   await page.close();
 });
 
-test('a saved light theme sets the browser bar colour at start, even when the device is dark', async () => {
-  const page = await open([5004], { store: { theme: 'light' } });
+test('the browser bar colour is the brand blue in every theme', async () => {
+  const page = await open([5004], { store: { theme: 'dark' } });
   await page.waitForSelector('.card');
   const metas = await page.evaluate(() => [...document.querySelectorAll('meta[name="theme-color"]')].map((m) => [m.media, m.content]));
-  assert.ok(metas.every(([media, content]) => media === 'all' && content === '#0b5cad'), JSON.stringify(metas));
+  assert.deepEqual(metas, [['', '#0b5cad']]);
   await page.close();
 });
