@@ -142,3 +142,27 @@ export async function loadEvent(s, code) {
   }
 }
 
+/** Load every event page for a swimmer (cached per session), reporting progress. */
+export async function loadAllEvents(s, onProgress = () => {}, codes = null) {
+  const d = state.data[s.id];
+  codes = codes || [...new Set((d?.all?.bests || []).map((b) => b.event))];
+  let done = 0;
+  onProgress(done, codes.length);
+  const queue = codes.slice();
+  const results = [];
+  let failed = null;
+  const worker = async () => {
+    while (queue.length) {
+      const code = queue.shift();
+      try {
+        results.push(await loadEvent(s, code));
+      } catch (e) {
+        failed = e;
+      }
+      done++;
+      onProgress(done, codes.length);
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  return { results, failed };
+}
