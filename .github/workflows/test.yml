@@ -15,6 +15,8 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
+      - run: npm ci
+      - run: npm run check
       - run: npm test
       - name: Click tests in a browser
         run: |

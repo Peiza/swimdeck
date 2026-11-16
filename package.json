@@ -1,12 +1,16 @@
 {
   "name": "swimdeck",
-  "version": "0.51.1",
+  "version": "0.52.0",
   "private": true,
   "type": "module",
   "scripts": {
     "test": "node --test worker/test/*.test.js web/test/*.test.js",
+    "check": "node tools/check-names.mjs",
     "dev": "node tools/dev-server.js",
     "dev:mock": "node tools/dev-server.js --mock",
     "test:ui": "node --test --test-concurrency=1 test/ui/*.test.mjs"
+  },
+  "devDependencies": {
+    "acorn": "8.19.0"
   }
 }
