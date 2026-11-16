@@ -646,6 +646,13 @@ function renderHeader() {
 const HELP_VIEWS = ['deck', 'rank', 'compare', 'qual'];
 
 /** A short, collapsible explanation at the top of each view. */
+/** Shown only on the old github.io address, to people who have not turned on sync. */
+function moveBanner() {
+  if (!location.hostname.endsWith('github.io') || state.sync || !state.swimmers.length || store.get('moveBannerHidden')) return '';
+  return `<div class="move-banner" role="note"><p>${esc(t('moveBanner'))}</p>
+    <p><button class="btn primary small" data-action="syncOpen">${esc(t('moveBannerGo'))}</button> <button class="link small" data-action="moveLater">${esc(t('moveBannerLater'))}</button></p></div>`;
+}
+
 function helpBox(view) {
   if (!HELP_VIEWS.includes(view)) return '';
   return `<details class="help" data-help="${view}" ${state.helpOpen[view] ? 'open' : ''}>
@@ -723,7 +730,7 @@ function renderMain() {
       </div>`;
     return;
   }
-  main.innerHTML = helpBox(state.view) + (state.view === 'rank' ? rankView() : state.view === 'compare' ? compareView() : state.view === 'qual' ? qualView() : deckView());
+  main.innerHTML = moveBanner() + helpBox(state.view) + (state.view === 'rank' ? rankView() : state.view === 'compare' ? compareView() : state.view === 'qual' ? qualView() : deckView());
   packQualCards();
 }
 
@@ -2763,6 +2770,7 @@ document.addEventListener('click', (e) => {
     return renderMain();
   }
   if (el.dataset.action === 'syncOpen') return openSyncDialog();
+  if (el.dataset.action === 'moveLater') { store.set('moveBannerHidden', true); return render(); }
   if (el.dataset.action === 'syncCreate') return createSync();
   if (el.dataset.action === 'syncNow') return pullSync({ force: true }).then(() => toast(t('synced')));
   if (el.dataset.action === 'syncCopy') {
