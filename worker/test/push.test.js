@@ -181,3 +181,20 @@ test('each hourly run checks one slice, and every swimmer comes round', async ()
   }
   assert.equal(seen.size, 45);
 });
+
+test('an empty upstream answer for a swimmer with known times counts as a failure and keeps the snapshot', async () => {
+  const kv = memoryKv();
+  const env = { LISTS: kv };
+  const a = await fakeBrowser();
+  await handlePush(new Request('https://x/api/push', { method: 'POST', body: JSON.stringify({ subscription: a.subscription, swimmers: [1] }) }), env, '/api/push');
+  let bests = [{ pool: 25, event: 13, time: 6000, name: '100m Freestyle' }];
+  const fetchBests = async () => ({ swimmer: { id: 1 }, bests });
+  const send = async () => ({ ok: true, status: 201 });
+  await runCheck(env, fetchBests, { appUrl: 'x', send });
+  bests = [];
+  const r = await runCheck(env, fetchBests, { appUrl: 'x', send });
+  assert.equal(r.failed, 1);
+  bests = [{ pool: 25, event: 13, time: 5900, name: '100m Freestyle' }];
+  const after = await runCheck(env, fetchBests, { appUrl: 'x', send });
+  assert.equal(after.news, 1); // the old snapshot survived, so the improvement is still noticed
+});

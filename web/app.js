@@ -211,6 +211,7 @@ async function syncApi(method, path, body) {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
+    keepalive: method === 'PUT',
   });
   let data = null;
   try {
@@ -261,8 +262,22 @@ async function pullSync({ force = false } = {}) {
   lastPull = Date.now();
   try {
     const remote = await syncApi('GET', '/' + state.sync.token);
-    if (remote.updatedAt > (state.sync.updatedAt || 0)) applyRemote(remote);
-    state.sync = { ...state.sync, updatedAt: remote.updatedAt, payload: JSON.stringify(syncPayload()), error: null };
+    if (remote.updatedAt > (state.sync.updatedAt || 0)) {
+      const now = JSON.stringify(syncPayload());
+      if (now !== state.sync.payload) {
+        // Unsent local edits: merge instead of overwriting them, and send the result.
+        let before = [];
+        try { before = JSON.parse(state.sync.payload || '{}').swimmers || []; } catch {}
+        applyRemote({ swimmers: mergeSyncLists(before, JSON.parse(now).swimmers, remote.swimmers) });
+        state.sync = { ...state.sync, updatedAt: remote.updatedAt, error: null };
+        schedulePush();
+      } else {
+        applyRemote(remote);
+        state.sync = { ...state.sync, updatedAt: remote.updatedAt, payload: JSON.stringify(syncPayload()), error: null };
+      }
+    } else {
+      state.sync = { ...state.sync, error: null };
+    }
   } catch (e) {
     state.sync = { ...state.sync, error: e.status === 404 ? 'gone' : e.message };
   }
@@ -277,6 +292,7 @@ function applyRemote(remote) {
   state.swimmers = next;
   store.set('swimmers', state.swimmers);
   render();
+  scheduleNotifyUpdate();
   if (added.length) refreshAll({ only: added });
 }
 
@@ -3157,6 +3173,10 @@ for (const d of document.querySelectorAll('dialog')) {
     d.setAttribute('aria-labelledby', h.id);
   }).observe(d, { childList: true, subtree: true });
 }
+
+// Do not lose an edit made just before the tab closes.
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && pushTimer) { clearTimeout(pushTimer); pushSync(); } });
+window.addEventListener('pagehide', () => { if (pushTimer) { clearTimeout(pushTimer); pushSync(); } });
 
 restoreNav();
 loadRecords();

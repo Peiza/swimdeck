@@ -293,6 +293,11 @@ export async function runCheck(env, fetchBests, { appUrl, send = sendPush, maxSw
     const raw = await kv.get('snap:' + id);
     const snap = raw ? JSON.parse(raw) : null;
     const next = snapshotOf(data.bests);
+    // An empty answer for a swimmer who had times means the page changed or was blocked: keep the old snapshot.
+    if (snap && Object.keys(next).length === 0 && Object.keys(snap).length > 0) {
+      failed++;
+      continue;
+    }
     if (snap) {
       const fresh = diffBests(snap, data.bests);
       if (fresh.length) news.set(id, { swimmer: data.swimmer || { id }, news: fresh, snap });
