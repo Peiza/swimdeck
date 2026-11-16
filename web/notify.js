@@ -2,6 +2,7 @@
 import { state, store, t, $, esc, API, toast, errText } from './core.js';
 
 
+
 state.notify = store.get('notify', null); // { endpoint, count }
 let notifyTimer = null;
 export const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
@@ -136,3 +137,23 @@ export function renderNotifyDialog(msg = '', problem = '') {
   dlg.onclose = null;
 }
 
+/** Clicks that belong here. Returns true when it handled the click. */
+export function onNotifyClick(el, e) {
+  if (el.dataset.action === 'notifyOpen') {
+    openNotify();
+    return true;
+  }
+  if (el.dataset.action === 'notifyOn') {
+    enableNotify();
+    return true;
+  }
+  if (el.dataset.action === 'notifyOff') {
+    disableNotify();
+    return true;
+  }
+  if (el.dataset.action === 'notifyTest') {
+    testNotify();
+    return true;
+  }
+  return false;
+}

@@ -10,6 +10,8 @@ import { ORDER, qualCounts, sexOf } from './qual.js';
 import { METRICS, compareMetrics, downloadCsv, fmtMetric, fmtPct, fmtPctPlain, metricName, metricValue, nearPill, nearShare, periodName, pill } from './viewkit.js';
 import { hasPara, wpsPoints } from './wps.js';
 import { loadAllEvents } from './api.js';
+import { fillEventDetail } from './meets.js';
+import { markSeen } from './parts.js';
 /**
  * Qualifying cards: spread them over as many columns as fit, each card going to the currently shortest column.
  * The order reads left to right, row by row, like the Swimmers tab, and short cards leave no gaps.
@@ -609,3 +611,102 @@ export function qualView() {
     </div>`;
 }
 
+/** Clicks that belong here. Returns true when it handled the click. */
+export function onViewsClick(el, e) {
+  if (el.dataset.sortpool) {
+    state.rankSortPool = Number(el.dataset.sortpool);
+    store.set('rankSortPool', state.rankSortPool);
+    hooks.renderMain();
+    return true;
+  }
+  if (el.dataset.basis) {
+    state.rankBasis = el.dataset.basis;
+    store.set('rankBasis', state.rankBasis);
+    hooks.renderMain();
+    return true;
+  }
+  if (el.dataset.sex !== undefined && el.closest('.rank-controls')) {
+    state.rankSex = el.dataset.sex;
+    store.set('rankSex', state.rankSex);
+    hooks.renderMain();
+    return true;
+  }
+  if (el.dataset.pick) {
+    const id = Number(el.dataset.pick);
+    const cur = compareSelection();
+    state.compareIds = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id].slice(0, 4);
+    if (!state.compareIds.length) state.compareIds = [id];
+    hooks.save();
+    hooks.renderMain();
+    return true;
+  }
+  if (el.dataset.cpool) {
+    state.comparePool = Number(el.dataset.cpool);
+    hooks.save();
+    hooks.renderMain();
+    return true;
+  }
+  if (el.dataset.qcomp) {
+    state.qComp = el.dataset.qcomp;
+    hooks.save();
+    hooks.renderMain();
+    return true;
+  }
+  if (el.dataset.qsex) {
+    state.qSex = el.dataset.qsex;
+    hooks.save();
+    hooks.renderMain();
+    return true;
+  }
+  if (el.dataset.qpool) {
+    state.qPool = Number(el.dataset.qpool);
+    hooks.save();
+    hooks.renderMain();
+    return true;
+  }
+  if (el.dataset.action === 'seenAll') {
+    markSeen(state.swimmers.map((s) => s.id));
+    hooks.renderMain();
+    return true;
+  }
+  if (el.dataset.action === 'csvRank') {
+    rankCsv();
+    return true;
+  }
+  if (el.dataset.action === 'h2h') {
+    fillH2h();
+    return true;
+  }
+  if (el.dataset.action === 'csvCompare') {
+    compareCsv();
+    return true;
+  }
+  if (el.dataset.collapse) {
+    const id = Number(el.dataset.collapse);
+    state.collapsed = state.collapsed.includes(id) ? state.collapsed.filter((x) => x !== id) : [...state.collapsed, id];
+    hooks.save();
+    hooks.renderMain();
+    return true;
+  }
+  if (el.dataset.action === 'collapseAll' || el.dataset.action === 'expandAll') {
+    state.collapsed = el.dataset.action === 'collapseAll' ? state.swimmers.map((s) => s.id) : [];
+    hooks.save();
+    hooks.renderMain();
+    return true;
+  }
+  if (el.dataset.toporder) {
+    state.topOrder = el.dataset.toporder;
+    store.set('topOrder', state.topOrder);
+    const s = state.swimmers.find((x) => x.id === state.openId);
+    fillEventDetail(s, state.openEvent);
+    return true;
+  }
+  if (el.dataset.topn) {
+    state.topN = el.dataset.topn === 'all' ? 'all' : Number(el.dataset.topn);
+    store.set('topN', state.topN);
+    const s = state.swimmers.find((x) => x.id === state.openId);
+    fillEventDetail(s, state.openEvent);
+    return true;
+  }
+  return false;
+}

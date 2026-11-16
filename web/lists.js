@@ -5,6 +5,7 @@ import { TRASH_DAYS } from './core.js';
 import { ICON } from './parts.js';
 import { joinSync } from './sync.js';
 
+
 export async function share() {
   const ids = state.swimmers.map((s) => (s.site === 'se' ? s.id : `${s.site}${s.id}`)).join(',');
   const url = `${location.origin}${location.pathname}#add=${ids}`;
@@ -192,3 +193,39 @@ export async function purge(ids) {
   hooks.render();
 }
 
+/** Clicks that belong here. Returns true when it handled the click. */
+export function onListsClick(el, e) {
+  if (el.dataset.action === 'bulkRemove') {
+    openBulkRemove();
+    return true;
+  }
+  if (el.dataset.action === 'bulkDo') {
+    doBulkRemove();
+    return true;
+  }
+  if (el.dataset.remove) {
+    askRemove(el.dataset.remove);
+    return true;
+  }
+  if (el.dataset.action === 'trash') {
+    openTrash();
+    return true;
+  }
+  if (el.dataset.restore) {
+    restore(el.dataset.restore);
+    return true;
+  }
+  if (el.dataset.purge) {
+    purge([Number(el.dataset.purge)]);
+    return true;
+  }
+  if (el.dataset.action === 'emptyTrash') {
+    purge(state.trash.map((x) => x.swimmer.id));
+    return true;
+  }
+  if (el.dataset.action === 'remove') {
+    askRemove(state.openId);
+    return true;
+  }
+  return false;
+}

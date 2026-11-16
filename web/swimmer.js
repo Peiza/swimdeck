@@ -6,6 +6,8 @@ import { eventRow, fillEventDetail, meetButton, roundLabel } from './meets.js';
 import { qualRows } from './parts.js';
 import { metricPill, oldestSwimYear, periodOptionLabel, shortDate } from './viewkit.js';
 import { suggestPara } from './wps.js';
+import { parseTime } from './lib.js';
+import { loadMeet, openMeet, renderMeet, setGoal } from './meets.js';
 
 
 export function openSwimmer(id) {
@@ -207,3 +209,103 @@ export async function fillMeets(s) {
     ${list.length > shown.length ? `<div class="row more-row"><button class="btn small" data-action="moreMeets">${esc(t('showMore'))}</button></div>` : ''}`;
 }
 
+/** Clicks that belong here. Returns true when it handled the click. */
+export function onSwimmerClick(el, e) {
+  if (el.dataset.meet) {
+    openMeet(el);
+    return true;
+  }
+  if (el.dataset.msex) {
+    state.meet = { ...state.meet, sex: el.dataset.msex, data: null, error: null };
+    renderMeet();
+    loadMeet();
+    return true;
+  }
+  if (el.dataset.mcohort != null && state.meet) {
+    state.meet.cohort = el.dataset.mcohort === '1';
+    renderMeet();
+    return true;
+  }
+  if (el.dataset.mround != null && state.meet) {
+    state.meet.round = el.dataset.mround;
+    renderMeet();
+    return true;
+  }
+  if (el.dataset.otab) {
+    state.openTab = el.dataset.otab;
+    state.meetsShown = 5;
+    renderSwimmerDialog();
+    return true;
+  }
+  if (el.dataset.action === 'moreMeets') {
+    state.meetsShown += 10;
+    const s = state.swimmers.find((x) => x.id === state.openId);
+    s && fillMeets(s);
+    return true;
+  }
+  if (el.dataset.action === 'goalSave') {
+    const input = $('#goalInput');
+    const v = parseTime(input?.value);
+    if (input?.value.trim() && v == null) {
+      toast(t('goalInvalid'));
+      return input.focus();
+    }
+    setGoal(Number(el.dataset.code), v);
+    return true;
+  }
+  if (el.dataset.action === 'goalClear') {
+    setGoal(Number(el.dataset.code), null);
+    return true;
+  }
+  if (el.dataset.pool) {
+    state.openPool = Number(el.dataset.pool);
+    state.openEvent = null;
+    renderSwimmerDialog();
+    return true;
+  }
+  if (el.matches('tr.ev')) {
+    const code = Number(el.dataset.event);
+    state.openEvent = state.openEvent === code ? null : code;
+    renderSwimmerDialog();
+    return true;
+  }
+  if (el.dataset.menu) {
+    state.menu = state.menu === el.dataset.menu ? null : el.dataset.menu;
+    hooks.renderMain();
+    if ($('#swimmerDialog').open) renderSwimmerDialog();
+    $(`[data-menu="${el.dataset.menu}"]`)?.focus();
+    return true;
+  }
+  if (el.dataset.action === 'paraLookup') {
+    const sw = state.swimmers.find((x) => x.id === state.openId);
+    sw && paraLookup(sw);
+    return true;
+  }
+  if (el.dataset.action === 'paraLookupUse') {
+    const sw = state.swimmers.find((x) => x.id === state.openId);
+    const m = String(el.dataset.cls).match(/^(S|SB|SM)(\d+)$/);
+    if (!sw || !m) return;
+    const n = Number(m[2]);
+    sw.para = n >= 11 ? { S: n, SB: n, SM: n } : { ...(sw.para || {}), [m[1]]: n };
+    hooks.save();
+    renderSwimmerDialog();
+    hooks.renderMain();
+    return true;
+  }
+  if (el.dataset.action === 'paraSuggest' || el.dataset.action === 'paraClear') {
+    const sw = state.swimmers.find((x) => x.id === state.openId);
+    if (!sw) return;
+    if (el.dataset.action === 'paraClear') sw.para = undefined;
+    else sw.para = { ...(sw.para || {}), ...suggestPara(sw.para) };
+    hooks.save();
+    renderSwimmerDialog();
+    hooks.renderMain();
+    return true;
+  }
+  if (el.dataset.retryEvent) {
+    const s = state.swimmers.find((x) => x.id === state.openId);
+    fillEventDetail(s, Number(el.dataset.retryEvent));
+    return true;
+  }
+  return false;
+}

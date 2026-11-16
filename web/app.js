@@ -8,16 +8,16 @@ import { isMasters, mastersPct, wrPct, useWorldRecords, worldRecords } from './m
 import { MASTERS } from './masters-data.js';
 import { LANGS, makeT, detectLang } from './i18n.js';
 import { initReorder } from './reorder.js';
-import { openSwimmer, renderSwimmerDialog, STROKE_KEYS, profileView, radar, fillForm, paraLookupHtml, paraLookup, paraSettings, fillMeets } from './swimmer.js';
-import { QUAL_CARD_MIN, QUAL_GAP, packQualCards, SORTS, cardInfo, sortedSwimmers, deckView, CARD_PARTS, openCustomize, trashLink, bestFor, cardView, newBlock, goalChip, qualChips, baseCode, rankView, rankCsv, compareSelection, compareView, fillH2h, compareCsv, qualTabs, qualHighlights, qualDoneView, qualView } from './views.js';
-import { bulkSelect, share, checkSyncLink, checkImport, ask, askRemove, openBulkRemove, renderBulkRemove, doBulkRemove, restore, openTrash, renderTrash, purge } from './lists.js';
+import { onSwimmerClick, openSwimmer, renderSwimmerDialog, STROKE_KEYS, profileView, radar, fillForm, paraLookupHtml, paraLookup, paraSettings, fillMeets } from './swimmer.js';
+import { onViewsClick, QUAL_CARD_MIN, QUAL_GAP, packQualCards, SORTS, cardInfo, sortedSwimmers, deckView, CARD_PARTS, openCustomize, trashLink, bestFor, cardView, newBlock, goalChip, qualChips, baseCode, rankView, rankCsv, compareSelection, compareView, fillH2h, compareCsv, qualTabs, qualHighlights, qualDoneView, qualView } from './views.js';
+import { onListsClick, bulkSelect, share, checkSyncLink, checkImport, ask, askRemove, openBulkRemove, renderBulkRemove, doBulkRemove, restore, openTrash, renderTrash, purge } from './lists.js';
 import { roundLabel, roundRank, reRank, sexCode, meetCache, meetButton, openMeet, loadMeet, renderMeet, eventRow, fillEventDetail, goalEditor, setGoal, MONTHS, mastersShipped, shortIso, recordStatus, applyRecords, loadRecords, recordLine, prognosisLine, rankRow, rankMsg, fillRank, seasonTable, chart } from './meets.js';
 import { usesWps, fmtPctPlain, METRICS, metricsFor, metricFor, metricName, ptsOf, ptsTitle, ptsLabel, metricValue, fmtMetric, compareMetrics, pill, metricPill, NEAR_CHOICES, nearShare, nearPill, closeMenu, periodName, periodOptionLabel, oldestSwimYear, shortDate, fmtPct, downloadCsv, save } from './viewkit.js';
-import { addState, updateAddDone, openAdd, openImport, renderImport, selectable, importGroups, importRow, importCache, IMPORT_PRESELECT, importSearch, runImport, renderImportKeepScroll, mergePara, paraUpdates, addImported, MEET_IMPORT_MAX, openMeetImport, findMeets, pickMeet, loadMeetClub, inList, meetImportShown, meetImportGroups, renderMeetImport, addFromMeet, doSearch, renderHits, addSwimmer } from './add.js';
+import { onAddClick, addState, updateAddDone, openAdd, openImport, renderImport, selectable, importGroups, importRow, importCache, IMPORT_PRESELECT, importSearch, runImport, renderImportKeepScroll, mergePara, paraUpdates, addImported, MEET_IMPORT_MAX, openMeetImport, findMeets, pickMeet, loadMeetClub, inList, meetImportShown, meetImportGroups, renderMeetImport, addFromMeet, doSearch, renderHits, addSwimmer } from './add.js';
 import { loadAllEvents, loadingStop, loadingStart, loadingEnd, api, periodKey, RECENT_DAYS, recentMeet, loadSwimmer, pickSwimmer, refreshAll, needsLoad, loadEvent } from './api.js';
-import { flushSync, syncPayload, syncLink, syncApi, schedulePush, pushSync, pullSync, applyRemote, renderSyncStatus, syncStatusHtml, openSyncDialog, renderSyncDialog, createSync, joinSync } from './sync.js';
+import { onSyncClick, flushSync, syncPayload, syncLink, syncApi, schedulePush, pushSync, pullSync, applyRemote, renderSyncStatus, syncStatusHtml, openSyncDialog, renderSyncDialog, createSync, joinSync } from './sync.js';
 import { STD_LABEL, stdLabel, SHORT_LABEL, qBadge, newFor, markSeen, qualRows, ICON } from './parts.js';
-import { pushSupported, notifyApi, currentSubscription, enableNotify, sendNotifyList, disableNotify, healNotify, notifyProblem, testNotify, scheduleNotifyUpdate, openNotify, renderNotifyDialog } from './notify.js';
+import { onNotifyClick, pushSupported, notifyApi, currentSubscription, enableNotify, sendNotifyList, disableNotify, healNotify, notifyProblem, testNotify, scheduleNotifyUpdate, openNotify, renderNotifyDialog } from './notify.js';
 import { TRASH_DAYS, store, state, t, setLang, API, STALE_MS, FEEDBACK_URL, $, sexLabel, esc, errText, toast, hideToast, hooks } from './core.js';
 import {
   eventLabel, eventShort, eventSortKey, eventInfo, fmtTime, fmtDiff, periodRange, seasonLabel, periodOptions,
@@ -255,6 +255,8 @@ function renderFooter() {
 
 // ---------------------------------------------------------------- events
 
+const clickGroups = [onSyncClick, onNotifyClick, onAddClick, onListsClick, onSwimmerClick, onViewsClick];
+
 document.addEventListener('click', (e) => {
   if (state.menu && !e.target.closest('.metric-wrap')) {
     closeMenu();
@@ -282,33 +284,13 @@ document.addEventListener('click', (e) => {
     return closeMenu();
   }
   el.closest('.deck-more')?.removeAttribute('open');
+  for (const handle of clickGroups) if (handle(el, e)) return;
   if (el.id === 'add' || el.dataset.action === 'add') return openAdd();
   if (el.id === 'refresh') return refreshAll({ fresh: true });
   if (el.id === 'share') return share();
   if (el.dataset.action === 'close') return el.closest('dialog').close();
-  if (el.dataset.action === 'bulkRemove') return openBulkRemove();
-  if (el.dataset.action === 'bulkDo') return doBulkRemove();
-  if (el.dataset.sortpool) {
-    state.rankSortPool = Number(el.dataset.sortpool);
-    store.set('rankSortPool', state.rankSortPool);
-    return renderMain();
-  }
   if (el.dataset.action === 'home') return goHome();
   if (el.dataset.action === 'about') return openAbout();
-  if (el.dataset.meet) return openMeet(el);
-  if (el.dataset.msex) {
-    state.meet = { ...state.meet, sex: el.dataset.msex, data: null, error: null };
-    renderMeet();
-    return loadMeet();
-  }
-  if (el.dataset.mcohort != null && state.meet) {
-    state.meet.cohort = el.dataset.mcohort === '1';
-    return renderMeet();
-  }
-  if (el.dataset.mround != null && state.meet) {
-    state.meet.round = el.dataset.mround;
-    return renderMeet();
-  }
   if (el.dataset.view) {
     state.view = el.dataset.view;
     return render();
@@ -322,258 +304,15 @@ document.addEventListener('click', (e) => {
     store.set('lang', state.lang);
     return render();
   }
-  if (el.dataset.basis) {
-    state.rankBasis = el.dataset.basis;
-    store.set('rankBasis', state.rankBasis);
-    return renderMain();
-  }
-  if (el.dataset.sex !== undefined && el.closest('.rank-controls')) {
-    state.rankSex = el.dataset.sex;
-    store.set('rankSex', state.rankSex);
-    return renderMain();
-  }
   if (el.hasAttribute('data-toast-action')) {
     const run = toast.action;
     hideToast();
     return run && run();
   }
   if (el.dataset.drag) return;
-  if (el.dataset.otab) {
-    state.openTab = el.dataset.otab;
-    state.meetsShown = 5;
-    return renderSwimmerDialog();
-  }
-  if (el.dataset.action === 'moreMeets') {
-    state.meetsShown += 10;
-    const s = state.swimmers.find((x) => x.id === state.openId);
-    return s && fillMeets(s);
-  }
-  if (el.dataset.pick) {
-    const id = Number(el.dataset.pick);
-    const cur = compareSelection();
-    state.compareIds = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id].slice(0, 4);
-    if (!state.compareIds.length) state.compareIds = [id];
-    save();
-    return renderMain();
-  }
-  if (el.dataset.cpool) {
-    state.comparePool = Number(el.dataset.cpool);
-    save();
-    return renderMain();
-  }
-  if (el.dataset.qcomp) {
-    state.qComp = el.dataset.qcomp;
-    save();
-    return renderMain();
-  }
-  if (el.dataset.qsex) {
-    state.qSex = el.dataset.qsex;
-    save();
-    return renderMain();
-  }
-  if (el.dataset.qpool) {
-    state.qPool = Number(el.dataset.qpool);
-    save();
-    return renderMain();
-  }
-  if (el.dataset.action === 'seenAll') {
-    markSeen(state.swimmers.map((s) => s.id));
-    return renderMain();
-  }
-  if (el.dataset.action === 'syncOpen') return openSyncDialog();
   if (el.dataset.action === 'movedHide') { store.set('movedHidden', true); return render(); }
-  if (el.dataset.action === 'syncCreate') return createSync();
-  if (el.dataset.action === 'syncNow') return pullSync({ force: true }).then(() => toast(t('synced')));
-  if (el.dataset.action === 'syncCopy') {
-    navigator.clipboard?.writeText(syncLink()).then(() => toast(t('shareCopied')), () => {});
-    return;
-  }
-  if (el.dataset.action === 'syncLeave') {
-    return ask({ title: t('syncLeave'), body: t('syncLeaveBody'), yes: t('syncLeave') }).then((ok) => {
-      if (!ok) return;
-      state.sync = null;
-      store.set('sync', null);
-      renderSyncDialog();
-      renderSyncStatus();
-    });
-  }
-  if (el.dataset.action === 'syncDelete') {
-    return ask({ title: t('syncDelete'), body: t('syncDeleteBody'), yes: t('syncDelete'), danger: true }).then(async (ok) => {
-      if (!ok) return;
-      try {
-        await syncApi('DELETE', '/' + state.sync.token);
-      } catch {}
-      state.sync = null;
-      store.set('sync', null);
-      renderSyncDialog();
-      renderSyncStatus();
-    });
-  }
-  if (el.dataset.action === 'goalSave') {
-    const input = $('#goalInput');
-    const v = parseTime(input?.value);
-    if (input?.value.trim() && v == null) {
-      toast(t('goalInvalid'));
-      return input.focus();
-    }
-    return setGoal(Number(el.dataset.code), v);
-  }
-  if (el.dataset.action === 'goalClear') return setGoal(Number(el.dataset.code), null);
-  if (el.dataset.action === 'csvRank') return rankCsv();
-  if (el.dataset.action === 'h2h') return fillH2h();
-  if (el.dataset.action === 'csvCompare') return compareCsv();
-  if (el.dataset.collapse) {
-    const id = Number(el.dataset.collapse);
-    state.collapsed = state.collapsed.includes(id) ? state.collapsed.filter((x) => x !== id) : [...state.collapsed, id];
-    save();
-    return renderMain();
-  }
-  if (el.dataset.action === 'collapseAll' || el.dataset.action === 'expandAll') {
-    state.collapsed = el.dataset.action === 'collapseAll' ? state.swimmers.map((s) => s.id) : [];
-    save();
-    return renderMain();
-  }
-  if (el.dataset.remove) return askRemove(el.dataset.remove);
-  if (el.dataset.action === 'trash') return openTrash();
-  if (el.dataset.restore) return restore(el.dataset.restore);
-  if (el.dataset.purge) return purge([Number(el.dataset.purge)]);
-  if (el.dataset.action === 'emptyTrash') return purge(state.trash.map((x) => x.swimmer.id));
   if (el.dataset.open) return openSwimmer(el.dataset.open);
-  if (el.dataset.pool) {
-    state.openPool = Number(el.dataset.pool);
-    state.openEvent = null;
-    return renderSwimmerDialog();
-  }
-  if (el.matches('tr.ev')) {
-    const code = Number(el.dataset.event);
-    state.openEvent = state.openEvent === code ? null : code;
-    return renderSwimmerDialog();
-  }
-  if (el.dataset.menu) {
-    state.menu = state.menu === el.dataset.menu ? null : el.dataset.menu;
-    renderMain();
-    if ($('#swimmerDialog').open) renderSwimmerDialog();
-    $(`[data-menu="${el.dataset.menu}"]`)?.focus();
-    return;
-  }
-  if (el.dataset.action === 'paraLookup') {
-    const sw = state.swimmers.find((x) => x.id === state.openId);
-    return sw && paraLookup(sw);
-  }
-  if (el.dataset.action === 'paraLookupUse') {
-    const sw = state.swimmers.find((x) => x.id === state.openId);
-    const m = String(el.dataset.cls).match(/^(S|SB|SM)(\d+)$/);
-    if (!sw || !m) return;
-    const n = Number(m[2]);
-    sw.para = n >= 11 ? { S: n, SB: n, SM: n } : { ...(sw.para || {}), [m[1]]: n };
-    save();
-    renderSwimmerDialog();
-    return renderMain();
-  }
-  if (el.dataset.action === 'paraSuggest' || el.dataset.action === 'paraClear') {
-    const sw = state.swimmers.find((x) => x.id === state.openId);
-    if (!sw) return;
-    if (el.dataset.action === 'paraClear') sw.para = undefined;
-    else sw.para = { ...(sw.para || {}), ...suggestPara(sw.para) };
-    save();
-    renderSwimmerDialog();
-    return renderMain();
-  }
-  if (el.dataset.toporder) {
-    state.topOrder = el.dataset.toporder;
-    store.set('topOrder', state.topOrder);
-    const s = state.swimmers.find((x) => x.id === state.openId);
-    return fillEventDetail(s, state.openEvent);
-  }
-  if (el.dataset.topn) {
-    state.topN = el.dataset.topn === 'all' ? 'all' : Number(el.dataset.topn);
-    store.set('topN', state.topN);
-    const s = state.swimmers.find((x) => x.id === state.openId);
-    return fillEventDetail(s, state.openEvent);
-  }
-  if (el.dataset.retryEvent) {
-    const s = state.swimmers.find((x) => x.id === state.openId);
-    return fillEventDetail(s, Number(el.dataset.retryEvent));
-  }
-  if (el.dataset.action === 'remove') return askRemove(state.openId);
-  if (el.dataset.add) {
-    const sw = addSwimmer(JSON.parse(el.dataset.add));
-    if (sw) {
-      el.disabled = true;
-      el.classList.remove('primary');
-      el.textContent = t('added');
-    }
-    return;
-  }
-  if (el.dataset.action === 'moreHits') {
-    el.disabled = true;
-    return doSearch($('#searchForm'), (addState.searchState?.page || 1) + 1);
-  }
-  if (el.dataset.action === 'addAll') {
-    const todo = addState.searchState.swimmers.filter((s) => !state.swimmers.some((x) => x.id === s.id)).slice(0, 30);
-    for (const s of todo) addSwimmer(pickSwimmer(s, 'se'), { load: false });
-    refreshAll({ only: state.swimmers.filter((s) => todo.some((x) => x.id === s.id)) });
-    renderHits();
-    toast(t('addedN', { n: todo.length }));
-    return;
-  }
-  if (el.dataset.action === 'importOpen') return openImport();
-  if (el.dataset.action === 'meetImport') return openMeetImport();
-  if (el.dataset.mpick) return pickMeet(Number(el.dataset.mpick));
-  if (el.dataset.action === 'meetImportBack') {
-    Object.assign(addState.meetImport, { step: 'pick', data: null, club: '' });
-    return addState.meetImport.meets ? renderMeetImport() : findMeets();
-  }
-  if (el.dataset.action === 'meetImportAdd') return addFromMeet();
-  if (el.dataset.misex != null && addState.meetImport) {
-    addState.meetImport.sex = el.dataset.misex;
-    return renderMeetImport();
-  }
-  if (el.dataset.migroup && addState.meetImport) {
-    addState.meetImport.groupBy = el.dataset.migroup;
-    return renderMeetImport();
-  }
   if (el.dataset.action === 'cardsCustomize') return openCustomize();
-  if (el.dataset.action === 'notifyOpen') return openNotify();
-  if (el.dataset.action === 'notifyOn') return enableNotify();
-  if (el.dataset.action === 'notifyOff') return disableNotify();
-  if (el.dataset.action === 'notifyTest') return testNotify();
-  if (el.dataset.action === 'importParse') {
-    const text = $('#importText')?.value || '';
-    if (!text.trim()) return $('#importText')?.focus();
-    return runImport(text);
-  }
-  if (el.dataset.action === 'importReset') {
-    addState.importState = { ...addState.importState, entries: [], status: new Map(), selected: new Set() };
-    return renderImport();
-  }
-  if (el.dataset.action === 'importAdd') return addImported();
-  if (el.dataset.action === 'importAll') {
-    const list = addState.importState.entries.filter(selectable);
-    const all = list.every((e) => addState.importState.selected.has(e.key));
-    for (const e of list) all ? addState.importState.selected.delete(e.key) : addState.importState.selected.add(e.key);
-    return renderImportKeepScroll();
-  }
-  if (el.dataset.action === 'importParaUpdate') {
-    const list = paraUpdates();
-    for (const { sw, merged } of list) sw.para = merged;
-    save();
-    render();
-    toast(t('importParaUpdated', { n: list.length }));
-    return renderImportKeepScroll();
-  }
-  if (el.dataset.igroup) {
-    addState.importState.groupBy = el.dataset.igroup;
-    return renderImportKeepScroll();
-  }
-  if (el.id === 'addLink') {
-    const input = $('input[name=link]');
-    const ref = parseTempusRef(input.value);
-    if (!ref) return input.focus();
-    addSwimmer({ id: ref.id, site: ref.site });
-    input.value = '';
-    toast(t('added'));
-  }
 });
 
 document.addEventListener('keydown', (e) => {

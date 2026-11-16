@@ -3,6 +3,7 @@ import { state, store, t, $, esc, toast, errText, hooks, sexLabel } from './core
 import { api, pickSwimmer, refreshAll } from './api.js';
 import { eventSortKey, eventLabel } from './lib.js';
 import { parseList, rankCandidates } from './importer.js';
+import { parseTempusRef } from './lib.js';
 
 
 
@@ -435,3 +436,105 @@ export function addSwimmer(s, { load = true } = {}) {
   return sw;
 }
 
+/** Clicks that belong here. Returns true when it handled the click. */
+export function onAddClick(el, e) {
+  if (el.dataset.add) {
+    const sw = addSwimmer(JSON.parse(el.dataset.add));
+    if (sw) {
+      el.disabled = true;
+      el.classList.remove('primary');
+      el.textContent = t('added');
+    }
+    return true;
+  }
+  if (el.dataset.action === 'moreHits') {
+    el.disabled = true;
+    doSearch($('#searchForm'), (addState.searchState?.page || 1) + 1);
+    return true;
+  }
+  if (el.dataset.action === 'addAll') {
+    const todo = addState.searchState.swimmers.filter((s) => !state.swimmers.some((x) => x.id === s.id)).slice(0, 30);
+    for (const s of todo) addSwimmer(pickSwimmer(s, 'se'), { load: false });
+    refreshAll({ only: state.swimmers.filter((s) => todo.some((x) => x.id === s.id)) });
+    renderHits();
+    toast(t('addedN', { n: todo.length }));
+    return true;
+  }
+  if (el.dataset.action === 'importOpen') {
+    openImport();
+    return true;
+  }
+  if (el.dataset.action === 'meetImport') {
+    openMeetImport();
+    return true;
+  }
+  if (el.dataset.mpick) {
+    pickMeet(Number(el.dataset.mpick));
+    return true;
+  }
+  if (el.dataset.action === 'meetImportBack') {
+    Object.assign(addState.meetImport, { step: 'pick', data: null, club: '' });
+    addState.meetImport.meets ? renderMeetImport() : findMeets();
+    return true;
+  }
+  if (el.dataset.action === 'meetImportAdd') {
+    addFromMeet();
+    return true;
+  }
+  if (el.dataset.misex != null && addState.meetImport) {
+    addState.meetImport.sex = el.dataset.misex;
+    renderMeetImport();
+    return true;
+  }
+  if (el.dataset.migroup && addState.meetImport) {
+    addState.meetImport.groupBy = el.dataset.migroup;
+    renderMeetImport();
+    return true;
+  }
+  if (el.dataset.action === 'importParse') {
+    const text = $('#importText')?.value || '';
+    if (!text.trim()) return $('#importText')?.focus();
+    runImport(text);
+    return true;
+  }
+  if (el.dataset.action === 'importReset') {
+    addState.importState = { ...addState.importState, entries: [], status: new Map(), selected: new Set() };
+    renderImport();
+    return true;
+  }
+  if (el.dataset.action === 'importAdd') {
+    addImported();
+    return true;
+  }
+  if (el.dataset.action === 'importAll') {
+    const list = addState.importState.entries.filter(selectable);
+    const all = list.every((e) => addState.importState.selected.has(e.key));
+    for (const e of list) all ? addState.importState.selected.delete(e.key) : addState.importState.selected.add(e.key);
+    renderImportKeepScroll();
+    return true;
+  }
+  if (el.dataset.action === 'importParaUpdate') {
+    const list = paraUpdates();
+    for (const { sw, merged } of list) sw.para = merged;
+    hooks.save();
+    hooks.render();
+    toast(t('importParaUpdated', { n: list.length }));
+    renderImportKeepScroll();
+    return true;
+  }
+  if (el.dataset.igroup) {
+    addState.importState.groupBy = el.dataset.igroup;
+    renderImportKeepScroll();
+    return true;
+  }
+  if (el.id === 'addLink') {
+    const input = $('input[name=link]');
+    const ref = parseTempusRef(input.value);
+    if (!ref) return input.focus();
+    addSwimmer({ id: ref.id, site: ref.site });
+    input.value = '';
+    toast(t('added'));
+    return true;
+  }
+  return false;
+}

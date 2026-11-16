@@ -3,6 +3,7 @@ import { state, store, t, $, esc, API, toast, errText, hooks } from './core.js';
 import { mergeSyncLists, cleanRemoteSwimmers } from './lib.js';
 import { scheduleNotifyUpdate } from './notify.js';
 import { refreshAll } from './api.js';
+import { ask } from './lists.js';
 
 state.sync = store.get('sync', null); // { token, updatedAt, payload }
 let pushTimer = null;
@@ -203,4 +204,48 @@ export async function joinSync(token) {
   hooks.render();
   toast(t('syncJoined'));
   renderSyncStatus();
+}
+
+/** Clicks that belong here. Returns true when it handled the click. */
+export function onSyncClick(el, e) {
+  if (el.dataset.action === 'syncOpen') {
+    openSyncDialog();
+    return true;
+  }
+  if (el.dataset.action === 'syncCreate') {
+    createSync();
+    return true;
+  }
+  if (el.dataset.action === 'syncNow') {
+    pullSync({ force: true }).then(() => toast(t('synced')));
+    return true;
+  }
+  if (el.dataset.action === 'syncCopy') {
+    navigator.clipboard?.writeText(syncLink()).then(() => toast(t('shareCopied')), () => {});
+    return true;
+  }
+  if (el.dataset.action === 'syncLeave') {
+    return ask({ title: t('syncLeave'), body: t('syncLeaveBody'), yes: t('syncLeave') }).then((ok) => {
+      if (!ok) return;
+      state.sync = null;
+      store.set('sync', null);
+      renderSyncDialog();
+      renderSyncStatus();
+    });
+    return true;
+  }
+  if (el.dataset.action === 'syncDelete') {
+    return ask({ title: t('syncDelete'), body: t('syncDeleteBody'), yes: t('syncDelete'), danger: true }).then(async (ok) => {
+      if (!ok) return;
+      try {
+        await syncApi('DELETE', '/' + state.sync.token);
+      } catch {}
+      state.sync = null;
+      store.set('sync', null);
+      renderSyncDialog();
+      renderSyncStatus();
+    });
+    return true;
+  }
+  return false;
 }
