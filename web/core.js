@@ -2,6 +2,9 @@
 import { CONFIG } from './config.js';
 import { makeT, detectLang } from './i18n.js';
 
+/** Functions that live in app.js, filled in there; lets other modules ask for a redraw without importing the app. */
+export const hooks = {};
+
 export const TRASH_DAYS = 30;
 
 export const store = {
@@ -76,3 +79,31 @@ export const $ = (sel, root = document) => root.querySelector(sel);
 export const sexLabel = (x) => (/^(wo|fe|kvin|dam|nai|flick|tyt)/i.test(x || '') ? t('women') : x ? t('men') : '');
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
+// ---------------------------------------------------------------- messages
+
+/** One friendly message for network trouble; other errors keep their text. */
+export function errText(msg) {
+  const m = String(msg ?? '');
+  if (!navigator.onLine || /failed to fetch|networkerror|load failed|network request/i.test(m)) return t('offlineErr');
+  return t('error', { msg: m });
+}
+
+export function toast(msg, action = null) {
+  const el = $('#toast');
+  el.innerHTML = `<span>${esc(msg)}</span>${action ? `<button data-toast-action>${esc(action.label)}</button>` : ''}`;
+  toast.action = action?.run || null;
+  clearTimeout(toast.hideTimer);
+  // In the top layer, so it also shows above an open dialog.
+  try { if (el.showPopover && !el.matches(':popover-open')) el.showPopover(); } catch { /* ignore */ }
+  el.classList.add('show');
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(hideToast, action ? 8000 : 2500);
+}
+
+export function hideToast() {
+  clearTimeout(toast.timer);
+  const el = $('#toast');
+  el.classList.remove('show');
+  clearTimeout(toast.hideTimer);
+  toast.hideTimer = setTimeout(() => { try { if (el.hidePopover && el.matches(':popover-open')) el.hidePopover(); } catch { /* ignore */ } }, 250);
+}

@@ -222,3 +222,17 @@ test('a card can be moved with the arrow keys and the new order is kept', async 
   assert.deepEqual(after, [before[1], before[0]]);
   await page.close();
 });
+
+test('the sync dialog and the notification dialog open', async () => {
+  const page = await open([5004]);
+  await page.waitForSelector('.card');
+  await page.evaluate(() => { const b = document.createElement('button'); b.dataset.action = 'syncOpen'; b.id = 'tmpSync'; document.body.append(b); });
+  await page.click('#tmpSync');
+  await page.waitForSelector('#syncDialog[open]');
+  assert.match(await page.locator('#syncDialog h2').first().innerText(), /Synka/);
+  await page.keyboard.press('Escape');
+  await page.click('[data-action="notifyOpen"]');
+  await page.waitForSelector('#confirmDialog[open]');
+  assert.match(await page.locator('#confirmDialog h2').innerText(), /otis|Notis/i);
+  await page.close();
+});

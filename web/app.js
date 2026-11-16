@@ -9,7 +9,10 @@ import { isMasters, mastersPct, wrPct, useWorldRecords, worldRecords } from './m
 import { MASTERS } from './masters-data.js';
 import { LANGS, makeT, detectLang } from './i18n.js';
 import { initReorder } from './reorder.js';
-import { TRASH_DAYS, store, state, t, setLang, API, STALE_MS, FEEDBACK_URL, $, sexLabel, esc } from './core.js';
+import { flushSync, syncPayload, syncLink, syncApi, schedulePush, pushSync, pullSync, applyRemote, renderSyncStatus, syncStatusHtml, openSyncDialog, renderSyncDialog, createSync, joinSync } from './sync.js';
+import { STD_LABEL, stdLabel, SHORT_LABEL, qBadge, newFor, markSeen, qualRows, ICON } from './parts.js';
+import { pushSupported, notifyApi, currentSubscription, enableNotify, sendNotifyList, disableNotify, healNotify, notifyProblem, testNotify, scheduleNotifyUpdate, openNotify, renderNotifyDialog } from './notify.js';
+import { TRASH_DAYS, store, state, t, setLang, API, STALE_MS, FEEDBACK_URL, $, sexLabel, esc, errText, toast, hideToast, hooks } from './core.js';
 import {
   eventLabel, eventShort, eventSortKey, eventInfo, fmtTime, fmtDiff, periodRange, seasonLabel, periodOptions,
   summarize, progression, parseTempusRef, parseTime, goalStatus, rankings, rankingsByPoints, rankingsBothPools, sortSwimmers,
@@ -130,230 +133,6 @@ function save() {
   schedulePush();
   scheduleNotifyUpdate();
 }
-
-// ---------------------------------------------------------------- sync between devices
-
-state.sync = store.get('sync', null); // { token, updatedAt, payload }
-let pushTimer = null;
-let lastPull = 0;
-
-const syncPayload = () => ({ swimmers: state.swimmers.map((s) => ({ id: s.id, site: s.site, ...(s.para ? { para: s.para } : {}), ...(s.goals && Object.keys(s.goals).length ? { goals: s.goals } : {}) })) });
-const syncLink = () => `${location.origin}${location.pathname}#sync=${state.sync.token}`;
-
-async function syncApi(method, path, body) {
-  const res = await fetch(`${API}/api/sync${path}`, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : {},
-    body: body ? JSON.stringify(body) : undefined,
-    keepalive: method === 'PUT',
-  });
-  let data = null;
-  try {
-    data = await res.json();
-  } catch {}
-  if (!res.ok) throw Object.assign(new Error(data?.error || `HTTP ${res.status}`), { status: res.status });
-  return data;
-}
-
-function schedulePush() {
-  if (!state.sync) return;
-  const payload = JSON.stringify(syncPayload());
-  if (payload === state.sync.payload) return;
-  clearTimeout(pushTimer);
-  pushTimer = setTimeout(pushSync, 1200);
-}
-
-async function pushSync() {
-  pushTimer = null;
-  if (!state.sync) return;
-  let payload = JSON.stringify(syncPayload());
-  try {
-    let r;
-    try {
-      r = await syncApi('PUT', '/' + state.sync.token, { ...JSON.parse(payload), base: state.sync.updatedAt });
-    } catch (e) {
-      if (e.status !== 409) throw e;
-      // Another device wrote first: merge its changes with ours, then write once more.
-      const remote = await syncApi('GET', '/' + state.sync.token);
-      let before = [];
-      try { before = JSON.parse(state.sync.payload || '{}').swimmers || []; } catch {}
-      applyRemote({ swimmers: mergeSyncLists(before, JSON.parse(payload).swimmers, remote.swimmers) });
-      payload = JSON.stringify(syncPayload());
-      r = await syncApi('PUT', '/' + state.sync.token, { ...JSON.parse(payload), base: remote.updatedAt });
-    }
-    state.sync = { ...state.sync, updatedAt: r.updatedAt, payload, error: null };
-  } catch (e) {
-    state.sync = { ...state.sync, error: e.status === 404 ? 'gone' : e.message };
-  }
-  store.set('sync', state.sync);
-  renderSyncStatus();
-}
-
-/** Bring in changes made on other devices. */
-async function pullSync({ force = false } = {}) {
-  if (!state.sync || pushTimer && !force) return;
-  if (!force && Date.now() - lastPull < 20000) return;
-  lastPull = Date.now();
-  try {
-    const remote = await syncApi('GET', '/' + state.sync.token);
-    if (remote.updatedAt > (state.sync.updatedAt || 0)) {
-      const now = JSON.stringify(syncPayload());
-      if (now !== state.sync.payload) {
-        // Unsent local edits: merge instead of overwriting them, and send the result.
-        let before = [];
-        try { before = JSON.parse(state.sync.payload || '{}').swimmers || []; } catch {}
-        applyRemote({ swimmers: mergeSyncLists(before, JSON.parse(now).swimmers, remote.swimmers) });
-        state.sync = { ...state.sync, updatedAt: remote.updatedAt, error: null };
-        schedulePush();
-      } else {
-        applyRemote(remote);
-        state.sync = { ...state.sync, updatedAt: remote.updatedAt, payload: JSON.stringify(syncPayload()), error: null };
-      }
-    } else {
-      state.sync = { ...state.sync, error: null };
-    }
-  } catch (e) {
-    state.sync = { ...state.sync, error: e.status === 404 ? 'gone' : e.message };
-  }
-  store.set('sync', state.sync);
-  renderSyncStatus();
-}
-
-function applyRemote(remote) {
-  const known = new Map(state.swimmers.map((s) => [s.id, s]));
-  const next = cleanRemoteSwimmers(remote.swimmers).map((r) => ({ ...(known.get(r.id) || { name: '', born: null, club: '', sex: '' }), id: r.id, site: r.site, para: r.para, goals: r.goals }));
-  const added = next.filter((s) => !known.has(s.id));
-  state.swimmers = next;
-  store.set('swimmers', state.swimmers);
-  render();
-  scheduleNotifyUpdate();
-  if (added.length) refreshAll({ only: added });
-}
-
-function renderSyncStatus() {
-  const el = $('#syncStatus');
-  if (el) el.outerHTML = syncStatusHtml();
-  if ($('#syncDialog').open) renderSyncDialog();
-}
-
-function syncStatusHtml() {
-  if (!state.sync) return '<span id="syncStatus"></span>';
-  const bad = state.sync.error;
-  return `<button id="syncStatus" class="sync-pill ${bad ? 'bad' : ''}" data-action="syncOpen" title="${esc(t('syncTitle'))}">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 13.7-5.7L20 8M20 4v4h-4M20 12a8 8 0 0 1-13.7 5.7L4 16M4 20v-4h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    ${esc(bad ? t('syncError') : t('synced'))}</button>`;
-}
-
-function openSyncDialog() {
-  renderSyncDialog();
-  const dlg = $('#syncDialog');
-  if (!dlg.open) dlg.showModal();
-}
-
-async function renderSyncDialog() {
-  const dlg = $('#syncDialog');
-  const on = !!state.sync;
-  dlg.innerHTML = `<div class="sheet small-sheet sync-sheet">
-    <header class="sheet-head"><h2>${esc(t('syncTitle'))}</h2><button class="icon" data-action="close" aria-label="${esc(t('close'))}">✕</button></header>
-    ${on ? `
-      ${state.sync.error === 'gone' ? `<p class="warn small">${esc(t('syncGone'))}</p>` : state.sync.error ? `<p class="warn small">${esc(errText(state.sync.error))}</p>` : `<p class="small">${esc(t('syncOn', { when: state.sync.updatedAt ? new Date(state.sync.updatedAt).toLocaleString(state.lang, { dateStyle: 'short', timeStyle: 'short' }) : '–' }))}</p>`}
-      <p class="small muted">${esc(t('syncHowTo'))}</p>
-      <div class="qr" id="syncQr"></div>
-      <div class="row"><input class="sync-link" readonly value="${esc(syncLink())}"><button class="btn small" data-action="syncCopy">${esc(t('copy'))}</button></div>
-      <p class="small muted">${esc(t('syncSecret'))}</p>
-      <div class="row end wrap"><button class="link" data-action="syncNow">${esc(t('syncNow'))}</button><button class="link" data-action="syncLeave">${esc(t('syncLeave'))}</button><button class="link danger" data-action="syncDelete">${esc(t('syncDelete'))}</button></div>`
-    : `
-      <p class="small">${esc(t('syncIntro'))}</p>
-      <p class="small muted">${esc(t('syncPrivacy'))}</p>
-      <button class="btn primary" data-action="syncCreate" ${state.swimmers.length ? '' : 'disabled'}>${esc(t('syncCreate'))}</button>`}
-  </div>`;
-  if (on) {
-    try {
-      const { default: qrcode } = await import('./vendor/qrcode.js');
-      const q = qrcode(0, 'M');
-      q.addData(syncLink());
-      q.make();
-      const box = $('#syncQr');
-      if (box) box.innerHTML = q.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
-    } catch {}
-  }
-}
-
-async function createSync() {
-  try {
-    const payload = syncPayload();
-    const r = await syncApi('POST', '', payload);
-    state.sync = { token: r.token, updatedAt: r.updatedAt, payload: JSON.stringify(payload) };
-    store.set('sync', state.sync);
-  } catch (e) {
-    toast(errText(e.message));
-  }
-  renderSyncDialog();
-  renderSyncStatus();
-}
-
-async function joinSync(token) {
-  const before = state.swimmers.slice();
-  let remote;
-  try {
-    remote = await syncApi('GET', '/' + token);
-  } catch (e) {
-    toast(e.status === 404 ? t('syncGone') : errText(e.message));
-    return;
-  }
-  const local = state.swimmers.map((s) => s.id);
-  const remoteIds = cleanRemoteSwimmers(remote.swimmers).map((s) => s.id);
-  const extra = local.filter((id) => !remoteIds.includes(id));
-  // Always ask: whoever made the link can see and change the list from now on.
-  const dlg = $('#confirmDialog');
-  const mode = await new Promise((resolve) => {
-    dlg.innerHTML = `<form method="dialog" class="sheet small-sheet">
-      <h2>${esc(t('syncJoinTitle'))}</h2><p>${esc(t('syncJoinBody', { n: remoteIds.length, m: extra.length }))}</p>
-      <p class="muted small">${esc(t('syncJoinWarn'))}</p>
-      <div class="row end wrap"><button class="btn" value="cancel" autofocus>${esc(t('cancel'))}</button>${extra.length ? `<button class="btn" value="replace">${esc(t('syncReplace'))}</button><button class="btn primary" value="merge">${esc(t('syncMerge'))}</button>` : `<button class="btn primary" value="replace">${esc(t('syncJoinYes'))}</button>`}</div></form>`;
-    dlg.returnValue = '';
-    dlg.onclose = () => resolve(dlg.returnValue || 'cancel');
-    dlg.showModal();
-  });
-  if (mode === 'cancel') return;
-  state.sync = { token, updatedAt: remote.updatedAt, payload: '' };
-  applyRemote(remote);
-  if (mode === 'merge') state.swimmers.push(...before.filter((s) => extra.includes(s.id)));
-  else state.sync.payload = JSON.stringify(syncPayload());
-  store.set('sync', state.sync);
-  save();
-  render();
-  toast(t('syncJoined'));
-  renderSyncStatus();
-}
-
-const STD_LABEL = { smA: 'SM A', smB: 'SM B', usm: 'USM', paraA: 'Para-SM A', paraB: 'Para-SM B' };
-const stdLabel = (id) => STD_LABEL[id] || id;
-// Compact labels for the overview table, so every pill is about as wide and they line up in a column.
-const SHORT_LABEL = { paraA: 'Para A', paraB: 'Para B' };
-const qBadge = (id, extra = '', short = false) => `<span class="q q-${id}" ${short ? `title="${esc(stdLabel(id))}"` : ''}>${esc(short ? SHORT_LABEL[id] || stdLabel(id) : stdLabel(id))}${extra}</span>`;
-
-function newFor(s) {
-  return newSince(state.data[s.id]?.all?.bests, state.seen[s.id]);
-}
-
-function markSeen(ids) {
-  for (const id of ids) {
-    const b = state.data[id]?.all?.bests;
-    if (b) state.seen[id] = bestsSnapshot(b);
-  }
-  store.set('seen', state.seen);
-}
-
-function qualRows(s) {
-  return qualify(s, state.data[s.id]?.qual?.bests || []);
-}
-
-const ICON = {
-  chevron: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  grip: '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></g></svg>',
-  trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-};
 
 // ---------------------------------------------------------------- api
 
@@ -777,142 +556,6 @@ function deckView() {
     ${(() => { const n = state.swimmers.reduce((a, s) => a + newFor(s).length, 0); const who = state.swimmers.filter((s) => newFor(s).length).length; return n ? `<div class="new-banner"><span>${esc(t('newBanner', { n, who }))}</span><button class="link" data-action="seenAll">${esc(t('markSeen'))}</button></div>` : ''; })()}
     ${state.sort === 'manual' && state.swimmers.length > 1 ? `<p class="muted small drag-hint">${esc(t('dragHint'))}</p>` : ''}
     <ul class="deck" id="deck">${list.map(cardView).join('')}</ul>`;
-}
-
-// ---------------------------------------------------------------- push notifications
-
-state.notify = store.get('notify', null); // { endpoint, count }
-let notifyTimer = null;
-const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-
-async function notifyApi(method, path, body) {
-  const res = await fetch(`${API}/api/push${path}`, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
-  const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-  return data;
-}
-
-async function currentSubscription() {
-  const reg = await navigator.serviceWorker.ready;
-  return reg.pushManager.getSubscription();
-}
-
-async function enableNotify() {
-  if (!pushSupported()) return toast(t('notifyUnsupported'));
-  const perm = await Notification.requestPermission();
-  if (perm !== 'granted') return renderNotifyDialog(t('notifyDenied'));
-  try {
-    const reg = await navigator.serviceWorker.ready;
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub) {
-      const { key } = await notifyApi('GET', '/key');
-      const raw = atob(key.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((key.length + 3) % 4));
-      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: Uint8Array.from(raw, (c) => c.charCodeAt(0)) });
-    }
-    if (state.notify?.endpoint && state.notify.endpoint !== sub.endpoint) await notifyApi('DELETE', '', { endpoint: state.notify.endpoint }).catch(() => {});
-    await sendNotifyList(sub, true);
-    renderNotifyDialog();
-    toast(t('notifyOnToast'));
-  } catch (e) {
-    renderNotifyDialog(errText(e.message));
-  }
-}
-
-async function sendNotifyList(sub, force = false) {
-  const swimmers = state.swimmers.filter((s) => s.site === 'se').map((s) => s.id);
-  const goals = Object.fromEntries(state.swimmers.filter((s) => s.site === 'se' && s.goals && Object.keys(s.goals).length).map((s) => [s.id, s.goals]));
-  // Nothing to tell the server when the list, goals and language are what it already has (saves a server write).
-  const sig = JSON.stringify([sub.endpoint, swimmers, goals, state.lang]);
-  if (!force && state.notify?.sig === sig && Date.now() - (state.notify.sentAt || 0) < 7 * 864e5) return;
-  await notifyApi('POST', '', { subscription: sub.toJSON(), swimmers, goals, lang: state.lang });
-  state.notify = { endpoint: sub.endpoint, count: swimmers.length, sig, sentAt: Date.now() };
-  store.set('notify', state.notify);
-}
-
-async function disableNotify() {
-  try {
-    const sub = await currentSubscription();
-    if (sub) {
-      await notifyApi('DELETE', '', { endpoint: sub.endpoint }).catch(() => {});
-      await sub.unsubscribe();
-    }
-  } catch {}
-  state.notify = null;
-  store.set('notify', null);
-  renderNotifyDialog();
-}
-
-/**
- * Browsers sometimes drop a push subscription (Brave does after a while, and when site data or permissions are
- * reset). If notifications are still allowed, subscribe again quietly and replace the old address on the server.
- * Returns 'ok', 'reset' (the permission was forgotten, the user must allow again) or 'blocked'.
- */
-async function healNotify() {
-  if (!state.notify || !pushSupported()) return 'ok';
-  if (Notification.permission === 'denied') return 'blocked';
-  if (Notification.permission !== 'granted') return 'reset';
-  const reg = await navigator.serviceWorker.ready;
-  let sub = await reg.pushManager.getSubscription();
-  if (sub && sub.endpoint === state.notify.endpoint) return 'ok';
-  if (!sub) {
-    const { key } = await notifyApi('GET', '/key');
-    const raw = atob(key.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((key.length + 3) % 4));
-    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: Uint8Array.from(raw, (c) => c.charCodeAt(0)) });
-  }
-  if (state.notify.endpoint && state.notify.endpoint !== sub.endpoint) await notifyApi('DELETE', '', { endpoint: state.notify.endpoint }).catch(() => {});
-  await sendNotifyList(sub);
-  return 'ok';
-}
-
-const notifyProblem = (status) => (status === 'blocked' ? t('notifyDenied') : status === 'reset' ? t('notifyReset') : '');
-
-async function testNotify() {
-  try {
-    const status = await healNotify();
-    if (status !== 'ok') return renderNotifyDialog(notifyProblem(status), status);
-    const sub = await currentSubscription();
-    if (!sub) return renderNotifyDialog(t('notifyGone'), 'reset');
-    await notifyApi('POST', '/test', { endpoint: sub.endpoint });
-    toast(t('notifyTestSent'));
-  } catch (e) {
-    toast(/429|minute/i.test(e.message) ? t('notifyWait') : errText(e.message));
-  }
-}
-
-function scheduleNotifyUpdate() {
-  if (!state.notify || !pushSupported()) return;
-  const count = state.swimmers.filter((s) => s.site === 'se').length;
-  clearTimeout(notifyTimer);
-  notifyTimer = setTimeout(async () => {
-    try {
-      const sub = await currentSubscription();
-      if (sub) await sendNotifyList(sub);
-      else await healNotify();
-    } catch {}
-  }, count === state.notify.count ? 30000 : 1500);
-}
-
-function openNotify() {
-  renderNotifyDialog();
-  const dlg = $('#confirmDialog');
-  if (!dlg.open) dlg.showModal();
-  healNotify().then((status) => { if (status !== 'ok' && dlg.open) renderNotifyDialog(notifyProblem(status), status); }).catch(() => {});
-}
-
-function renderNotifyDialog(msg = '', problem = '') {
-  const dlg = $('#confirmDialog');
-  const on = !!state.notify;
-  const ios = /iphone|ipad/i.test(navigator.userAgent) && !window.matchMedia('(display-mode: standalone)').matches;
-  dlg.innerHTML = `<form method="dialog" class="sheet small-sheet">
-    <header class="sheet-head"><h2>${esc(t('notifyTitle'))}</h2><button type="button" class="icon" data-action="close" aria-label="${esc(t('close'))}">✕</button></header>
-    ${msg ? `<p class="warn small">${esc(msg)}</p>` : ''}
-    ${!pushSupported() ? `<p class="small">${esc(ios ? t('notifyIos') : t('notifyUnsupported'))}</p>`
-      : on ? `<p class="small">${esc(t('notifyOn', { n: state.notify.count }))}</p><p class="small muted">${esc(t('notifyHow'))}</p>
-        <div class="row end wrap"><button type="button" class="link danger" data-action="notifyOff">${esc(t('notifyDisable'))}</button>${problem === 'reset' ? `<button type="button" class="btn primary" data-action="notifyOn">${esc(t('notifyAgain'))}</button>` : `<button type="button" class="btn" data-action="notifyTest">${esc(t('notifyTest'))}</button><button class="btn primary" value="ok">${esc(t('done'))}</button>`}</div>`
-      : `<p class="small">${esc(t('notifyIntro'))}</p><p class="small muted">${esc(t('notifyHow'))}</p><p class="small muted">${esc(t('notifyPrivacy'))}</p>
-        <div class="row end"><button type="button" class="btn primary" data-action="notifyOn" ${state.swimmers.length ? '' : 'disabled'}>${esc(t('notifyEnable'))}</button></div>`}
-  </form>`;
-  dlg.onclose = null;
 }
 
 const CARD_PARTS = ['stats', 'recent', 'latest', 'improve', 'qual', 'goals', 'best', 'para'];
@@ -2464,33 +2107,6 @@ function checkImport() {
   dlg.showModal();
 }
 
-/** One friendly message for network trouble; other errors keep their text. */
-function errText(msg) {
-  const m = String(msg ?? '');
-  if (!navigator.onLine || /failed to fetch|networkerror|load failed|network request/i.test(m)) return t('offlineErr');
-  return t('error', { msg: m });
-}
-
-function toast(msg, action = null) {
-  const el = $('#toast');
-  el.innerHTML = `<span>${esc(msg)}</span>${action ? `<button data-toast-action>${esc(action.label)}</button>` : ''}`;
-  toast.action = action?.run || null;
-  clearTimeout(toast.hideTimer);
-  // In the top layer, so it also shows above an open dialog.
-  try { if (el.showPopover && !el.matches(':popover-open')) el.showPopover(); } catch { /* ignore */ }
-  el.classList.add('show');
-  clearTimeout(toast.timer);
-  toast.timer = setTimeout(hideToast, action ? 8000 : 2500);
-}
-
-function hideToast() {
-  clearTimeout(toast.timer);
-  const el = $('#toast');
-  el.classList.remove('show');
-  clearTimeout(toast.hideTimer);
-  toast.hideTimer = setTimeout(() => { try { if (el.hidePopover && el.matches(':popover-open')) el.hidePopover(); } catch { /* ignore */ } }, 250);
-}
-
 /** A small yes/no dialog. Resolves true when the person confirms. */
 function ask({ title, body, yes, danger = false }) {
   return new Promise((resolve) => {
@@ -3095,6 +2711,7 @@ $('#swimmerDialog').addEventListener('close', () => {
   saveNav();
 });
 
+Object.assign(hooks, { render, save, refreshAll });
 initReorder({ state, save });
 
 // ---------------------------------------------------------------- start
@@ -3117,8 +2734,8 @@ window.addEventListener('storage', (e) => {
 });
 
 // Do not lose an edit made just before the tab closes.
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && pushTimer) { clearTimeout(pushTimer); pushSync(); } });
-window.addEventListener('pagehide', () => { if (pushTimer) { clearTimeout(pushTimer); pushSync(); } });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSync(); });
+window.addEventListener('pagehide', flushSync);
 
 restoreNav();
 loadRecords();
