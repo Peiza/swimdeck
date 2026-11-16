@@ -34,6 +34,17 @@ const TTL = {
   paraClass: 24 * 60 * 60,
 };
 
+/** Remember whether the upstream (Tempus) still answers in the shape we parse. */
+export async function recordHealth(kv, r) {
+  if (!r || !r.swimmers) return null; // nothing was checked this hour: keep the last result
+  const prev = (await kv.get('health', 'json')) || {};
+  const ok = r.failed < r.swimmers; // every lookup failing points to a changed page or a block
+  const health = { ok, at: Date.now(), failed: r.failed, of: r.swimmers, since: ok ? undefined : prev.ok === false ? prev.since : Date.now() };
+  if (!ok) console.log('ALERT upstream looks broken', JSON.stringify(health));
+  await kv.put('health', JSON.stringify(health));
+  return health;
+}
+
 export default {
   async scheduled(event, env, ctx) {
     if (!env.LISTS) return;
@@ -42,7 +53,10 @@ export default {
       runCheck(env, async (id) => {
         const o = await fetchOverview(SITES.se, id);
         return { swimmer: o.swimmer, bests: o.bests };
-      }, { appUrl: env.APP_URL || APP_URL }).then((r) => console.log('push check', JSON.stringify(r))).catch((e) => console.log('push check failed', e.message)),
+      }, { appUrl: env.APP_URL || APP_URL }).then((r) => {
+        console.log('push check', JSON.stringify(r));
+        return recordHealth(env.LISTS, r);
+      }).catch((e) => console.log('push check failed', e.message)),
     );
   },
 
@@ -60,6 +74,10 @@ export default {
       } catch (err) {
         return json({ error: err.message || 'Error' }, err.status || 500, cors);
       }
+    }
+    if (url.pathname === '/api/health' && request.method === 'GET') {
+      const h = env.LISTS ? await env.LISTS.get('health', 'json') : null;
+      return json(h ? { ok: h.ok, checkedAt: h.at, since: h.since || null } : { ok: null }, 200, { ...cors, 'Cache-Control': 'no-store' });
     }
     if (url.pathname === '/api/records' && request.method === 'GET') {
       try {

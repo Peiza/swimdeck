@@ -79,7 +79,7 @@ npm test
 3. **Connect them** – the API address is set in `web/config.js`. A repository *variable*
    `SWIMDECK_API_URL` overrides it at deploy time (useful for forks).
 
-Live app: https://peiza.github.io/swimdeck/
+Live app: https://swimdeck.se/ (earlier address: https://peiza.github.io/swimdeck/)
 
 The footer shows the version from `package.json` and the publish date, both written
 into `version.js` by the deploy workflow. Bump `version` in `package.json` for each release.

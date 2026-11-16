@@ -3148,6 +3148,16 @@ document.addEventListener('keydown', (e) => {
 
 // ---------------------------------------------------------------- start
 
+// Name every dialog by its first heading, so screen readers announce what opened.
+for (const d of document.querySelectorAll('dialog')) {
+  new MutationObserver(() => {
+    const h = d.querySelector('h2');
+    if (!h) return d.removeAttribute('aria-labelledby');
+    if (!h.id) h.id = d.id + '-title';
+    d.setAttribute('aria-labelledby', h.id);
+  }).observe(d, { childList: true, subtree: true });
+}
+
 restoreNav();
 loadRecords();
 render();

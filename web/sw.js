@@ -1,10 +1,26 @@
 // SwimDeck service worker: keeps the app itself available offline.
 // Network first for the app's own files, falling back to the last cached copy.
 // API calls (another origin) are not cached here; the app keeps its data in localStorage.
-const CACHE = 'swimdeck-app-v2';
+const CACHE = 'swimdeck-app-v3';
 
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+self.addEventListener('activate', (e) =>
+  e.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim()),
+  ),
+);
+
+// Keep one copy per file: the ?v= cache-busting suffix changes every deploy.
+async function store(request, response) {
+  const cache = await caches.open(CACHE);
+  const path = new URL(request.url).pathname;
+  for (const old of await cache.keys()) {
+    if (new URL(old.url).pathname === path) await cache.delete(old);
+  }
+  await cache.put(request, response);
+}
 
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
@@ -14,7 +30,7 @@ self.addEventListener('fetch', (e) => {
       .then((res) => {
         if (res.ok) {
           const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, copy));
+          e.waitUntil(store(e.request, copy));
         }
         return res;
       })
