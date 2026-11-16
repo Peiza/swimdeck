@@ -1,5 +1,5 @@
 // Small pieces shared by several views: qualification labels, the new-since-last-visit helpers and icons.
-import { state, store, t, esc } from './core.js';
+import { state, store, esc } from './core.js';
 import { qualify } from './qual.js';
 import { newSince, bestsSnapshot } from './lib.js';
 

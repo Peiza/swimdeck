@@ -2,29 +2,37 @@ import { CONFIG } from './config.js';
 import { supportLine } from './support.js';
 import { VERSION } from './version.js';
 import { QUAL } from './qual-data.js';
-import { ORDER, qualify, qualCounts, usmAgeGroup, sexOf } from './qual.js';
-import { hasPara, wpsPoints, wpsEstimate, suggestPara } from './wps.js';
-import { isMasters, mastersPct, wrPct, useWorldRecords, worldRecords } from './masters.js';
-import { MASTERS } from './masters-data.js';
-import { LANGS, makeT, detectLang } from './i18n.js';
+
+import { LANGS } from './i18n.js';
 import { initReorder } from './reorder.js';
-import { onSwimmerClick, openSwimmer, renderSwimmerDialog, STROKE_KEYS, profileView, radar, fillForm, paraLookupHtml, paraLookup, paraSettings, fillMeets } from './swimmer.js';
-import { onViewsClick, QUAL_CARD_MIN, QUAL_GAP, packQualCards, SORTS, cardInfo, sortedSwimmers, deckView, CARD_PARTS, openCustomize, trashLink, bestFor, cardView, newBlock, goalChip, qualChips, baseCode, rankView, rankCsv, compareSelection, compareView, fillH2h, compareCsv, qualTabs, qualHighlights, qualDoneView, qualView } from './views.js';
-import { onListsClick, bulkSelect, share, checkSyncLink, checkImport, ask, askRemove, openBulkRemove, renderBulkRemove, doBulkRemove, restore, openTrash, renderTrash, purge } from './lists.js';
-import { roundLabel, roundRank, reRank, sexCode, meetCache, meetButton, openMeet, loadMeet, renderMeet, eventRow, fillEventDetail, goalEditor, setGoal, MONTHS, mastersShipped, shortIso, recordStatus, applyRecords, loadRecords, recordLine, prognosisLine, rankRow, rankMsg, fillRank, seasonTable, chart } from './meets.js';
-import { usesWps, fmtPctPlain, METRICS, metricsFor, metricFor, metricName, ptsOf, ptsTitle, ptsLabel, metricValue, fmtMetric, compareMetrics, pill, metricPill, NEAR_CHOICES, nearShare, nearPill, closeMenu, periodName, periodOptionLabel, oldestSwimYear, shortDate, fmtPct, downloadCsv, save } from './viewkit.js';
-import { onAddClick, addState, updateAddDone, openAdd, openImport, renderImport, selectable, importGroups, importRow, importCache, IMPORT_PRESELECT, importSearch, runImport, renderImportKeepScroll, mergePara, paraUpdates, addImported, MEET_IMPORT_MAX, openMeetImport, findMeets, pickMeet, loadMeetClub, inList, meetImportShown, meetImportGroups, renderMeetImport, addFromMeet, doSearch, renderHits, addSwimmer } from './add.js';
-import { loadAllEvents, loadingStop, loadingStart, loadingEnd, api, periodKey, RECENT_DAYS, recentMeet, loadSwimmer, pickSwimmer, refreshAll, needsLoad, loadEvent } from './api.js';
-import { onSyncClick, flushSync, syncPayload, syncLink, syncApi, schedulePush, pushSync, pullSync, applyRemote, renderSyncStatus, syncStatusHtml, openSyncDialog, renderSyncDialog, createSync, joinSync } from './sync.js';
-import { STD_LABEL, stdLabel, SHORT_LABEL, qBadge, newFor, markSeen, qualRows, ICON } from './parts.js';
-import { onNotifyClick, pushSupported, notifyApi, currentSubscription, enableNotify, sendNotifyList, disableNotify, healNotify, notifyProblem, testNotify, scheduleNotifyUpdate, openNotify, renderNotifyDialog } from './notify.js';
-import { TRASH_DAYS, store, state, t, setLang, API, STALE_MS, FEEDBACK_URL, $, sexLabel, esc, errText, toast, hideToast, hooks } from './core.js';
+import { initInstall, installTip, installFooterLink, onInstallClick } from './install.js';
+import { onSwimmerClick, openSwimmer, renderSwimmerDialog } from './swimmer.js';
+import { onViewsClick, packQualCards, deckView, openCustomize, trashLink, rankView, compareView, qualView } from './views.js';
+import { onListsClick, bulkSelect, share, checkSyncLink, checkImport } from './lists.js';
+import { shortIso, recordStatus, loadRecords } from './meets.js';
+import { closeMenu, periodOptionLabel, oldestSwimYear, save } from './viewkit.js';
 import {
-  eventLabel, eventShort, eventSortKey, eventInfo, fmtTime, fmtDiff, periodRange, seasonLabel, periodOptions,
-  summarize, progression, parseTempusRef, parseTime, goalStatus, rankings, rankingsByPoints, rankingsBothPools, sortSwimmers,
-  seasonBests, meets, compareTable, shortNames, rankingsByImprovement, toCsv, profile, form, prognosis, headToHead,
-  bestsSnapshot, newSince, mergeSyncLists, cleanRemoteSwimmers,
-} from './lib.js';
+  onAddClick,
+  addState,
+  updateAddDone,
+  openAdd,
+  selectable,
+  importGroups,
+  renderImportKeepScroll,
+  findMeets,
+  loadMeetClub,
+  inList,
+  meetImportGroups,
+  renderMeetImport,
+  doSearch,
+} from './add.js';
+import { refreshAll, needsLoad } from './api.js';
+import { onSyncClick, flushSync, pullSync, syncStatusHtml } from './sync.js';
+import { newFor, markSeen } from './parts.js';
+import { onNotifyClick, healNotify } from './notify.js';
+import { store, state, t, setLang, FEEDBACK_URL, esc, toast, hideToast, hooks, $ } from './core.js';
+import { meets, profile } from './lib.js';
+import { periodOptions } from './lib.js';
 
 // ---------------------------------------------------------------- state
 
@@ -225,7 +233,7 @@ function renderMainRaw() {
       </div>`;
     return;
   }
-  main.innerHTML = helpBox(state.view) + (state.view === 'rank' ? rankView() : state.view === 'compare' ? compareView() : state.view === 'qual' ? qualView() : deckView());
+  main.innerHTML = (state.view === 'deck' ? installTip() : '') + helpBox(state.view) + (state.view === 'rank' ? rankView() : state.view === 'compare' ? compareView() : state.view === 'qual' ? qualView() : deckView());
   packQualCards();
 }
 
@@ -246,6 +254,7 @@ function renderFooter() {
       ${state.swimmers.length ? `<button class="link" id="share">${esc(t('share'))}</button>` : ''}
       <button class="link" data-action="about">${esc(t('aboutLink'))}</button>
       <button class="link" data-action="syncOpen">${esc(t('syncTitle'))}</button>
+      ${installFooterLink()}
       <a class="link" href="${FEEDBACK_URL}" target="_blank" rel="noopener">${esc(t('feedback'))}</a>
     </div>
     ${supportLine(t, esc)}
@@ -255,7 +264,7 @@ function renderFooter() {
 
 // ---------------------------------------------------------------- events
 
-const clickGroups = [onSyncClick, onNotifyClick, onAddClick, onListsClick, onSwimmerClick, onViewsClick];
+const clickGroups = [onInstallClick, onSyncClick, onNotifyClick, onAddClick, onListsClick, onSwimmerClick, onViewsClick];
 
 document.addEventListener('click', (e) => {
   if (state.menu && !e.target.closest('.metric-wrap')) {
@@ -284,7 +293,6 @@ document.addEventListener('click', (e) => {
     return closeMenu();
   }
   el.closest('.deck-more')?.removeAttribute('open');
-  for (const handle of clickGroups) if (handle(el, e)) return;
   if (el.id === 'add' || el.dataset.action === 'add') return openAdd();
   if (el.id === 'refresh') return refreshAll({ fresh: true });
   if (el.id === 'share') return share();
@@ -311,8 +319,10 @@ document.addEventListener('click', (e) => {
   }
   if (el.dataset.drag) return;
   if (el.dataset.action === 'movedHide') { store.set('movedHidden', true); return render(); }
-  if (el.dataset.open) return openSwimmer(el.dataset.open);
   if (el.dataset.action === 'cardsCustomize') return openCustomize();
+  for (const handle of clickGroups) if (handle(el, e)) return;
+  // A card or a button inside one that opens the swimmer: last, so the specific buttons above win.
+  if (el.dataset.open) return openSwimmer(el.dataset.open);
 });
 
 document.addEventListener('keydown', (e) => {
@@ -465,6 +475,7 @@ $('#swimmerDialog').addEventListener('close', () => {
 
 Object.assign(hooks, { render, renderHeader, renderMain, renderSwimmerDialog, save, saveNav });
 initReorder({ state, save });
+initInstall();
 
 // ---------------------------------------------------------------- start
 

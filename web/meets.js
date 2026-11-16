@@ -1,5 +1,5 @@
 // Meet result lists, event rows and detail, rankings, records and the season chart.
-import { state, t, $, esc, toast, errText, hooks, sexLabel } from './core.js';
+import { state, t, $, esc, errText, hooks } from './core.js';
 import { api, loadEvent } from './api.js';
 import { store } from './core.js';
 import { eventLabel, fmtDiff, fmtTime, periodRange, prognosis, progression, seasonBests } from './lib.js';

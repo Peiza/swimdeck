@@ -1,13 +1,14 @@
 // The swimmer dialog: events, meets and profile tabs, and the para class settings.
-import { state, store, t, $, esc, toast, errText, hooks } from './core.js';
+import { state, t, esc, toast, errText, hooks, $ } from './core.js';
 import { api, loadAllEvents } from './api.js';
-import { eventLabel, fmtDiff, fmtTime, form, meets, periodOptions, profile, summarize } from './lib.js';
+import { eventLabel, fmtDiff, fmtTime, form, meets, profile, summarize } from './lib.js';
 import { eventRow, fillEventDetail, meetButton, roundLabel } from './meets.js';
 import { qualRows } from './parts.js';
 import { metricPill, oldestSwimYear, periodOptionLabel, shortDate } from './viewkit.js';
 import { suggestPara } from './wps.js';
 import { parseTime } from './lib.js';
 import { loadMeet, openMeet, renderMeet, setGoal } from './meets.js';
+import { periodOptions } from './lib.js';
 
 
 export function openSwimmer(id) {
@@ -248,7 +249,8 @@ export function onSwimmerClick(el, e) {
     const v = parseTime(input?.value);
     if (input?.value.trim() && v == null) {
       toast(t('goalInvalid'));
-      return input.focus();
+      input.focus();
+      return true;
     }
     setGoal(Number(el.dataset.code), v);
     return true;
@@ -284,7 +286,7 @@ export function onSwimmerClick(el, e) {
   if (el.dataset.action === 'paraLookupUse') {
     const sw = state.swimmers.find((x) => x.id === state.openId);
     const m = String(el.dataset.cls).match(/^(S|SB|SM)(\d+)$/);
-    if (!sw || !m) return;
+    if (!sw || !m) return true;
     const n = Number(m[2]);
     sw.para = n >= 11 ? { S: n, SB: n, SM: n } : { ...(sw.para || {}), [m[1]]: n };
     hooks.save();
@@ -294,7 +296,7 @@ export function onSwimmerClick(el, e) {
   }
   if (el.dataset.action === 'paraSuggest' || el.dataset.action === 'paraClear') {
     const sw = state.swimmers.find((x) => x.id === state.openId);
-    if (!sw) return;
+    if (!sw) return true;
     if (el.dataset.action === 'paraClear') sw.para = undefined;
     else sw.para = { ...(sw.para || {}), ...suggestPara(sw.para) };
     hooks.save();

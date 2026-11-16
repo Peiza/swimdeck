@@ -61,6 +61,8 @@ export const state = {
   qSex: store.get('qSex', 'W'),
   qPool: store.get('qPool', 25),
   qClass: store.get('qClass', 9),
+  sync: store.get('sync', null), // { token, updatedAt, payload }
+  notify: store.get('notify', null), // { endpoint, count }
   seen: store.get('seen', {}), // id -> snapshot of PBs the user has seen
 };
 
@@ -106,4 +108,21 @@ export function hideToast() {
   el.classList.remove('show');
   clearTimeout(toast.hideTimer);
   toast.hideTimer = setTimeout(() => { try { if (el.hidePopover && el.matches(':popover-open')) el.hidePopover(); } catch { /* ignore */ } }, 250);
+}
+
+// ---------------------------------------------------------------- dialogs
+
+
+/** A small yes/no dialog. Resolves true when the person confirms. */
+export function ask({ title, body, yes, danger = false }) {
+  return new Promise((resolve) => {
+    const dlg = $('#confirmDialog');
+    dlg.innerHTML = `<form method="dialog" class="sheet small-sheet">
+      <h2>${esc(title)}</h2><p>${esc(body)}</p>
+      <div class="row end"><button class="btn" value="no">${esc(t('cancel'))}</button><button class="btn ${danger ? 'danger' : 'primary'}" value="yes">${esc(yes)}</button></div></form>`;
+    dlg.returnValue = '';
+    dlg.onclose = () => resolve(dlg.returnValue === 'yes');
+    dlg.showModal();
+    $('button[value=no]', dlg).focus();
+  });
 }

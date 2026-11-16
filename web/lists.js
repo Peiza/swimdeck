@@ -1,9 +1,10 @@
 // Sharing and importing a list, removing swimmers, the trash and undo.
-import { state, store, t, $, esc, toast, errText, hooks } from './core.js';
+import { state, t, esc, toast, hooks, ask, $ } from './core.js';
 import { refreshAll } from './api.js';
 import { TRASH_DAYS } from './core.js';
 import { ICON } from './parts.js';
 import { joinSync } from './sync.js';
+
 
 
 export async function share() {
@@ -53,20 +54,6 @@ export function checkImport() {
     refreshAll({ only: added });
   };
   dlg.showModal();
-}
-
-/** A small yes/no dialog. Resolves true when the person confirms. */
-export function ask({ title, body, yes, danger = false }) {
-  return new Promise((resolve) => {
-    const dlg = $('#confirmDialog');
-    dlg.innerHTML = `<form method="dialog" class="sheet small-sheet">
-      <h2>${esc(title)}</h2><p>${esc(body)}</p>
-      <div class="row end"><button class="btn" value="no">${esc(t('cancel'))}</button><button class="btn ${danger ? 'danger' : 'primary'}" value="yes">${esc(yes)}</button></div></form>`;
-    dlg.returnValue = '';
-    dlg.onclose = () => resolve(dlg.returnValue === 'yes');
-    dlg.showModal();
-    $('button[value=no]', dlg).focus();
-  });
 }
 
 // ---------------------------------------------------------------- remove, trash, undo

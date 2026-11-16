@@ -2,7 +2,7 @@
 import { CONFIG } from './config.js';
 import { QUAL } from './qual-data.js';
 import { periodRange, eventSortKey, bestsSnapshot } from './lib.js';
-import { state, store, t, API, STALE_MS, toast, errText, hooks } from './core.js';
+import { state, t, API, STALE_MS, hooks } from './core.js';
 
 // While anything is being fetched the logo's wave flows (html.loading, see style.css). It stops at the end
 // of a wave, not mid-movement; the timer is for when no animation runs (reduced motion).

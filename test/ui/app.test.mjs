@@ -252,3 +252,20 @@ test('the add dialog opens its search, list import and meet import views', async
   assert.ok(await page.locator('#addDialog h2').count());
   await page.close();
 });
+
+test('the install tip appears from the second visit when the browser offers installation, and can be hidden', async () => {
+  const page = await open([5004], { store: { visits: 2 } });
+  await page.waitForSelector('.card');
+  assert.equal(await page.locator('.install-tip').count(), 0); // nothing to offer yet
+  await page.evaluate(() => {
+    const e = new Event('beforeinstallprompt');
+    e.prompt = () => {};
+    e.userChoice = Promise.resolve({ outcome: 'dismissed' });
+    window.dispatchEvent(e);
+  });
+  await page.waitForSelector('.install-tip [data-action="installApp"]');
+  await page.click('.install-tip [data-action="installHide"]');
+  assert.equal(await page.locator('.install-tip').count(), 0);
+  assert.equal(await stored(page, 'installHidden'), true);
+  await page.close();
+});

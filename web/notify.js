@@ -1,9 +1,9 @@
 // Push notifications for new personal bests: subscribing in the browser and keeping the server's list in step.
-import { state, store, t, $, esc, API, toast, errText } from './core.js';
+import { state, store, t, esc, API, toast, errText, $ } from './core.js';
 
 
 
-state.notify = store.get('notify', null); // { endpoint, count }
+
 let notifyTimer = null;
 export const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 

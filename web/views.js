@@ -1,17 +1,48 @@
 // The four main views (swimmers, top list, compare, qualifying) and the swimmer cards.
-import { state, store, t, $, esc, toast, errText, hooks, sexLabel } from './core.js';
+import { state, store, t, esc, errText, hooks, sexLabel, $ } from './core.js';
 import { loadEvent, recentMeet } from './api.js';
-import { compareTable, eventInfo, eventLabel, eventShort, eventSortKey, fmtDiff, fmtTime, goalStatus, headToHead, rankings, rankingsBothPools, rankingsByImprovement, rankingsByPoints, shortNames, sortSwimmers, summarize } from './lib.js';
+import {
+  compareTable,
+  eventInfo,
+  eventLabel,
+  eventShort,
+  eventSortKey,
+  fmtDiff,
+  fmtTime,
+  goalStatus,
+  headToHead,
+  rankings,
+  rankingsBothPools,
+  rankingsByImprovement,
+  rankingsByPoints,
+  shortNames,
+  sortSwimmers,
+  summarize,
+} from './lib.js';
 import { isMasters, mastersPct, wrPct } from './masters.js';
 import { recordStatus, roundLabel, shortIso } from './meets.js';
 import { ICON, newFor, qBadge, qualRows, stdLabel } from './parts.js';
 import { QUAL } from './qual-data.js';
 import { ORDER, qualCounts, sexOf } from './qual.js';
-import { METRICS, compareMetrics, downloadCsv, fmtMetric, fmtPct, fmtPctPlain, metricName, metricValue, nearPill, nearShare, periodName, pill } from './viewkit.js';
+import {
+  METRICS,
+  compareMetrics,
+  downloadCsv,
+  fmtMetric,
+  fmtPct,
+  fmtPctPlain,
+  metricName,
+  metricValue,
+  nearPill,
+  nearShare,
+  periodName,
+  pill,
+} from './viewkit.js';
 import { hasPara, wpsPoints } from './wps.js';
 import { loadAllEvents } from './api.js';
 import { fillEventDetail } from './meets.js';
 import { markSeen } from './parts.js';
+
 /**
  * Qualifying cards: spread them over as many columns as fit, each card going to the currently shortest column.
  * The order reads left to right, row by row, like the Swimmers tab, and short cards leave no gaps.

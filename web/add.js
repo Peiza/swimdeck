@@ -1,9 +1,10 @@
 // Adding swimmers: search, paste a list, or pick them from a meet in Tempus.
-import { state, store, t, $, esc, toast, errText, hooks, sexLabel } from './core.js';
+import { state, t, esc, toast, errText, hooks, sexLabel, $ } from './core.js';
 import { api, pickSwimmer, refreshAll } from './api.js';
 import { eventSortKey, eventLabel } from './lib.js';
 import { parseList, rankCandidates } from './importer.js';
 import { parseTempusRef } from './lib.js';
+
 
 
 
@@ -493,7 +494,10 @@ export function onAddClick(el, e) {
   }
   if (el.dataset.action === 'importParse') {
     const text = $('#importText')?.value || '';
-    if (!text.trim()) return $('#importText')?.focus();
+    if (!text.trim()) {
+      $('#importText')?.focus();
+      return true;
+    }
     runImport(text);
     return true;
   }
@@ -530,7 +534,10 @@ export function onAddClick(el, e) {
   if (el.id === 'addLink') {
     const input = $('input[name=link]');
     const ref = parseTempusRef(input.value);
-    if (!ref) return input.focus();
+    if (!ref) {
+      input.focus();
+      return true;
+    }
     addSwimmer({ id: ref.id, site: ref.site });
     input.value = '';
     toast(t('added'));

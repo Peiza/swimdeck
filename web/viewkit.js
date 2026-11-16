@@ -1,11 +1,12 @@
 // Helpers for the views: the points column choice, menus, period names and other small formatters.
-import { state, t, $, esc, hooks } from './core.js';
+import { state, t, esc, hooks, $ } from './core.js';
 import { store } from './core.js';
 import { fmtTime, seasonLabel, toCsv } from './lib.js';
 import { isMasters, mastersPct, wrPct } from './masters.js';
 import { scheduleNotifyUpdate } from './notify.js';
 import { schedulePush } from './sync.js';
 import { hasPara, wpsEstimate, wpsPoints } from './wps.js';
+
 
 // AQUA points, % of the world record, % of the masters record (from 25) or WPS (para class, 50 m).
 export const usesWps = (s, pool) => hasPara(s) && pool === 50;
