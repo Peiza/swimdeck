@@ -236,3 +236,19 @@ test('the sync dialog and the notification dialog open', async () => {
   assert.match(await page.locator('#confirmDialog h2').innerText(), /otis|Notis/i);
   await page.close();
 });
+
+test('the add dialog opens its search, list import and meet import views', async () => {
+  const page = await open([5004]);
+  await page.waitForSelector('.card');
+  await page.click('#add');
+  await page.waitForSelector('#addDialog[open] #searchForm');
+  assert.equal(await page.locator('#addDone').count(), 1);
+  await page.click('#addDialog [data-action="importOpen"]');
+  await page.waitForSelector('#addDialog .import-sheet');
+  await page.click('#addDialog [data-action="add"]');
+  await page.waitForSelector('#addDialog #searchForm');
+  await page.click('#addDialog [data-action="meetImport"]');
+  await page.waitForFunction(() => !document.querySelector('#addDialog #searchForm'));
+  assert.ok(await page.locator('#addDialog h2').count());
+  await page.close();
+});
