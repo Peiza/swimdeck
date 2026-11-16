@@ -174,6 +174,7 @@ test('import: a pasted para heat list gives swimmers with classes; select all to
 
 test('remove several at once, then undo', async () => {
   const page = await open([5000, 5001, 5002]);
+  await page.click('.deck-more > summary');
   await page.click('[data-action="bulkRemove"]');
   await page.click('[data-bulk="5001"]');
   await page.click('[data-bulk="5002"]');

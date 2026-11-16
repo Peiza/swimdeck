@@ -801,11 +801,16 @@ function deckView() {
           <select id="sortMode" aria-label="${esc(t('sortBy'))}">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}" ${k === state.sort ? 'selected' : ''}>${esc(t('sortBy'))}: ${esc(t(v))}</option>`).join('')}</select>
         </label>
         <button class="link" data-action="${allCollapsed ? 'expandAll' : 'collapseAll'}">${esc(t(allCollapsed ? 'expandAll' : 'collapseAll'))}</button>
-        <button class="link" data-action="cardsCustomize">${esc(t('customize'))}</button>
         <button class="link" data-action="notifyOpen">${esc(state.notify ? t('notifyOnShort') : t('notifyShort'))}</button>
-        ${state.swimmers.length > 1 ? `<button class="link" data-action="bulkRemove">${esc(t('bulkRemove'))}</button>` : ''}
+        <details class="deck-more">
+          <summary class="link">${esc(t('moreMenu'))}</summary>
+          <div class="deck-more-body">
+            <button class="link" data-action="cardsCustomize">${esc(t('customize'))}</button>
+            ${state.swimmers.length > 1 ? `<button class="link" data-action="bulkRemove">${esc(t('bulkRemove'))}</button>` : ''}
+            ${trashLink()}
+          </div>
+        </details>
       </div>
-      ${trashLink()}
     </div>
     ${(() => { const n = state.swimmers.reduce((a, s) => a + newFor(s).length, 0); const who = state.swimmers.filter((s) => newFor(s).length).length; return n ? `<div class="new-banner"><span>${esc(t('newBanner', { n, who }))}</span><button class="link" data-action="seenAll">${esc(t('markSeen'))}</button></div>` : ''; })()}
     ${state.sort === 'manual' && state.swimmers.length > 1 ? `<p class="muted small drag-hint">${esc(t('dragHint'))}</p>` : ''}
@@ -2045,6 +2050,7 @@ function openAdd() {
           <div class="row"><input name="link" placeholder="${esc(t('pastePlaceholder'))}" inputmode="url"><button type="button" class="btn" id="addLink">${esc(t('addBtn'))}</button></div>
         </label>
       </div>
+      <footer class="sheet-foot"><span></span><button type="button" class="btn" data-action="close">${esc(t('done'))}</button></footer>
     </form>`;
   dlg.showModal();
   $('input[name=last]', dlg).focus();
@@ -2670,6 +2676,7 @@ document.addEventListener('click', (e) => {
     store.set('near', state.near);
     return closeMenu();
   }
+  el.closest('.deck-more')?.removeAttribute('open');
   if (el.id === 'add' || el.dataset.action === 'add') return openAdd();
   if (el.id === 'refresh') return refreshAll({ fresh: true });
   if (el.id === 'share') return share();

@@ -762,3 +762,10 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
 
 /* iPhone Safari zooms into fields under 16 px */
 @media (pointer: coarse) { input, select, textarea { font-size: 16px; } }
+
+.deck-more { position: relative; }
+.deck-more > summary { list-style: none; cursor: pointer; }
+.deck-more > summary::-webkit-details-marker { display: none; }
+.deck-more > summary::after { content: ' ▾'; }
+.deck-more-body { position: absolute; z-index: 6; top: 100%; left: 0; display: grid; gap: 2px; min-width: 12em; padding: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgb(0 0 0 / 18%); }
+.deck-more-body .link { text-align: left; width: 100%; white-space: nowrap; min-height: 36px; }
