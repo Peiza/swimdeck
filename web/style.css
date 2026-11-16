@@ -759,3 +759,6 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
 
 .move-banner { background: var(--accent-soft); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; display: grid; gap: 8px; }
 .move-banner p { margin: 0; }
+
+/* iPhone Safari zooms into fields under 16 px */
+@media (pointer: coarse) { input, select, textarea { font-size: 16px; } }

@@ -9,3 +9,12 @@ ALLOWED_ORIGINS = "https://peiza.github.io,https://swimdeck.se,https://www.swimd
 # Check watched swimmers for new personal bests every hour, a slice of them each time (push notifications).
 [triggers]
 crons = ["23 * * * *"]
+
+# Per-visitor limit for the routes that write to storage (push and sync).
+[[ratelimits]]
+name = "WRITE_LIMIT"
+namespace_id = "7301"
+
+  [ratelimits.simple]
+  limit = 20
+  period = 60

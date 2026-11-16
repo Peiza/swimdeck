@@ -3182,6 +3182,13 @@ for (const d of document.querySelectorAll('dialog')) {
   }).observe(d, { childList: true, subtree: true });
 }
 
+// Another tab changed the list: follow it instead of overwriting it later.
+window.addEventListener('storage', (e) => {
+  if (e.key !== 'swimdeck.swimmers') return;
+  state.swimmers = store.get('swimmers', []);
+  render();
+});
+
 // Do not lose an edit made just before the tab closes.
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && pushTimer) { clearTimeout(pushTimer); pushSync(); } });
 window.addEventListener('pagehide', () => { if (pushTimer) { clearTimeout(pushTimer); pushSync(); } });

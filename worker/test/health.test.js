@@ -17,3 +17,12 @@ test('health: ok while some lookups work, broken when all fail, since is kept', 
   assert.equal(again.since, bad.since);
   assert.equal((await recordHealth(k, { swimmers: 3, failed: 0 })).since, undefined);
 });
+
+import worker from '../src/index.js';
+
+test('write routes answer 429 when the rate limit binding says no', async () => {
+  const env = { WRITE_LIMIT: { limit: async () => ({ success: false }) }, ALLOWED_ORIGINS: 'https://app.example', LISTS: kv() };
+  const r = await worker.fetch(new Request('https://x/api/sync/abc', { method: 'PUT', headers: { Origin: 'https://app.example' }, body: '{}' }), env, { waitUntil() {} });
+  assert.equal(r.status, 429);
+  assert.equal(r.headers.get('Retry-After'), '60');
+});

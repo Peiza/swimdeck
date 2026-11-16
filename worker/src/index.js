@@ -67,6 +67,13 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
     if (!cors['Access-Control-Allow-Origin']) return json({ error: 'Origin not allowed' }, 403, {});
 
+    // Routes that write to storage: a modest per-visitor limit (when the binding exists).
+    const writes = request.method !== 'GET' && (url.pathname.startsWith('/api/push') || url.pathname.startsWith('/api/sync'));
+    if (writes && env.WRITE_LIMIT) {
+      const { success } = await env.WRITE_LIMIT.limit({ key: request.headers.get('CF-Connecting-IP') || 'unknown' });
+      if (!success) return json({ error: 'Too many requests, try again in a minute' }, 429, { ...cors, 'Retry-After': '60' });
+    }
+
     if (url.pathname === '/api/push' || url.pathname.startsWith('/api/push/')) {
       try {
         const data = await handlePush(request, env, url.pathname);
