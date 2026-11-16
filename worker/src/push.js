@@ -172,7 +172,7 @@ export async function handlePush(request, env, path) {
     if (Date.now() - (sub.testedAt || 0) < 60000) throw bad('Wait a minute between tests', 429);
     await kv.put(key, JSON.stringify({ ...sub, testedAt: Date.now() }), { expirationTtl: TTL });
     const T = { sv: ['SwimDeck', 'Testnotis: notiserna fungerar! 🏊'], en: ['SwimDeck', 'Test notification: notifications work! 🏊'], fi: ['SwimDeck', 'Testi-ilmoitus: ilmoitukset toimivat! 🏊'], nb: ['SwimDeck', 'Testvarsel: varslene fungerer! 🏊'] }[sub.lang] || ['SwimDeck', 'Test'];
-    const res = await (env.__send || sendPush)(sub.subscription, { title: T[0], body: T[1], tag: 'test', url: env.APP_URL || 'https://peiza.github.io/swimdeck/' }, await vapidKeys(kv), env.APP_URL || 'https://peiza.github.io/swimdeck/');
+    const res = await (env.__send || sendPush)(sub.subscription, { title: T[0], body: T[1], tag: 'test', url: env.APP_URL || 'https://swimdeck.se/' }, await vapidKeys(kv), env.APP_URL || 'https://peiza.github.io/swimdeck/');
     if (res.status === 404 || res.status === 410) {
       await kv.delete(key);
       throw bad('Subscription expired', 410);

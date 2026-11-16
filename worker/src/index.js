@@ -21,7 +21,7 @@ import { handleSync } from './sync.js';
 import { handlePush, runCheck } from './push.js';
 import { refreshRecords, getRecords } from './records.js';
 
-const APP_URL = 'https://peiza.github.io/swimdeck/';
+const APP_URL = 'https://swimdeck.se/';
 
 const TTL = {
   search: 60 * 60, // 1 h
