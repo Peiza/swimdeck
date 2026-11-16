@@ -647,11 +647,12 @@ function renderHeader() {
 const HELP_VIEWS = ['deck', 'rank', 'compare', 'qual'];
 
 /** A short, collapsible explanation at the top of each view. */
-/** Shown only on the old github.io address, to people who have not turned on sync. */
-function moveBanner() {
-  if (!location.hostname.endsWith('github.io') || state.sync || !state.swimmers.length || store.get('moveBannerHidden')) return '';
-  return `<div class="move-banner" role="note"><p>${esc(t('moveBanner'))}</p>
-    <p><button class="btn primary small" data-action="syncOpen">${esc(t('moveBannerGo'))}</button> <button class="link small" data-action="moveLater">${esc(t('moveBannerLater'))}</button></p></div>`;
+/** First weeks after the move to swimdeck.se: tell people with an empty list why it is empty. */
+const MOVED_UNTIL = '2026-11-24';
+function movedNotice() {
+  if (location.hostname !== 'swimdeck.se' || state.swimmers.length || store.get('movedHidden') || new Date().toISOString().slice(0, 10) > MOVED_UNTIL) return '';
+  return `<div class="move-banner" role="note"><p>${esc(t('movedNotice'))}</p>
+    <p><button class="link small" data-action="movedHide">${esc(t('movedHide'))}</button></p></div>`;
 }
 
 function helpBox(view) {
@@ -721,7 +722,7 @@ function renderMain() {
     return;
   }
   if (!state.swimmers.length) {
-    main.innerHTML = `
+    main.innerHTML = movedNotice() + `
       <div class="empty">
         <svg viewBox="0 28 120 36" aria-hidden="true"><path d="M5 40c10-10 20-10 30 0s20 10 30 0 20-10 30 0 15 8 20 4" stroke="var(--accent)" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M5 52c10-10 20-10 30 0s20 10 30 0 20-10 30 0 15 8 20 4" stroke="var(--line)" stroke-width="4" fill="none" stroke-linecap="round"/></svg>
         <h2>${esc(t('emptyTitle'))}</h2>
@@ -731,7 +732,7 @@ function renderMain() {
       </div>`;
     return;
   }
-  main.innerHTML = moveBanner() + helpBox(state.view) + (state.view === 'rank' ? rankView() : state.view === 'compare' ? compareView() : state.view === 'qual' ? qualView() : deckView());
+  main.innerHTML = helpBox(state.view) + (state.view === 'rank' ? rankView() : state.view === 'compare' ? compareView() : state.view === 'qual' ? qualView() : deckView());
   packQualCards();
 }
 
@@ -2789,7 +2790,7 @@ document.addEventListener('click', (e) => {
     return renderMain();
   }
   if (el.dataset.action === 'syncOpen') return openSyncDialog();
-  if (el.dataset.action === 'moveLater') { store.set('moveBannerHidden', true); return render(); }
+  if (el.dataset.action === 'movedHide') { store.set('movedHidden', true); return render(); }
   if (el.dataset.action === 'syncCreate') return createSync();
   if (el.dataset.action === 'syncNow') return pullSync({ force: true }).then(() => toast(t('synced')));
   if (el.dataset.action === 'syncCopy') {
