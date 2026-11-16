@@ -590,6 +590,7 @@ function restoreNav() {
 
 function render() {
   document.documentElement.lang = state.lang;
+  updateAddDone();
   renderHeader();
   renderMain();
   renderFooter();
@@ -2023,7 +2024,18 @@ function chart(results, goal = null, width = 320) {
 
 // ---------------------------------------------------------------- add dialog
 
+let addStartIds = null;
+
+/** The Done button counts the swimmers added since the dialog opened. */
+function updateAddDone() {
+  const btn = $('#addDone');
+  if (!btn || !addStartIds) return;
+  const n = state.swimmers.filter((s) => !addStartIds.has(s.id)).length;
+  btn.textContent = n ? t('doneAdded', { n }) : t('done');
+}
+
 function openAdd() {
+  addStartIds = new Set(state.swimmers.map((s) => s.id));
   const dlg = $('#addDialog');
   dlg.innerHTML = `
     <form class="sheet" id="searchForm" method="dialog">
@@ -2050,7 +2062,7 @@ function openAdd() {
           <div class="row"><input name="link" placeholder="${esc(t('pastePlaceholder'))}" inputmode="url"><button type="button" class="btn" id="addLink">${esc(t('addBtn'))}</button></div>
         </label>
       </div>
-      <footer class="sheet-foot"><span></span><button type="button" class="btn" data-action="close">${esc(t('done'))}</button></footer>
+      <footer class="sheet-foot"><span></span><button type="button" class="btn" id="addDone" data-action="close">${esc(t('done'))}</button></footer>
     </form>`;
   dlg.showModal();
   $('input[name=last]', dlg).focus();
