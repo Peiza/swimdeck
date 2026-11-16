@@ -588,11 +588,31 @@ function restoreNav() {
   state.meetsShown = 5;
 }
 
+/** A selector that finds the focused control again after the page has been redrawn. */
+function focusSelector() {
+  const el = document.activeElement;
+  if (!el || el === document.body || !el.closest('#header, #main')) return null;
+  if (el.id) return '#' + CSS.escape(el.id);
+  const attrs = ['data-action', 'data-id', 'data-view', 'data-event', 'data-pool', 'data-otab', 'data-sort'];
+  const parts = attrs.filter((a) => el.hasAttribute(a)).map((a) => `[${a}="${CSS.escape(el.getAttribute(a))}"]`);
+  const card = el.closest('[data-id]');
+  const scope = card && card !== el ? `[data-id="${CSS.escape(card.dataset.id)}"] ` : '';
+  return parts.length ? scope + el.tagName.toLowerCase() + parts.join('') : null;
+}
+
+/** A redraw replaces every element; give focus back so keyboard and screen reader users keep their place. */
+function restoreFocus(sel) {
+  if (!sel || (document.activeElement && document.activeElement !== document.body)) return;
+  try { document.querySelector(sel)?.focus({ preventScroll: true }); } catch { /* ignore */ }
+}
+
 function render() {
   document.documentElement.lang = state.lang;
   updateAddDone();
+  const focusSel = focusSelector();
   renderHeader();
-  renderMain();
+  renderMainRaw();
+  restoreFocus(focusSel);
   renderFooter();
   if (state.openId) renderSwimmerDialog();
   saveNav();
@@ -712,6 +732,12 @@ function openAbout() {
 }
 
 function renderMain() {
+  const focusSel = focusSelector();
+  renderMainRaw();
+  restoreFocus(focusSel);
+}
+
+function renderMainRaw() {
   const main = $('#main');
   if (CONFIG.api == null) {
     main.innerHTML = `<div class="empty"><p>${esc(t('apiMissing'))}</p></div>`;

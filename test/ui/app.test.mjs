@@ -202,3 +202,12 @@ test('language and theme choices survive a reload', async () => {
 test('no script errors on any page', () => {
   assert.deepEqual(errors, []);
 });
+
+test('focus stays on the same control after the page is redrawn', async () => {
+  const page = await open([5004, 5001]);
+  await page.waitForSelector('.card');
+  await page.focus('#sortMode');
+  await page.selectOption('#sortMode', 'name');
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'sortMode');
+  await page.close();
+});
