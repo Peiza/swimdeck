@@ -226,8 +226,14 @@ function renderMainRaw() {
     main.innerHTML = movedNotice() + `
       <div class="empty">
         <svg viewBox="0 28 120 36" aria-hidden="true"><path d="M5 40c10-10 20-10 30 0s20 10 30 0 20-10 30 0 15 8 20 4" stroke="var(--accent)" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M5 52c10-10 20-10 30 0s20 10 30 0 20-10 30 0 15 8 20 4" stroke="var(--line)" stroke-width="4" fill="none" stroke-linecap="round"/></svg>
-        <h2>${esc(t('emptyTitle'))}</h2>
-        <p>${esc(t('emptyBody'))}</p>
+        <h2>${esc(t('welcomeTitle'))}</h2>
+        <p>${esc(t('welcomeBody'))}</p>
+        <ul class="welcome-points">
+          <li>${esc(t('welcomePoint1'))}</li>
+          <li>${esc(t('welcomePoint2'))}</li>
+          <li>${esc(t('welcomePoint3'))}</li>
+        </ul>
+        <p class="muted">${esc(t('welcomeStart'))}</p>
         <button class="btn primary" data-action="add">+ ${esc(t('add'))}</button>
         ${trashLink()}
       </div>`;
