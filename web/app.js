@@ -236,6 +236,7 @@ function renderMainRaw() {
         </ul>
         <p class="muted">${esc(t('welcomeStart'))}</p>
         <button class="btn primary" data-action="add">+ ${esc(t('add'))}</button>
+        <p class="small"><button class="link" data-action="feedbackOpen">${esc(t('welcomeFeedback'))}</button></p>
         ${trashLink()}
       </div>`;
     return;

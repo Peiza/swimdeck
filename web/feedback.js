@@ -31,7 +31,7 @@ export function deviceInfo(nav = navigator, win = window) {
     lang: state.lang,
     browser: browserName(ua),
     os: osName(ua),
-    screen: `${win.innerWidth}×${win.innerHeight} @${win.devicePixelRatio || 1}x`,
+    screen: `${win.innerWidth}×${win.innerHeight} @${Math.round((win.devicePixelRatio || 1) * 10) / 10}x`,
     installed: win.matchMedia?.('(display-mode: standalone)').matches || nav.standalone === true ? 'yes' : 'no',
     view: state.view,
   };
