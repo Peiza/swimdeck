@@ -10,6 +10,7 @@
 //   GET /api/meet/:id/swimmers?club=               swimmers at a meet (per club, or all on small meets)
 //   POST /api/sync, GET|PUT|DELETE /api/sync/:token  sync a list between devices
 //   GET /api/push/key, POST|DELETE /api/push          notifications for new personal bests
+//   POST /api/feedback                                a message from the feedback form, becomes a private GitHub issue
 //   GET /api/records                                  current world records and the latest masters list date
 //   scheduled (cron): checks watched swimmers and sends push notifications; refreshes records once a day
 //
@@ -18,6 +19,7 @@
 
 import { SITES, fetchOverview, fetchEvent, searchSwimmers, nationalCohort, rankIn, fetchMeet, searchMeets, meetSwimmers, paraRecords, paraClassFrom } from './tempus.js';
 import { handleSync } from './sync.js';
+import { handleFeedback } from './feedback.js';
 import { handlePush, runCheck } from './push.js';
 import { refreshRecords, getRecords } from './records.js';
 
@@ -68,7 +70,7 @@ export default {
     if (!cors['Access-Control-Allow-Origin']) return json({ error: 'Origin not allowed' }, 403, {});
 
     // Routes that write to storage: a modest per-visitor limit (when the binding exists).
-    const writes = request.method !== 'GET' && (url.pathname.startsWith('/api/push') || url.pathname.startsWith('/api/sync'));
+    const writes = request.method !== 'GET' && (url.pathname.startsWith('/api/push') || url.pathname.startsWith('/api/sync') || url.pathname === '/api/feedback');
     if (writes && env.WRITE_LIMIT) {
       const { success } = await env.WRITE_LIMIT.limit({ key: request.headers.get('CF-Connecting-IP') || 'unknown' });
       if (!success) return json({ error: 'Too many requests, try again in a minute' }, 429, { ...cors, 'Retry-After': '60' });
@@ -80,6 +82,14 @@ export default {
         return json(data, 200, { ...cors, 'Cache-Control': 'no-store' });
       } catch (err) {
         return json({ error: err.message || 'Error' }, err.status || 500, cors);
+      }
+    }
+    if (url.pathname === '/api/feedback') {
+      try {
+        const data = await handleFeedback(request, env);
+        return json(data, 200, { ...cors, 'Cache-Control': 'no-store' });
+      } catch (err) {
+        return json({ error: err.message || 'Error' }, err.status || 500, { ...cors, ...(err.status === 405 ? { Allow: 'POST' } : {}) });
       }
     }
     if (url.pathname === '/api/health' && request.method === 'GET') {

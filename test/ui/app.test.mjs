@@ -277,3 +277,27 @@ test('a saved light theme sets the browser bar colour at start, even when the de
   assert.ok(metas.every(([media, content]) => media === 'all' && content === '#0b5cad'), JSON.stringify(metas));
   await page.close();
 });
+
+test('the feedback form sends the message, and device details only when ticked', async () => {
+  const page = await open([5004]);
+  const posts = [];
+  await page.route('**/api/feedback', async (r) => {
+    posts.push(JSON.parse(r.request().postData()));
+    await r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}', headers: { 'Access-Control-Allow-Origin': '*' } });
+  });
+  await page.click('#footer [data-action="feedbackOpen"]');
+  await page.waitForSelector('#feedbackDialog[open] #fbMessage');
+  await page.click('[data-action="fbSend"]'); // empty: nothing is sent
+  assert.equal(posts.length, 0);
+  await page.click('[data-fb-kind="idea"]');
+  await page.fill('#fbMessage', 'Fler grenar tack');
+  await page.click('[data-action="fbShow"]');
+  assert.match(await page.textContent('#fbDeviceInfo'), /browser: .*\nos: /);
+  await page.click('[data-action="fbSend"]');
+  await page.waitForSelector('#feedbackDialog [role=status]:not(#fbStatus)');
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].kind, 'idea');
+  assert.equal(posts[0].message, 'Fler grenar tack');
+  assert.equal(posts[0].device, undefined); // not ticked
+  await page.close();
+});

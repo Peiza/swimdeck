@@ -775,3 +775,9 @@ html:has(dialog[open]), body:has(dialog[open]) { overflow: hidden; }
 .welcome-points { list-style: none; margin: 4px 0; padding: 0; display: grid; gap: 6px; text-align: left; max-width: 34em; }
 .welcome-points li { position: relative; padding-left: 22px; }
 .welcome-points li::before { content: ''; position: absolute; left: 2px; top: 0.55em; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+
+/* feedback form */
+.fb-fields textarea { width: 100%; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); padding: 8px 10px; font: inherit; color: inherit; resize: vertical; }
+.fb-fields input[type=email] { min-height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); padding: 0 10px; width: 100%; font: inherit; color: inherit; }
+.fb-device { margin: 6px 0 0; padding: 8px 10px; background: var(--surface-2); border-radius: 10px; font-size: 12px; white-space: pre-wrap; }
+.fb-trap { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }

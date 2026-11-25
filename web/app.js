@@ -5,6 +5,7 @@ import { QUAL } from './qual-data.js';
 
 import { LANGS } from './i18n.js';
 import { initReorder } from './reorder.js';
+import { onFeedbackClick } from './feedback.js';
 import { initInstall, installTip, installFooterLink, onInstallClick } from './install.js';
 import { onSwimmerClick, openSwimmer, renderSwimmerDialog } from './swimmer.js';
 import { onViewsClick, packQualCards, deckView, openCustomize, trashLink, rankView, compareView, qualView } from './views.js';
@@ -30,7 +31,7 @@ import { refreshAll, needsLoad } from './api.js';
 import { onSyncClick, flushSync, pullSync, syncStatusHtml } from './sync.js';
 import { newFor, markSeen } from './parts.js';
 import { onNotifyClick, healNotify } from './notify.js';
-import { store, state, t, setLang, FEEDBACK_URL, esc, toast, hideToast, hooks, $ } from './core.js';
+import { store, state, t, setLang, esc, toast, hideToast, hooks, $ } from './core.js';
 import { meets, profile } from './lib.js';
 import { periodOptions } from './lib.js';
 
@@ -261,7 +262,7 @@ function renderFooter() {
       <button class="link" data-action="about">${esc(t('aboutLink'))}</button>
       <button class="link" data-action="syncOpen">${esc(t('syncTitle'))}</button>
       ${installFooterLink()}
-      <a class="link" href="${FEEDBACK_URL}" target="_blank" rel="noopener">${esc(t('feedback'))}</a>
+      <button class="link" data-action="feedbackOpen">${esc(t('feedback'))}</button>
     </div>
     ${supportLine(t, esc)}
     <p class="muted small">${esc(t('dataFrom'))}</p>
@@ -270,7 +271,7 @@ function renderFooter() {
 
 // ---------------------------------------------------------------- events
 
-const clickGroups = [onInstallClick, onSyncClick, onNotifyClick, onAddClick, onListsClick, onSwimmerClick, onViewsClick];
+const clickGroups = [onFeedbackClick, onInstallClick, onSyncClick, onNotifyClick, onAddClick, onListsClick, onSwimmerClick, onViewsClick];
 
 document.addEventListener('click', (e) => {
   if (state.menu && !e.target.closest('.metric-wrap')) {
