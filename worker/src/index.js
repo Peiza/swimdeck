@@ -150,13 +150,19 @@ export default {
       const data = await route.run(base, url.searchParams);
       const res = json(data, 200, { 'Cache-Control': `public, max-age=${TTL[route.kind]}`, 'X-Fetched': String(Date.now()) });
       ctx.waitUntil(cache.put(cacheKey, res.clone()));
+      // A second copy that lives a week, only used when Tempus does not answer (below).
+      ctx.waitUntil(cache.put(staleKey(cacheKey), json(data, 200, { 'Cache-Control': 'public, max-age=604800', 'X-Fetched': String(Date.now()) })));
       return withHeaders(res, { ...cors, 'X-Cache': 'MISS' });
     } catch (err) {
+      const old = err.status >= 500 || !err.status ? await cache.match(staleKey(cacheKey)) : null;
+      if (old) return withHeaders(old, { ...cors, 'X-Cache': 'STALE' });
       const status = err.status || 502;
       return json({ error: err.message || 'Upstream error' }, status, cors);
     }
   },
 };
+
+const staleKey = (req) => new Request(req.url.replace(/^https:\/\/[^/]+/, 'https://stale.swimdeck.invalid'), { method: 'GET' });
 
 function matchRoute(path) {
   let m;
