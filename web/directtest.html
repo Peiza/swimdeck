@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src https://www.tempusopen.se; style-src 'unsafe-inline'; img-src data:">
+<title>SwimDeck: direkttest mot Tempus Open</title>
+<style>body{font:16px/1.45 system-ui,sans-serif;margin:16px;max-width:36em}pre{background:#8881;padding:10px;border-radius:8px;white-space:pre-wrap}button{font:inherit;padding:10px 16px;border-radius:10px}</style>
+</head>
+<body>
+<h1>Direkttest</h1>
+<p>Testar om den här enheten får hämta en sida från Tempus Open direkt, utan SwimDecks server. Två anrop görs när du trycker på knappen. Inget sparas eller skickas till SwimDeck.</p>
+<p><button id="run">Kör testet</button></p>
+<pre id="out">Inte körd än.</pre>
+<script type="module" src="directtest.js"></script>
+</body>
+</html>
