@@ -87,6 +87,7 @@ export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&a
 export function errText(msg) {
   const m = String(msg ?? '');
   if (!navigator.onLine || /failed to fetch|networkerror|load failed|network request/i.test(m)) return t('offlineErr');
+  if (/Tempus answered|HTTP 50[234]|^50[234]$/i.test(m)) return t('tempusBusy');
   return t('error', { msg: m });
 }
 

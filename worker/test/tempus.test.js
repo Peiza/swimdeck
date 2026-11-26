@@ -391,3 +391,17 @@ test('para classes come from the national para records, matched on name plus bir
   assert.equal(paraClassFrom(recs, { name: 'Bo Prov', born: 2001, club: 'Annan SS' }).classes[0].cls, 'S14');
   assert.equal(paraClassFrom(recs, { name: 'Ingen Alls', born: 2001, club: '' }).found, false);
 });
+
+test('a 403 from Tempus is tried once more before it becomes an error', async () => {
+  let calls = 0;
+  const flaky = async () => {
+    calls++;
+    return new Response('no', { status: 403 });
+  };
+  await assert.rejects(fetchOverview('https://t.example', 1, {}, flaky), (e) => e.status === 502 && /403/.test(e.message));
+  assert.equal(calls, 2);
+  let n = 0;
+  const once = async () => (++n === 1 ? new Response('no', { status: 403 }) : new Response('<html></html>', { status: 200 }));
+  await fetchOverview('https://t.example', 1, {}, once).catch(() => {}); // the page itself has no data; only the retry matters
+  assert.equal(n, 2);
+});

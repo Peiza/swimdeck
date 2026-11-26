@@ -136,8 +136,19 @@ export function shapeSearch(props) {
 
 // ---------------------------------------------------------------- fetching
 
+// Tempus now and then answers 403, 429 or 5xx for a moment (a busy hour, a protection rule).
+// One more try after a short pause fixes most of these without hitting Tempus harder.
+const RETRY_STATUS = new Set([403, 429, 500, 502, 503, 504]);
+const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+async function fetchRetry(fetchImpl, url, init, wait = 700) {
+  const res = await fetchImpl(url, init);
+  if (!RETRY_STATUS.has(res.status)) return res;
+  await pause(wait);
+  return fetchImpl(url, init);
+}
+
 async function getPage(base, path, fetchImpl) {
-  const res = await fetchImpl(base + path, {
+  const res = await fetchRetry(fetchImpl, base + path, {
     headers: { 'User-Agent': UA, Accept: 'text/html', 'Accept-Language': 'en' },
     redirect: 'follow',
   });
@@ -190,7 +201,7 @@ export async function searchSwimmers(base, { first = '', last = '', club = '', a
   const cookies = cookieHeader(res);
   const xsrf = decodeURIComponent((cookies.match(/XSRF-TOKEN=([^;]+)/) || [])[1] || '');
   const pageNo = Math.max(1, Math.min(50, Number(wanted) || 1));
-  const post = await fetchImpl(base + '/swimmers' + (pageNo > 1 ? `?page=${pageNo}` : ''), {
+  const post = await fetchRetry(fetchImpl, base + '/swimmers' + (pageNo > 1 ? `?page=${pageNo}` : ''), {
     method: 'POST',
     headers: {
       'User-Agent': UA,
@@ -270,7 +281,7 @@ export async function nationalCohort(base, { code, sex, born, from, to }, fetchI
   let total = 0;
   let complete = true;
   for (let p = 1; p <= maxPages; p++) {
-    const post = await fetchImpl(`${base}/statistics/swimming${p > 1 ? `?page=${p}` : ''}`, {
+    const post = await fetchRetry(fetchImpl, `${base}/statistics/swimming${p > 1 ? `?page=${p}` : ''}`, {
       method: 'POST',
       headers: {
         'User-Agent': UA,
@@ -332,7 +343,7 @@ async function session(base, path, fetchImpl) {
 }
 
 async function inertiaPost(sess, path, body, fetchImpl) {
-  const res = await fetchImpl(sess.base + path, {
+  const res = await fetchRetry(fetchImpl, sess.base + path, {
     method: 'POST',
     headers: {
       'User-Agent': UA,
